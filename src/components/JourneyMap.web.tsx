@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap, useMapEvents } from "react-leaflet";
 import type { LeafletMouseEvent } from "leaflet";
 import useLeafletCss from "./useLeafletCss";
-import { pinDivIcon, originDivIcon, stopDivIcon, conditionDivIcon, annotationDivIcon } from "./leafletIcons";
+import { pinDivIcon, flagDivIcon, stopDivIcon, conditionDivIcon, annotationDivIcon } from "./leafletIcons";
 import { basemapFor } from "./leafletBasemap";
 import { boundsKey, hexToRgba, usableCoordinates } from "../lib/mapGeometry";
 import type { ConditionMarker, MapAnnotation, MapCircle, MapStop } from "./JourneyMap";
@@ -169,9 +169,9 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
               position={position}
               icon={
                 i === 0
-                  ? originDivIcon(accentColor)
+                  ? pinDivIcon(accentColor)
                   : i === positions.length - 1
-                    ? pinDivIcon(accentColor)
+                    ? flagDivIcon(accentColor)
                     : stopDivIcon(accentColor, String(i))
               }
               title={title}

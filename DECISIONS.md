@@ -90,6 +90,7 @@ one by date — don't edit the old entry.
 - 2026-07-23 — Follow-up polish on the fixes batch: hourly outlook cards, rain fill, return-section nesting [design]
 - 2026-07-23 — Clarified carry-preference control; containerized forms; fixed back-button margin [design]
 - 2026-07-26 — Plan screen: containerized sections, route timeline, fixed Add-a-stop bug, night icon, bookmark toggle [design]
+- 2026-07-27 — Route-rail markers centred on the field box; origin pin, destination flag (§9.4) [design]
 
 ---
 
@@ -1297,3 +1298,33 @@ half of 2, 9 and 11), and the `ResizeObserver` re-fit, because the headless
 preview pane never composites a frame and both `ResizeObserver` callbacks
 and `requestAnimationFrame` are delivered on the frame loop. The framing
 maths behind the native fit is what `mapGeometry.test.ts` covers directly.
+
+---
+
+## 2026-07-27 — Route-rail markers centred on the field box; origin pin, destination flag (§9.4)
+
+**What**: PlanScreen's origin/stop/destination markers now sit on the vertical
+centre of each picker's input field instead of 34px down (its top edge), and
+the route's two ends are a teardrop pin (origin) and a flag in a filled disc
+(destination) — replacing the filled accent dot that used to mark the origin,
+on the rail, on `leafletIcons.ts` and on `JourneyMap.tsx`'s native markers.
+
+**Why**: the 34px baseline the 2026-07-26 timeline entry established reads as
+each marker labelling the *gap above* its input rather than the input itself.
+And with a circle for every stop, a third circular shape gave the route's ends
+the least distinctive silhouettes on the map. The flag went to the origin
+first and was moved: a flag reads as a *finish* line, so it belongs at the end.
+
+**Resolution**: the offset is now derived from two named constants in
+PlanScreen (`PICKER_FIELD_CENTER_Y`, `MARKER_BOX`) rather than a literal, and
+every marker is centred in one shared fixed-height box, so a future marker of
+any size needs no new lead-height maths. `PICKER_FIELD_CENTER_Y` encodes
+SavedLocationPicker's label+field metrics — re-derive it there, don't nudge
+individual spacers. The flag lives in `ActionIcon` as `flag` and is on
+`FILLABLE_KINDS` because a hollow banner is illegible at marker size; the
+three surfaces that draw it are listed in `flagDivIcon`'s comment and must
+stay in step. Note the native map inverts which end gets a custom view: the
+origin is now the platform `pinColor` marker and the destination the custom
+flag badge, so a single-coordinate journey renders as a plain pin.
+
+---

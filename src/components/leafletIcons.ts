@@ -15,17 +15,27 @@ export function pinDivIcon(color: string): L.DivIcon {
 
 // Start and intermediate stops used to be the *same* teardrop pin as the
 // destination, so a three-stop journey rendered as three identical markers
-// and the map couldn't tell you which end you were looking at. These two
-// deliberately reuse PlanScreen's route-rail vocabulary — a filled dot for
-// the origin, an outlined dot for each stop, the pin kept for the
-// destination — so the rail you built the journey on and the map you read
-// it back from say the same thing.
-export function originDivIcon(color: string): L.DivIcon {
+// and the map couldn't tell you which end you were looking at. These
+// deliberately reuse PlanScreen's route-rail vocabulary — a pin for the
+// origin, an outlined dot for each stop, a flag for the destination — so the
+// rail you built the journey on and the map you read it back from say the
+// same thing.
+//
+// The origin was a plain filled circle until it turned out to be the hardest
+// marker on the map to pick out: a solid accent disc reads as "a point on the
+// route" and sat one white ring away from being the numbered stop marker
+// below it. It briefly became the flag, but a flag is a *finish* line — so
+// the flag moved to the destination and the origin took the teardrop pin,
+// which is already this app's "a place" glyph. The disc around the flag keeps
+// the contrast against a busy basemap that a bare glyph would lose. Mirrors
+// ActionIcon's `flag` path and JourneyMap.tsx's native destinationMarker;
+// keep the three in step.
+export function flagDivIcon(color: string): L.DivIcon {
   return L.divIcon({
-    className: "cwp-origin-marker",
-    html: `<div style="width:18px;height:18px;border-radius:9px;background:${color};border:2.5px solid #FFFFFF;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    className: "cwp-flag-marker",
+    html: `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));"><circle cx="12" cy="12" r="10.5" fill="${color}" stroke="#FFFFFF" stroke-width="2"/><path d="M9,6.5v11" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M9,7.6h6.6l-1.7,2.6l1.7,2.6h-6.6z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 }
 

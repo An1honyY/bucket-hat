@@ -4,7 +4,7 @@ import Svg, { Path } from "react-native-svg";
 // 📍) with real icons in the same 24x24/stroke-1.8 convention as the app's
 // other icon sets. Simple enough shapes to hand-draw reliably, unlike the
 // clothing set — no external source needed.
-export type ActionIconKind = "check" | "close" | "star" | "warning" | "repeat" | "swap" | "pin" | "bookmark" | "crosshair";
+export type ActionIconKind = "check" | "close" | "star" | "warning" | "repeat" | "swap" | "pin" | "bookmark" | "crosshair" | "flag";
 
 const PATHS: Record<ActionIconKind, string[]> = {
   check: ["M5,13l4,4l10,-10"],
@@ -15,6 +15,13 @@ const PATHS: Record<ActionIconKind, string[]> = {
   swap: ["M4,9h13l-3,-3", "M20,15h-13l3,3"],
   pin: ["M12,21c-4,-4.5,-7,-8.2,-7,-11.5a7,7,0,0,1,14,0c0,3.3,-3,7,-7,11.5", "M12,12.5a2.5,2.5,0,1,0,0,-5a2.5,2.5,0,0,0,0,5"],
   bookmark: ["M17,3a2,2,0,0,1,2,2v16l-7,-4l-7,4v-16a2,2,0,0,1,2,-2z"],
+  // "Where the route starts", for PlanScreen's route rail and the journey
+  // maps' first marker. A flag rather than another circle: the rail's other
+  // two markers are already a circle (each stop) and a teardrop (the
+  // destination), so a third circular shape for the origin gave the one
+  // marker you most want to find at a glance the least distinctive
+  // silhouette of the three.
+  flag: ["M7,3v18", "M7,4.5h11l-2.8,4l2.8,4h-11z"],
   // The standard "locate me" target, for LocationPickerMap's recenter
   // button — deliberately not the `pin` glyph, which already means "the
   // dropped marker" everywhere else in this app.
@@ -28,10 +35,11 @@ const PATHS: Record<ActionIconKind, string[]> = {
   ],
 };
 
-// Kinds where "filled" is a meaningful toggle state (solid = active) rather
-// than always stroke-only — a favorited location's star, a saved route's
-// bookmark. Both use the exact same closed-shape-fills-solid mechanic.
-const FILLABLE_KINDS: ReadonlySet<ActionIconKind> = new Set(["star", "bookmark"]);
+// Kinds whose closed shape reads solid when `filled` is passed. For star and
+// bookmark that's a toggle state (solid = active); for flag it isn't a state
+// at all — a hollow banner at 18px is mostly whitespace, so the route rail
+// asks for the solid version to keep the marker legible at marker size.
+const FILLABLE_KINDS: ReadonlySet<ActionIconKind> = new Set(["star", "bookmark", "flag"]);
 
 interface Props {
   kind: ActionIconKind;

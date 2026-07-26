@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { boundsKey, hexToRgba, regionForCoordinates, usableCoordinates } from "../lib/mapGeometry";
 import { DARK_MAP_STYLE } from "./mapDarkStyle";
+import ActionIcon from "./ActionIcon";
 import useTheme from "../theme/useTheme";
 import { darkTheme } from "../theme/tokens";
 
@@ -209,13 +210,16 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
         {/* Start, intermediate stops and the destination used to be the same
             pinColor marker, so a multi-stop journey was a row of identical
             pins with no way to tell which end was which. These reuse
-            PlanScreen's route-rail vocabulary — filled dot / outlined
-            numbered dot / pin — so the rail the journey was built on and the
-            map it's read back from say the same thing. Only the destination
-            keeps the platform pin, which is what a teardrop already means. */}
+            PlanScreen's route-rail vocabulary — pin / outlined numbered dot /
+            flag — so the rail the journey was built on and the map it's read
+            back from say the same thing. Only the origin keeps the platform
+            pin: a teardrop already means "a place", and the finish flag is
+            the marker that has to be unmistakable. */}
         {coordinates.map((coordinate, i) => {
           const title = stopTitle(i, coordinates.length);
-          if (i === coordinates.length - 1) {
+          // Also the single-coordinate case, where origin and destination are
+          // the same point and "where does this end" isn't a question.
+          if (i === 0) {
             return (
               <Marker
                 key={`stop-${i}`}
@@ -235,8 +239,10 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
               tracksViewChanges={tracksViewChanges}
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              {i === 0 ? (
-                <View style={[styles.originMarker, { backgroundColor: accentColor }]} />
+              {i === coordinates.length - 1 ? (
+                <View style={[styles.destinationMarker, { backgroundColor: accentColor }]}>
+                  <ActionIcon kind="flag" size={14} color="#FFFFFF" filled />
+                </View>
               ) : (
                 <View style={[styles.stopMarker, { borderColor: accentColor }]}>
                   <Text style={[styles.stopMarkerLabel, { color: accentColor }]}>{i}</Text>
@@ -329,14 +335,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   conditionMarkerEmoji: { fontSize: 12 },
-  // Mirrors leafletIcons.ts's originDivIcon/stopDivIcon — keep the two in
-  // step, they're the same marker on two platforms.
-  originMarker: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2.5,
+  // Mirrors leafletIcons.ts's flagDivIcon/stopDivIcon — keep the two in step,
+  // they're the same marker on two platforms. The destination holds a white
+  // flag glyph in a filled disc: see flagDivIcon's comment for how the route's
+  // two ends ended up with these shapes.
+  destinationMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   stopMarker: {
     width: 20,

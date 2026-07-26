@@ -70,6 +70,18 @@ const TIME_MODE_LABEL: Record<TimeMode, string> = {
 };
 const TIME_MODES: TimeMode[] = ["leave-now", "leave-by", "arrive-by"];
 
+// Route-rail geometry. A SavedLocationPicker stacks a 13px label (12 top
+// margin + ~17 line + 4 bottom margin ≈ 33) above a 44-minHeight bordered
+// field, putting the centre of that field ~56px down the row. The rail's
+// markers used to sit at 34 — level with the *top* edge of the field, which
+// read as each marker labelling the gap above its input rather than the
+// input itself. Centring them on the field instead is the whole point of
+// these two constants; if the picker's label or field metrics change, this
+// is the one number to re-derive.
+const PICKER_FIELD_CENTER_Y = 56;
+const MARKER_BOX = 22;
+const RAIL_LEAD = PICKER_FIELD_CENTER_Y - MARKER_BOX / 2;
+
 function pad2(n: number): string {
   return n.toString().padStart(2, "0");
 }
@@ -330,10 +342,12 @@ export default function PlanScreen() {
         <View style={styles.timelineRow}>
           <View style={styles.timelineRail}>
             {/* Blank, not dashed — nothing comes before the start of a
-                route. It exists only to drop the dot onto the same baseline
-                every other marker sits on. */}
+                route. It exists only to drop the marker onto the same
+                baseline every other marker sits on. */}
             <View style={styles.timelineLeadSpacer} />
-            <View style={[styles.timelineDot, styles.timelineDotOrigin]} />
+            <View style={styles.timelineMarker}>
+              <ActionIcon kind="pin" size={18} color={theme.accentWalk} />
+            </View>
             <View style={styles.timelineConnector} />
           </View>
           <View style={styles.timelineContent}>
@@ -345,7 +359,9 @@ export default function PlanScreen() {
           <View key={index} style={styles.timelineRow}>
             <View style={styles.timelineRail}>
               <View style={styles.timelineConnectorLead} />
-              <View style={styles.timelineDotStop} />
+              <View style={styles.timelineMarker}>
+                <View style={styles.timelineDotStop} />
+              </View>
               <View style={styles.timelineConnector} />
             </View>
             <View style={styles.timelineContent}>
@@ -377,13 +393,15 @@ export default function PlanScreen() {
         <View style={styles.timelineRow}>
           <View style={styles.timelineRail}>
             {/* The rail used to stop dead at the bottom of the row above and
-                pick up again at a pin pinned to the very top of this one —
-                the line visibly broke right where the route arrives, and the
-                pin sat a good 30px higher than every dot above it. This lead
-                segment carries the dashes down through the gap and drops the
-                pin onto the same baseline as the other markers. */}
+                pick up again at a marker pinned to the very top of this one —
+                the line visibly broke right where the route arrives, and that
+                marker sat a good 30px higher than every dot above it. This
+                lead segment carries the dashes down through the gap and drops
+                it onto the same baseline as the other markers. */}
             <View style={styles.timelineConnectorLead} />
-            <ActionIcon kind="pin" size={18} color={theme.accentWalk} />
+            <View style={styles.timelineMarker}>
+              <ActionIcon kind="flag" size={18} color={theme.accentWalk} filled />
+            </View>
           </View>
           <View style={styles.timelineContent}>
             <SavedLocationPicker label="Destination" value={destination} onChange={setDestination} placeholder="Choose a destination" />
@@ -552,21 +570,19 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     routeChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.surface, marginRight: 8 },
     routeChipLabel: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
     // Route timeline — a small rail to the left of each origin/stop/
-    // destination field: a filled dot for the origin, an outlined dot for
-    // each stop, a pin for the destination, connected by a dashed line so
-    // the row of separate pickers reads as one continuous route instead of
-    // an unordered list of location fields. (The same three shapes carry
-    // over onto the map's markers — see leafletIcons.ts.)
+    // destination field: a pin for the origin, an outlined dot for each stop,
+    // a flag for the destination, connected by a dashed line so the row of
+    // separate pickers reads as one continuous route instead of an unordered
+    // list of location fields. (The same three shapes carry over onto the
+    // map's markers — see leafletIcons.ts.)
     //
-    // Every marker sits 34px down its own row, level with the picker value
-    // it labels rather than the label above it. That offset is produced by a
-    // lead segment above the marker, not a marginTop on the marker itself,
-    // so the dashes can run *through* that 34px instead of leaving a hole in
-    // the line above every single marker — which is what the rail used to do.
+    // Every marker is centred on the picker's *field box*, not on the top of
+    // it — see RAIL_LEAD above. The offset is produced by a lead segment
+    // above the marker rather than a marginTop on the marker itself, so the
+    // dashes can run *through* it instead of leaving a hole in the line above
+    // every single marker — which is what the rail used to do.
     timelineRow: { flexDirection: "row" },
     timelineRail: { width: 22, alignItems: "center" },
-    timelineDot: { width: 12, height: 12, borderRadius: 6 },
-    timelineDotOrigin: { backgroundColor: theme.accentWalk },
     timelineDotStop: {
       width: 10,
       height: 10,
@@ -575,17 +591,26 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderColor: theme.textSecondary,
       backgroundColor: theme.surface,
     },
-    timelineLeadSpacer: { height: 30, marginBottom: 4 },
-    timelineConnector: { flex: 1, borderLeftWidth: 2, borderStyle: "dashed", borderColor: theme.border, marginVertical: 4 },
+    // One fixed-height box every marker sits centred inside, so the flag (18),
+    // the pin (18) and the stop dot (10) all land on the same centre line
+    // without each needing its own lead height worked out from its own size.
+    timelineMarker: { height: MARKER_BOX, alignItems: "center", justifyContent: "center" },
+    timelineLeadSpacer: { height: RAIL_LEAD },
+    // marginTop only, not marginVertical: the 4px is breathing room under the
+    // marker, but a matching 4px at the *bottom* just reopened the hole at
+    // each row boundary that timelineConnectorLead's negative top margin
+    // exists to close. Running flush to the row edge lets the two segments
+    // meet across FormSection's gap.
+    timelineConnector: { flex: 1, borderLeftWidth: 2, borderStyle: "dashed", borderColor: theme.border, marginTop: 4 },
     // The dashed version of timelineLeadSpacer, for every marker that has a
     // route arriving at it. Fixed height rather than flex: 1 — it runs
-    // *above* its marker, so it has to end exactly on the 34px baseline, not
-    // absorb the leftover row height. The negative top margin pulls it up
+    // *above* its marker, so it has to end exactly on the shared baseline,
+    // not absorb the leftover row height. The negative top margin pulls it up
     // through FormSection's 12px row gap so it meets the segment coming down
-    // from the row above; the height is that 12 plus the 30 inside its own
-    // row.
+    // from the row above; the -4/+4 leaves the same 4px breathing room above
+    // the marker that timelineConnector leaves below it.
     timelineConnectorLead: {
-      height: 30 + SPACING.md,
+      height: RAIL_LEAD + SPACING.md - 4,
       marginTop: -SPACING.md,
       marginBottom: 4,
       borderLeftWidth: 2,

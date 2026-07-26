@@ -66,40 +66,53 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
     .filter(Boolean)
     .join(", ");
 
+  // The card is a plain View, not a Pressable, so the "Leaving now" button
+  // below can be a *sibling* of the card-body tap target rather than a child
+  // of it. Nesting the two Pressables made react-native-web emit a <button>
+  // inside a <button>, which is invalid HTML and made React complain on every
+  // Today render; on native it also meant the inner tap was fighting the
+  // outer card's press for the same gesture.
   return (
-    <Pressable onPress={onPress} style={styles.card} accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
-      <View style={styles.headerRow}>
-        <View style={styles.routeRow}>
-          <Text style={styles.route}>
-            {journey.origin.label} → {journey.destination.label}
-          </Text>
-          {journey.recurrence && <ActionIcon kind="repeat" size={13} color={theme.textSecondary} />}
-          {journey.linkedReturnJourneyId && <ActionIcon kind="swap" size={13} color={theme.textSecondary} />}
+    <View style={styles.card}>
+      <Pressable
+        onPress={onPress}
+        style={styles.body}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.routeRow}>
+            <Text style={styles.route}>
+              {journey.origin.label} → {journey.destination.label}
+            </Text>
+            {journey.recurrence && <ActionIcon kind="repeat" size={13} color={theme.textSecondary} />}
+            {journey.linkedReturnJourneyId && <ActionIcon kind="swap" size={13} color={theme.textSecondary} />}
+          </View>
+          <Text style={styles.time}>{departTime}</Text>
         </View>
-        <Text style={styles.time}>{departTime}</Text>
-      </View>
 
-      {stages.length > 0 && (
-        <View style={styles.stagesRow}>
-          {stages.map((stage, i) => (
-            <View key={stage.key} style={styles.stageWrap}>
-              {i > 0 && <Text style={styles.stageSep}>→</Text>}
-              <View style={styles.stage}>
-                {stage.indoor ? (
-                  <Text style={styles.stageText}>AC</Text>
-                ) : (
-                  <>
-                    <WeatherIcon kind={stage.iconKind} size={11} color={theme.textSecondary} />
-                    <Text style={styles.stageText}>{stage.tempC}°</Text>
-                  </>
-                )}
+        {stages.length > 0 && (
+          <View style={styles.stagesRow}>
+            {stages.map((stage, i) => (
+              <View key={stage.key} style={styles.stageWrap}>
+                {i > 0 && <Text style={styles.stageSep}>→</Text>}
+                <View style={styles.stage}>
+                  {stage.indoor ? (
+                    <Text style={styles.stageText}>AC</Text>
+                  ) : (
+                    <>
+                      <WeatherIcon kind={stage.iconKind} size={11} color={theme.textSecondary} />
+                      <Text style={styles.stageText}>{stage.tempC}°</Text>
+                    </>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
-      )}
+            ))}
+          </View>
+        )}
 
-      <Text style={styles.topRecommendation}>{topLabel}</Text>
+        <Text style={styles.topRecommendation}>{topLabel}</Text>
+      </Pressable>
 
       {isNextUp && (
         <Pressable
@@ -111,7 +124,7 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
           <Text style={styles.leavingNowLabel}>Leaving now</Text>
         </Pressable>
       )}
-    </Pressable>
+    </View>
   );
 }
 
@@ -125,6 +138,10 @@ function getStyles(theme: ThemeTokens) {
       gap: 6,
       ...cardElevationStyle(theme),
     },
+    // The card-body tap target. Carries the row spacing the card itself used
+    // to own, so splitting the Pressable out of the card wrapper is visually
+    // a no-op.
+    body: { gap: 6 },
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     routeRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
     route: { fontSize: 15, fontWeight: "600", color: theme.textPrimary, flexShrink: 1 },
