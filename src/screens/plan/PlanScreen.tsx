@@ -15,6 +15,8 @@ import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import SavedLocationPicker from "../../components/SavedLocationPicker";
 import HourlyStrip from "../../components/HourlyStrip";
 import FormRow from "../../components/FormRow";
+import FormSection from "../../components/FormSection";
+import ActionIcon from "../../components/ActionIcon";
 import useTheme from "../../theme/useTheme";
 import type { CarryPreference, SavedLocation, SavedRoute, TravelMode } from "../../types";
 
@@ -90,7 +92,15 @@ export default function PlanScreen() {
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
   const [origin, setOrigin] = useState<SavedLocation | undefined>(undefined);
   const [destination, setDestination] = useState<SavedLocation | undefined>(undefined);
-  const [waypoints, setWaypoints] = useState<SavedLocation[]>([]);
+  // Undefined entries are stops the user hasn't picked a place for yet —
+  // same "unset until chosen" convention origin/destination already use
+  // (SavedLocationPicker already renders a placeholder for `undefined`).
+  // addStop() used to require an existing saved location to seed a new row
+  // with, which meant it silently did nothing for a brand-new install with
+  // no saved locations yet (worse, that guard fired a showAlert(), which —
+  // per the "More modes" fix earlier — is unreliable on web, so it read as
+  // the button doing literally nothing). A stop can now always start empty.
+  const [waypoints, setWaypoints] = useState<(SavedLocation | undefined)[]>([]);
   const [timeMode, setTimeMode] = useState<TimeMode>("leave-now");
   const [dateStr, setDateStr] = useState(nowDateStr());
   const [timeStr, setTimeStr] = useState(nowTimeStr());
@@ -136,11 +146,7 @@ export default function PlanScreen() {
   }
 
   function addStop() {
-    if (locations.length === 0) {
-      showAlert("No locations yet", "Add a location in the Locations tab first — then you can pick it here.");
-      return;
-    }
-    setWaypoints((current) => [...current, locations[0]]);
+    setWaypoints((current) => [...current, undefined]);
   }
 
   function toggleDay(day: number) {
@@ -152,6 +158,11 @@ export default function PlanScreen() {
       showAlert("Pick a start location and destination", "Both are needed before this can be planned.");
       return;
     }
+    // A stop row can be added and left empty (see addStop() above) — drop
+    // any that were never actually given a place before this goes anywhere
+    // near planJourney(), which expects a real, fully-resolved SavedLocation
+    // per waypoint.
+    const filledWaypoints = waypoints.filter((w): w is SavedLocation => !!w);
 
     // "Leave now" is a mode in its own right, not a correction — no notice
     // needed. "Leave by" is checked client-side since we already know the
@@ -181,7 +192,7 @@ export default function PlanScreen() {
       const result = await planJourney({
         origin,
         destination,
-        waypoints,
+        waypoints: filledWaypoints,
         departTime,
         arriveByTime,
         mode,
@@ -221,7 +232,7 @@ export default function PlanScreen() {
         const returnResult = await planJourney({
           origin: destination,
           destination: origin,
-          waypoints: [...waypoints].reverse(),
+          waypoints: [...filledWaypoints].reverse(),
           departTime: returnDepart,
           mode,
           formal,
@@ -314,117 +325,159 @@ export default function PlanScreen() {
         </ScrollView>
       )}
 
-      <SavedLocationPicker label="Start Location" value={origin} onChange={setOrigin} placeholder="Choose a start location" />
-      <SavedLocationPicker label="Destination" value={destination} onChange={setDestination} placeholder="Choose a destination" />
-
-      {waypoints.map((stop, index) => (
-        <View key={`${stop.id}-${index}`} style={styles.waypointRow}>
-          <View style={styles.waypointPicker}>
-            <SavedLocationPicker
-              label={`Stop ${index + 1}`}
-              value={stop}
-              onChange={(location) =>
-                setWaypoints((current) => current.map((w, i) => (i === index ? location : w)))
-              }
-              placeholder="Choose a stop"
-            />
+      <FormSection title="Route">
+        <View style={styles.timelineRow}>
+          <View style={styles.timelineRail}>
+            <View style={[styles.timelineDot, styles.timelineDotOrigin]} />
+            <View style={styles.timelineConnector} />
           </View>
-          <Pressable
-            onPress={() => setWaypoints((current) => current.filter((_, i) => i !== index))}
-            hitSlop={8}
-            style={styles.removeStop}
-          >
-            <Text style={styles.removeStopLabel}>×</Text>
-          </Pressable>
+          <View style={styles.timelineContent}>
+            <SavedLocationPicker label="Start Location" value={origin} onChange={setOrigin} placeholder="Choose a start location" />
+          </View>
         </View>
-      ))}
-      <Pressable onPress={addStop}>
-        <Text style={styles.addStopLabel}>+ Add a stop</Text>
-      </Pressable>
 
-      <Text style={styles.label}>When</Text>
-      <View style={styles.row}>
-        {TIME_MODES.map((tm) => (
-          <Pressable key={tm} onPress={() => setTimeMode(tm)} style={[styles.modeChip, timeMode === tm && styles.modeChipActive]}>
-            <Text style={[styles.modeChipLabel, timeMode === tm && styles.modeChipLabelActive]}>{TIME_MODE_LABEL[tm]}</Text>
-          </Pressable>
+        {waypoints.map((stop, index) => (
+          <View key={index} style={styles.timelineRow}>
+            <View style={styles.timelineRail}>
+              <View style={styles.timelineDotStop} />
+              <View style={styles.timelineConnector} />
+            </View>
+            <View style={styles.timelineContent}>
+              <View style={styles.waypointRow}>
+                <View style={styles.waypointPicker}>
+                  <SavedLocationPicker
+                    label={`Stop ${index + 1}`}
+                    value={stop}
+                    onChange={(location) =>
+                      setWaypoints((current) => current.map((w, i) => (i === index ? location : w)))
+                    }
+                    placeholder="Choose a stop"
+                  />
+                </View>
+                <Pressable
+                  onPress={() => setWaypoints((current) => current.filter((_, i) => i !== index))}
+                  hitSlop={8}
+                  style={styles.removeStop}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove stop ${index + 1}`}
+                >
+                  <ActionIcon kind="close" size={16} color={theme.textSecondary} />
+                </Pressable>
+              </View>
+            </View>
+          </View>
         ))}
-      </View>
-      {timeMode !== "leave-now" && (
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.flex1]}
-            placeholderTextColor={theme.textSecondary}
-            value={dateStr}
-            onChangeText={setDateStr}
-            placeholder="YYYY-MM-DD"
-          />
-          <TextInput
-            style={[styles.input, styles.flex1]}
-            placeholderTextColor={theme.textSecondary}
-            value={timeStr}
-            onChangeText={setTimeStr}
-            placeholder="HH:mm"
-          />
+
+        <View style={styles.timelineRow}>
+          <View style={styles.timelineRail}>
+            <ActionIcon kind="pin" size={18} color={theme.accentWalk} />
+          </View>
+          <View style={styles.timelineContent}>
+            <SavedLocationPicker label="Destination" value={destination} onChange={setDestination} placeholder="Choose a destination" />
+          </View>
         </View>
-      )}
-      {origin && selectedDepartTimeIso && (
-        <HourlyStrip origin={{ lat: origin.lat, lng: origin.lng }} fromIso={selectedDepartTimeIso} />
-      )}
 
-      <Text style={styles.label}>Mode</Text>
-      <View style={styles.row}>
-        {MODES.map((m) => (
-          <Pressable key={m} onPress={() => setMode(m)} style={[styles.modeChip, mode === m && styles.modeChipActive]}>
-            <Text style={[styles.modeChipLabel, mode === m && styles.modeChipLabelActive]}>{MODE_LABEL[m]}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <Pressable onPress={() => setMoreModesOpen((v) => !v)} accessibilityRole="button" accessibilityLabel="More modes">
-        <Text style={styles.moreModesLabel}>{moreModesOpen ? "▾" : "▸"} More modes</Text>
-      </Pressable>
-      {moreModesOpen && (
-        <Text style={styles.moreModesNote}>
-          Hike mode isn&apos;t available yet — walking, driving, bus, train, and cycling are ready to plan.
-        </Text>
-      )}
+        <Pressable onPress={addStop} accessibilityRole="button" accessibilityLabel="Add a stop">
+          <Text style={styles.addStopLabel}>+ Add a stop</Text>
+        </Pressable>
+      </FormSection>
 
-      <FormRow label="Formal occasion" style={styles.formRowSpaced}>
-        <Switch value={formal} onValueChange={setFormal} />
-      </FormRow>
-
-      <Text style={styles.label}>Spare layer</Text>
-      <Text style={styles.hint}>Whether to suggest packing a removable layer for this trip.</Text>
-      <View style={styles.segmentRow}>
-        {CARRY_PREFERENCE_OPTIONS.map((option) => (
-          <Pressable
-            key={option.value}
-            onPress={() => setCarryPreference(option.value)}
-            style={[styles.segment, carryPreference === option.value && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentLabel, carryPreference === option.value && styles.segmentLabelActive]}>{option.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {timeMode === "leave-by" && (
-        <FormRow label="Repeats" style={styles.formRowSpaced}>
-          <Switch value={repeatsEnabled} onValueChange={setRepeatsEnabled} />
-        </FormRow>
-      )}
-      {timeMode === "leave-by" && repeatsEnabled && (
+      <FormSection title="When">
         <View style={styles.row}>
-          {DAY_LABELS.map((dayLabel, day) => (
-            <Pressable
-              key={day}
-              onPress={() => toggleDay(day)}
-              style={[styles.dayChip, selectedDays.includes(day) && styles.dayChipActive]}
-            >
-              <Text style={[styles.dayChipLabel, selectedDays.includes(day) && styles.dayChipLabelActive]}>{dayLabel}</Text>
+          {TIME_MODES.map((tm) => (
+            <Pressable key={tm} onPress={() => setTimeMode(tm)} style={[styles.modeChip, timeMode === tm && styles.modeChipActive]}>
+              <Text style={[styles.modeChipLabel, timeMode === tm && styles.modeChipLabelActive]}>{TIME_MODE_LABEL[tm]}</Text>
             </Pressable>
           ))}
         </View>
-      )}
+        {timeMode !== "leave-now" && (
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.input, styles.flex1]}
+              placeholderTextColor={theme.textSecondary}
+              value={dateStr}
+              onChangeText={setDateStr}
+              placeholder="YYYY-MM-DD"
+            />
+            <TextInput
+              style={[styles.input, styles.flex1]}
+              placeholderTextColor={theme.textSecondary}
+              value={timeStr}
+              onChangeText={setTimeStr}
+              placeholder="HH:mm"
+            />
+          </View>
+        )}
+        {origin && selectedDepartTimeIso && (
+          <HourlyStrip origin={{ lat: origin.lat, lng: origin.lng }} fromIso={selectedDepartTimeIso} />
+        )}
+
+        {timeMode === "leave-by" && (
+          <FormRow label="Repeats">
+            <Switch value={repeatsEnabled} onValueChange={setRepeatsEnabled} />
+          </FormRow>
+        )}
+        {timeMode === "leave-by" && repeatsEnabled && (
+          <View style={styles.row}>
+            {DAY_LABELS.map((dayLabel, day) => (
+              <Pressable
+                key={day}
+                onPress={() => toggleDay(day)}
+                style={[styles.dayChip, selectedDays.includes(day) && styles.dayChipActive]}
+              >
+                <Text style={[styles.dayChipLabel, selectedDays.includes(day) && styles.dayChipLabelActive]}>{dayLabel}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </FormSection>
+
+      <FormSection title="Mode">
+        <View style={styles.row}>
+          {MODES.map((m) => (
+            <Pressable key={m} onPress={() => setMode(m)} style={[styles.modeChip, mode === m && styles.modeChipActive]}>
+              <Text style={[styles.modeChipLabel, mode === m && styles.modeChipLabelActive]}>{MODE_LABEL[m]}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View>
+          <Pressable onPress={() => setMoreModesOpen((v) => !v)} accessibilityRole="button" accessibilityLabel="More modes">
+            <Text style={styles.moreModesLabel}>{moreModesOpen ? "▾" : "▸"} More modes</Text>
+          </Pressable>
+          {moreModesOpen && (
+            <Text style={styles.moreModesNote}>
+              Hike mode isn&apos;t available yet — walking, driving, bus, train, and cycling are ready to plan.
+            </Text>
+          )}
+        </View>
+      </FormSection>
+
+      <FormSection title="Preferences">
+        <FormRow label="Formal occasion">
+          <Switch value={formal} onValueChange={setFormal} />
+        </FormRow>
+
+        <View>
+          <Text style={styles.label}>Spare layer</Text>
+          <Text style={styles.hint}>Whether to suggest packing a removable layer for this trip.</Text>
+          <View style={styles.segmentRow}>
+            {CARRY_PREFERENCE_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => setCarryPreference(option.value)}
+                style={[styles.segment, carryPreference === option.value && styles.segmentActive]}
+              >
+                <Text style={[styles.segmentLabel, carryPreference === option.value && styles.segmentLabelActive]}>{option.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <Pressable onPress={() => setSaveThisRoute((v) => !v)} style={styles.saveRouteRow} accessibilityRole="button" accessibilityLabel="Save this route">
+          <ActionIcon kind="bookmark" size={20} color={saveThisRoute ? theme.accentWalk : theme.textSecondary} filled={saveThisRoute} />
+          <Text style={styles.label}>Save this route</Text>
+        </Pressable>
+      </FormSection>
 
       {/* One card holds both the toggle and (when on) the time picker below
           it, rather than a switch with a separately-styled block floating
@@ -471,9 +524,6 @@ export default function PlanScreen() {
           </View>
         )}
       </View>
-      <FormRow label="Save this route" style={styles.formRowSpaced}>
-        <Switch value={saveThisRoute} onValueChange={setSaveThisRoute} />
-      </FormRow>
 
       <Pressable onPress={handlePlanJourney} disabled={planning} style={[styles.planButton, planning && styles.planButtonDisabled]}>
         {planning ? <ActivityIndicator color={theme.bg} /> : <Text style={styles.planButtonLabel}>Plan journey</Text>}
@@ -488,12 +538,32 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     chipRow: { marginBottom: 8 },
     routeChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.surface, marginRight: 8 },
     routeChipLabel: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
+    // Route timeline — a small rail to the left of each origin/stop/
+    // destination field: a filled dot for the origin, an outlined dot for
+    // each stop, a pin for the destination, connected by a dashed line so
+    // the row of separate pickers reads as one continuous route instead of
+    // an unordered list of location fields.
+    timelineRow: { flexDirection: "row" },
+    timelineRail: { width: 22, alignItems: "center" },
+    timelineDot: { width: 12, height: 12, borderRadius: 6, marginTop: 34 },
+    timelineDotOrigin: { backgroundColor: theme.accentWalk },
+    timelineDotStop: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      marginTop: 34,
+      borderWidth: 2,
+      borderColor: theme.textSecondary,
+      backgroundColor: theme.surface,
+    },
+    timelineConnector: { flex: 1, borderLeftWidth: 2, borderStyle: "dashed", borderColor: theme.border, marginVertical: 4 },
+    timelineContent: { flex: 1, marginLeft: 10 },
     waypointRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     waypointPicker: { flex: 1 },
     removeStop: { width: 32, height: 44, alignItems: "center", justifyContent: "center" },
-    removeStopLabel: { fontSize: 18, color: theme.textSecondary },
-    addStopLabel: { color: theme.textSecondary, fontSize: 13, marginTop: 8, marginBottom: 8 },
-    label: { fontSize: 13, color: theme.textSecondary, marginTop: 16, marginBottom: 4 },
+    addStopLabel: { color: theme.textSecondary, fontSize: 13, marginTop: 8, marginBottom: 4 },
+    saveRouteRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44 },
+    label: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
     row: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
     flex1: { flex: 1 },
     input: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
@@ -503,7 +573,6 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     modeChipLabelActive: { color: "#FFFFFF", fontWeight: "600" },
     moreModesLabel: { color: theme.textSecondary, fontSize: 12, marginTop: 8 },
     moreModesNote: { color: theme.textSecondary, fontSize: 12, marginTop: 4 },
-    formRowSpaced: { marginTop: 16 },
     returnCard: {
       marginTop: 16,
       padding: 12,

@@ -160,6 +160,7 @@ export interface HourlyReading {
   precipMm: number;
   windKph: number;
   rainIntensity: RainIntensity;
+  isDaylight: boolean;
 }
 
 export async function getHourlyForecast(
@@ -187,6 +188,7 @@ export async function getHourlyForecast(
       precipMm: hourly.precipitation[index],
       windKph: hourly.wind_speed_10m[index],
       rainIntensity: rainIntensityBucket(hourly.precipitation[index], hourly.precipitation_probability[index]),
+      isDaylight: hourly.is_day[index] === 1,
     };
   });
 

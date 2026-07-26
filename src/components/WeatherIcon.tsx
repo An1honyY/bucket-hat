@@ -7,7 +7,7 @@ import type { WeatherCondition } from "../lib/weather";
 // directly (RightNowCard, JourneyCard stage chips, LegRow's badge). Paths
 // adapted from Tabler Icons (MIT) — same 24x24/round-line convention as
 // ClothingTypeIcon/NavIcon.
-export type WeatherIconKind = "sun" | "cloud" | "drizzle" | "rain" | "storm" | "fog" | "wind";
+export type WeatherIconKind = "sun" | "cloud" | "drizzle" | "rain" | "storm" | "fog" | "wind" | "moon";
 
 // classifyWeather()'s 8 possible labels collapse onto 7 icon kinds — "Rain"
 // and "Heavy rain" share one raindrop glyph, same as they already share one
@@ -23,8 +23,16 @@ const KIND_BY_LABEL: Record<string, WeatherIconKind> = {
   Stormy: "storm",
 };
 
-export function weatherIconKindFor(condition: WeatherCondition): WeatherIconKind {
-  return KIND_BY_LABEL[condition.label] ?? "cloud";
+// `isDaylight` is optional so every existing call site (RightNowCard,
+// JourneyCard, LegRow — all built from a live WeatherSnapshot that's
+// always "now," where the sun icon is only ever wrong for a few minutes
+// around actual sunrise/sunset) keeps working unchanged. The hourly strip
+// is the one place this actually matters — a 12-hour outlook routinely
+// spans into the evening, where a "Dry" reading rendering as a bright sun
+// reads as a mistake, not a real forecast.
+export function weatherIconKindFor(condition: WeatherCondition, isDaylight?: boolean): WeatherIconKind {
+  const kind = KIND_BY_LABEL[condition.label] ?? "cloud";
+  return kind === "sun" && isDaylight === false ? "moon" : kind;
 }
 
 const PATHS: Record<WeatherIconKind, string[]> = {
@@ -35,6 +43,10 @@ const PATHS: Record<WeatherIconKind, string[]> = {
   storm: ["M7,18a4.6,4.4,0,0,1,0,-9a5,4.5,0,0,1,11,2h1a3.5,3.5,0,0,1,0,7h-1", "M13,14l-2,4l3,0l-2,4"],
   fog: ["M7,16a4.6,4.4,0,0,1,0,-9a5,4.5,0,0,1,11,2h1a3.5,3.5,0,0,1,0,7h-12", "M5,20l14,0"],
   wind: ["M5,8h8.5a2.5,2.5,0,1,0,-2.34,-3.24", "M3,12h15.5a2.5,2.5,0,1,1,-2.34,3.24", "M4,16h5.5a2.5,2.5,0,1,1,-2.34,3.24"],
+  // A crescent (two overlapping arcs) plus a small sparkle — "clear at
+  // night," the dark-sky counterpart to "sun" for the same Dry/clear
+  // reading, so the hourly outlook never shows a bright sun for 9pm.
+  moon: ["M12,3a7.5,7.5,0,0,0,7.92,12.446a9,9,0,1,1,-8.313,-12.454z", "M19,3v3m-1.5,-1.5h3"],
 };
 
 interface Props {
