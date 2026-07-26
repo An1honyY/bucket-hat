@@ -58,6 +58,7 @@ function Legend() {
         {(
           [
             { kind: "sun", label: "Sunny" },
+            { kind: "moon", label: "Clear" },
             { kind: "cloud", label: "Cloudy" },
             { kind: "wind", label: "Windy" },
             { kind: "storm", label: "Storm" },
@@ -122,7 +123,7 @@ export default function HourlyStrip({ origin, fromIso }: Props) {
                 hour={formatHourLabel(reading.time, hour12)}
                 rainIntensity={reading.rainIntensity}
                 tempC={reading.tempC}
-                conditionKind={weatherIconKindFor(condition)}
+                conditionKind={weatherIconKindFor(condition, reading.isDaylight)}
                 conditionLabel={condition.label}
               />
             );
