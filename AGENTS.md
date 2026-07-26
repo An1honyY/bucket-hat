@@ -14,7 +14,7 @@ below to the specific doc(s) a task requires.
 
 ## 0. Before you write any code
 
-Read these three in full, every session, regardless of task — they contain
+Read these two in full, every session, regardless of task — they contain
 constraints that silently invalidate work if missed:
 
 - **`docs/00-overview.md`** — what this app is, one paragraph.
@@ -23,13 +23,23 @@ constraints that silently invalidate work if missed:
   it, do not build Phase 6 (environment annotations) before Phase 5 (the
   engine it modifies) exists, etc. If you're picking up a task, figure out
   which phase it belongs to before starting.
-- **`DECISIONS.md`** — a log of deliberate design calls that look like gaps
-  or bugs but aren't (e.g. the severe-weather advisory is intentionally a
-  single suggestion sentence, not a safety feature; Tier 3 mascot rendering
-  was deliberately deferred, not forgotten). Check it before "fixing"
-  something that looks like an oversight — if it's logged here, it's a
-  scope boundary, not a bug. Add a new entry any time you make a similar
-  judgment call.
+
+`DECISIONS.md` is a log of deliberate design calls that look like gaps or
+bugs but aren't (e.g. the severe-weather advisory is intentionally a single
+suggestion sentence, not a safety feature; Tier 3 mascot rendering was
+deliberately deferred, not forgotten). It's grown too large (50+ entries) to
+read in full every session, so instead:
+
+- Every session, read only its **Index** section (a one-line-per-entry
+  summary near the top) — cheap, and enough to know what's been decided.
+- Before "fixing" something that looks like an oversight, or working in an
+  area with an index line that looks relevant, grep `DECISIONS.md` for that
+  entry's date or title and read the full entry it's part of. If it's
+  logged there, it's a scope boundary, not a bug.
+- Add a new entry any time you make a similar judgment call, using the
+  compact **Template for new entries** defined partway down `DECISIONS.md`
+  (not the older, longer style above it in the file) — **and** append one
+  matching summary line to the Index in the same pass.
 
 Then skim these two "always true" constraints — they affect almost every
 phase:
