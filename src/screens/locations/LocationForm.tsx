@@ -118,13 +118,23 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
           />
         </View>
 
-        <Pressable onPress={() => setMapPickerOpen(true)} style={styles.mapPickerRow} disabled={resolvingPin}>
+        {/* Was a bare text link sitting between two full-width fields, which
+            read as a caption rather than the equal alternative to address
+            search that it is. Same bordered-button weight as the form's own
+            Cancel, and it says which of the two states it's in. */}
+        <Pressable
+          onPress={() => setMapPickerOpen(true)}
+          style={styles.mapPickerButton}
+          disabled={resolvingPin}
+          accessibilityRole="button"
+          accessibilityLabel={hasValidCoords ? "Adjust the pin on the map" : "Pick this location on a map"}
+        >
           {resolvingPin ? (
             <ActivityIndicator size="small" color={theme.accentWalk} />
           ) : (
             <View style={styles.mapPickerContent}>
               <ActionIcon kind="pin" size={15} color={theme.accentWalk} />
-              <Text style={styles.mapPickerLabel}>Pick on map</Text>
+              <Text style={styles.mapPickerLabel}>{hasValidCoords ? "Adjust pin on map" : "Pick on map"}</Text>
             </View>
           )}
         </Pressable>
@@ -223,7 +233,15 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     input: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
     row: { flexDirection: "row", gap: 12 },
     half: { flex: 1 },
-    mapPickerRow: { alignSelf: "flex-start", minHeight: 30, justifyContent: "center" },
+    mapPickerButton: {
+      alignSelf: "flex-start",
+      minHeight: 44,
+      justifyContent: "center",
+      paddingHorizontal: 14,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
     mapPickerContent: { flexDirection: "row", alignItems: "center", gap: 6 },
     mapPickerLabel: { fontSize: 13, fontWeight: "600", color: theme.accentWalk },
     hint: { fontSize: 12, color: theme.textSecondary, marginTop: 4, marginBottom: 4 },

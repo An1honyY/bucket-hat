@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import type L from "leaflet";
 import type { LeafletMouseEvent } from "leaflet";
-import { LEAFLET_CSS } from "./leafletCss";
+import useLeafletCss from "./useLeafletCss";
 import { pinDivIcon } from "./leafletIcons";
 import { basemapFor } from "./leafletBasemap";
-import { resolveApproximateLocation } from "../lib/approximateLocation";
-import { reverseGeocode } from "../services/placesService";
+import ActionIcon from "./ActionIcon";
+import { pickerStatusText, useLocationPicker, type PickerCoords } from "./useLocationPicker";
 import useTheme from "../theme/useTheme";
 import { darkTheme } from "../theme/tokens";
 
@@ -24,28 +24,8 @@ import { darkTheme } from "../theme/tokens";
 // assets are loaded — the pin is an inline SVG L.divIcon, so LEAFLET_CSS
 // (vendored, see that file's header) is the only extra asset this needs.
 //
-// When the caller doesn't already know real coordinates, the starting pin
-// is seeded from approximateLocation.ts's GPS → saved-default → Auckland
-// chain rather than always opening on a fixed Auckland fallback — see
-// DECISIONS.md.
-const LEAFLET_STYLE_ID = "leaflet-vendored-css";
-const REVERSE_GEOCODE_DEBOUNCE_MS = 700; // reverseGeocode is a billable Google Geocoding call — wait for the pin to settle before firing, not on every drag/click
-
-function ClickToMove({ onMove }: { onMove: (coords: { lat: number; lng: number }) => void }) {
-  useMapEvents({
-    click(e: LeafletMouseEvent) {
-      onMove({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
-  });
-  return null;
-}
-
-interface Seed {
-  lat: number;
-  lng: number;
-  isFallback: boolean;
-}
-
+// Seeding, the debounced reverse-geocode label and the locate button are
+// shared with the native file via useLocationPicker.ts — see its header.
 interface Props {
   visible: boolean;
   initialCoords?: { lat: number; lng: number };
@@ -53,67 +33,74 @@ interface Props {
   onClose: () => void;
 }
 
+const SEEDED_ZOOM = 12;
+const FALLBACK_ZOOM = 13;
+const LOCATE_ZOOM = 16;
+// Long enough for the browser's second click of a double-click to arrive.
+const DOUBLE_CLICK_GRACE_MS = 250;
+
+// A plain click moves the pin (the mouse substitute for native's tap), but
+// Leaflet fires `click` for *each* click of a double-click — so
+// double-clicking to zoom in, the most ordinary map gesture there is, also
+// dragged the pin to wherever the user happened to be zooming. Holding each
+// click briefly and dropping it if a `dblclick` follows keeps both gestures.
+function ClickToMove({ onMove }: { onMove: (coords: PickerCoords) => void }) {
+  const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (pendingRef.current) clearTimeout(pendingRef.current);
+  }, []);
+
+  useMapEvents({
+    click(e: LeafletMouseEvent) {
+      if (pendingRef.current) clearTimeout(pendingRef.current);
+      const { lat, lng } = e.latlng;
+      pendingRef.current = setTimeout(() => {
+        pendingRef.current = null;
+        onMove({ lat, lng });
+      }, DOUBLE_CLICK_GRACE_MS);
+    },
+    dblclick() {
+      if (pendingRef.current) clearTimeout(pendingRef.current);
+      pendingRef.current = null;
+    },
+  });
+  return null;
+}
+
+// Follows the pin only when it moved for a reason other than the user
+// pointing at a spot — see LocationPickerState.recenterToken.
+function RecenterOnToken({ token, coords }: { token: number; coords: PickerCoords | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (token === 0 || !coords) return;
+    map.flyTo([coords.lat, coords.lng], LOCATE_ZOOM, { duration: 0.6 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // Leaflet measures its container once at mount and leaves grey gutters if
+  // that size later changes — which it does whenever the browser window is
+  // resized while this full-screen sheet is open. Observing the container
+  // rather than the window means this runs after react-native-web has
+  // re-laid the flex box out, not before (see JourneyMap.web.tsx).
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+
+  return null;
+}
+
 export default function LocationPickerMap({ visible, initialCoords, onConfirm, onClose }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
-  const [seed, setSeed] = useState<Seed | null>(initialCoords ? { ...initialCoords, isFallback: false } : null);
-  const [marker, setMarker] = useState<{ lat: number; lng: number } | null>(initialCoords ?? null);
-  const [resolvedLabel, setResolvedLabel] = useState<string | undefined>();
-  const [resolvingLabel, setResolvingLabel] = useState(false);
-  const labelRequestIdRef = useRef(0);
+  const picker = useLocationPicker(visible, initialCoords);
+  const { seed, marker, setMarker } = picker;
   const markerRef = useRef<L.Marker>(null);
-
-  useEffect(() => {
-    if (typeof document === "undefined" || document.getElementById(LEAFLET_STYLE_ID)) return;
-    const style = document.createElement("style");
-    style.id = LEAFLET_STYLE_ID;
-    style.textContent = LEAFLET_CSS;
-    document.head.appendChild(style);
-  }, []);
-
-  // Resolve a starting point each time the sheet opens, rather than
-  // persisting whatever was last dragged to across opens/cancels.
-  useEffect(() => {
-    if (!visible) return;
-    let cancelled = false;
-    async function resolveStart() {
-      if (initialCoords) {
-        if (!cancelled) {
-          setSeed({ ...initialCoords!, isFallback: false });
-          setMarker(initialCoords!);
-        }
-        return;
-      }
-      setSeed(null);
-      setMarker(null);
-      const resolved = await resolveApproximateLocation();
-      if (!cancelled) {
-        setSeed(resolved);
-        setMarker({ lat: resolved.lat, lng: resolved.lng });
-      }
-    }
-    resolveStart();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
-
-  useEffect(() => {
-    if (!marker) return;
-    const requestId = ++labelRequestIdRef.current;
-    async function resolveLabel() {
-      setResolvedLabel(undefined);
-      setResolvingLabel(true);
-      const result = await reverseGeocode(marker!.lat, marker!.lng);
-      if (requestId !== labelRequestIdRef.current) return; // superseded by a newer move
-      setResolvingLabel(false);
-      if ("data" in result) setResolvedLabel(result.data.formattedAddress);
-    }
-    const timer = setTimeout(resolveLabel, REVERSE_GEOCODE_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marker?.lat, marker?.lng]);
+  useLeafletCss();
 
   // Not rendered at all while closed (rather than hidden-but-mounted) so
   // MapContainer always initializes against a container that already has
@@ -122,38 +109,44 @@ export default function LocationPickerMap({ visible, initialCoords, onConfirm, o
   // Modal would otherwise risk.
   if (!visible) return null;
 
-  // A resolved GPS/saved-location start gets a bit more breathing room than
-  // the tight fallback zoom — enough to click the pin to a nearby spot
-  // without immediately panning off-screen. The Auckland fallback stays
-  // tight since it's just a generic city center to start from, not "your
-  // area."
-  const zoom = seed?.isFallback === false ? 12 : 13;
+  const zoom = seed?.isFallback === false ? SEEDED_ZOOM : FALLBACK_ZOOM;
   const basemap = basemapFor(theme === darkTheme);
+  const statusText = pickerStatusText(picker);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={8}>
+          <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel">
             <Text style={styles.headerButton}>Cancel</Text>
           </Pressable>
           <Text style={styles.headerTitle}>Drop a pin</Text>
-          <Pressable onPress={() => marker && onConfirm(marker, resolvedLabel)} hitSlop={8} disabled={!marker}>
+          <Pressable
+            onPress={() => marker && onConfirm(marker, picker.resolvedLabel)}
+            hitSlop={8}
+            disabled={!marker}
+            accessibilityRole="button"
+            accessibilityLabel="Use this location"
+            accessibilityState={{ disabled: !marker }}
+          >
             <Text style={[styles.headerButton, styles.headerButtonPrimary, !marker && styles.headerButtonDisabled]}>Use this</Text>
           </Pressable>
         </View>
+
         <Text style={styles.hint}>Click or drag the pin to the exact spot.</Text>
-        {resolvingLabel ? (
-          <ActivityIndicator size="small" color={theme.textSecondary} style={styles.labelSpinner} />
-        ) : resolvedLabel ? (
-          <Text style={styles.resolvedLabel}>{resolvedLabel}</Text>
-        ) : null}
+        {/* One fixed-height line, always present — a spinner/label/nothing
+            rotation made the whole map jump on every pin move. */}
+        <Text style={styles.status} numberOfLines={1}>
+          {statusText}
+        </Text>
+        {picker.locateError && <Text style={styles.locateError}>{picker.locateError}</Text>}
+
         {!seed || !marker ? (
           <View style={styles.loading}>
             <ActivityIndicator color={theme.accentWalk} />
           </View>
         ) : (
-          <View style={styles.map}>
+          <View style={styles.mapWrap}>
             <MapContainer
               center={[seed.lat, seed.lng]}
               zoom={zoom}
@@ -166,6 +159,8 @@ export default function LocationPickerMap({ visible, initialCoords, onConfirm, o
                 icon={pinDivIcon(theme.accentWalk)}
                 draggable
                 ref={markerRef}
+                title="Selected spot — drag to move"
+                alt="Selected spot"
                 eventHandlers={{
                   dragend: () => {
                     const position = markerRef.current?.getLatLng();
@@ -174,7 +169,22 @@ export default function LocationPickerMap({ visible, initialCoords, onConfirm, o
                 }}
               />
               <ClickToMove onMove={setMarker} />
+              <RecenterOnToken token={picker.recenterToken} coords={marker} />
             </MapContainer>
+
+            <Pressable
+              onPress={picker.useCurrentLocation}
+              disabled={picker.locating}
+              style={styles.locateButton}
+              accessibilityRole="button"
+              accessibilityLabel="Move the pin to my current location"
+            >
+              {picker.locating ? (
+                <ActivityIndicator size="small" color={theme.accentWalk} />
+              ) : (
+                <ActionIcon kind="crosshair" size={20} color={theme.accentWalk} />
+              )}
+            </Pressable>
           </View>
         )}
       </View>
@@ -197,10 +207,35 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     headerButton: { fontSize: 15, color: theme.textSecondary, minHeight: 44, textAlignVertical: "center" },
     headerButtonPrimary: { color: theme.accentWalk, fontWeight: "600" },
     headerButtonDisabled: { opacity: 0.4 },
-    hint: { fontSize: 12, color: theme.textSecondary, textAlign: "center", paddingBottom: 4 },
-    labelSpinner: { paddingBottom: 8 },
-    resolvedLabel: { fontSize: 13, fontWeight: "600", color: theme.textPrimary, textAlign: "center", paddingBottom: 8 },
+    hint: { fontSize: 12, color: theme.textSecondary, textAlign: "center", paddingHorizontal: 20 },
+    status: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: theme.textPrimary,
+      textAlign: "center",
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 8,
+      minHeight: 30,
+    },
+    locateError: { fontSize: 12, color: theme.confidenceLow, textAlign: "center", paddingHorizontal: 20, paddingBottom: 8 },
     loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-    map: { flex: 1 },
+    mapWrap: { flex: 1 },
+    locateButton: {
+      position: "absolute",
+      right: 16,
+      bottom: 28,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      // Above Leaflet's own panes and controls, which sit at 400–1000.
+      zIndex: 1200,
+      boxShadow: "0 2px 6px rgba(0, 0, 0, 0.25)",
+    },
   });
 }

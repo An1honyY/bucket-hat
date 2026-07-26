@@ -680,4 +680,41 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .cwp-dark-basemap .leaflet-tile-pane {
 	filter: brightness(1.35) contrast(0.85);
 	}
+
+/* Leaflet's own chrome is hardcoded white-on-white in the vendored stylesheet
+   above — a stock zoom stack and attribution strip glowing over a dark
+   basemap was the most obviously un-themed thing about the web maps. Scoped
+   to the dark class so the light theme keeps Leaflet's defaults. */
+.cwp-dark-basemap .leaflet-bar a,
+.cwp-dark-basemap .leaflet-bar a:hover {
+	background-color: #1F2447;
+	color: #EDEBFF;
+	border-bottom-color: #383D6E;
+	}
+.cwp-dark-basemap .leaflet-bar a:hover {
+	background-color: #2A3060;
+	}
+.cwp-dark-basemap .leaflet-bar a.leaflet-disabled {
+	background-color: #191D3A;
+	color: #5A6096;
+	}
+.cwp-dark-basemap .leaflet-bar {
+	border-color: rgba(0, 0, 0, 0.4);
+	}
+.cwp-dark-basemap .leaflet-control-attribution {
+	background: rgba(23, 27, 54, 0.85);
+	color: #9AA0C8;
+	}
+.cwp-dark-basemap .leaflet-control-attribution a {
+	color: #C0C4E8;
+	}
+
+/* The vendored default is a 1px hairline outline that all but disappears
+   against a busy basemap; a visible ring keeps keyboard focus followable
+   on both themes (§9.6). */
+.leaflet-container a:focus-visible,
+.leaflet-container .leaflet-marker-icon:focus-visible {
+	outline: 2px solid #FF4D8D;
+	outline-offset: 2px;
+	}
 `;

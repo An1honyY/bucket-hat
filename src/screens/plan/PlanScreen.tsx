@@ -18,6 +18,7 @@ import FormRow from "../../components/FormRow";
 import FormSection from "../../components/FormSection";
 import ActionIcon from "../../components/ActionIcon";
 import useTheme from "../../theme/useTheme";
+import { SPACING } from "../../theme/typography";
 import type { CarryPreference, SavedLocation, SavedRoute, TravelMode } from "../../types";
 
 // Journey planner — docs/04-screens-navigation.md §4.3/§4.3.1, wired to the
@@ -328,6 +329,10 @@ export default function PlanScreen() {
       <FormSection title="Route">
         <View style={styles.timelineRow}>
           <View style={styles.timelineRail}>
+            {/* Blank, not dashed — nothing comes before the start of a
+                route. It exists only to drop the dot onto the same baseline
+                every other marker sits on. */}
+            <View style={styles.timelineLeadSpacer} />
             <View style={[styles.timelineDot, styles.timelineDotOrigin]} />
             <View style={styles.timelineConnector} />
           </View>
@@ -339,6 +344,7 @@ export default function PlanScreen() {
         {waypoints.map((stop, index) => (
           <View key={index} style={styles.timelineRow}>
             <View style={styles.timelineRail}>
+              <View style={styles.timelineConnectorLead} />
               <View style={styles.timelineDotStop} />
               <View style={styles.timelineConnector} />
             </View>
@@ -370,6 +376,13 @@ export default function PlanScreen() {
 
         <View style={styles.timelineRow}>
           <View style={styles.timelineRail}>
+            {/* The rail used to stop dead at the bottom of the row above and
+                pick up again at a pin pinned to the very top of this one —
+                the line visibly broke right where the route arrives, and the
+                pin sat a good 30px higher than every dot above it. This lead
+                segment carries the dashes down through the gap and drops the
+                pin onto the same baseline as the other markers. */}
+            <View style={styles.timelineConnectorLead} />
             <ActionIcon kind="pin" size={18} color={theme.accentWalk} />
           </View>
           <View style={styles.timelineContent}>
@@ -542,21 +555,43 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // destination field: a filled dot for the origin, an outlined dot for
     // each stop, a pin for the destination, connected by a dashed line so
     // the row of separate pickers reads as one continuous route instead of
-    // an unordered list of location fields.
+    // an unordered list of location fields. (The same three shapes carry
+    // over onto the map's markers — see leafletIcons.ts.)
+    //
+    // Every marker sits 34px down its own row, level with the picker value
+    // it labels rather than the label above it. That offset is produced by a
+    // lead segment above the marker, not a marginTop on the marker itself,
+    // so the dashes can run *through* that 34px instead of leaving a hole in
+    // the line above every single marker — which is what the rail used to do.
     timelineRow: { flexDirection: "row" },
     timelineRail: { width: 22, alignItems: "center" },
-    timelineDot: { width: 12, height: 12, borderRadius: 6, marginTop: 34 },
+    timelineDot: { width: 12, height: 12, borderRadius: 6 },
     timelineDotOrigin: { backgroundColor: theme.accentWalk },
     timelineDotStop: {
       width: 10,
       height: 10,
       borderRadius: 5,
-      marginTop: 34,
       borderWidth: 2,
       borderColor: theme.textSecondary,
       backgroundColor: theme.surface,
     },
+    timelineLeadSpacer: { height: 30, marginBottom: 4 },
     timelineConnector: { flex: 1, borderLeftWidth: 2, borderStyle: "dashed", borderColor: theme.border, marginVertical: 4 },
+    // The dashed version of timelineLeadSpacer, for every marker that has a
+    // route arriving at it. Fixed height rather than flex: 1 — it runs
+    // *above* its marker, so it has to end exactly on the 34px baseline, not
+    // absorb the leftover row height. The negative top margin pulls it up
+    // through FormSection's 12px row gap so it meets the segment coming down
+    // from the row above; the height is that 12 plus the 30 inside its own
+    // row.
+    timelineConnectorLead: {
+      height: 30 + SPACING.md,
+      marginTop: -SPACING.md,
+      marginBottom: 4,
+      borderLeftWidth: 2,
+      borderStyle: "dashed",
+      borderColor: theme.border,
+    },
     timelineContent: { flex: 1, marginLeft: 10 },
     waypointRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     waypointPicker: { flex: 1 },

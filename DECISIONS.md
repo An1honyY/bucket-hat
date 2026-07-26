@@ -1041,3 +1041,172 @@ when none owned).
 **Why these needed a decision**: (3) is the one worth flagging specifically — it looked like it could be a simple "add a visual" request, but tracing `addStop()` turned up a genuine functional bug with a real root cause (an alert mechanism already known to be unreliable, per the earlier "More modes" entry), not just missing polish. (4)'s scoping decision (hourly outlook only, not the other weather-icon call sites) is a deliberate narrow fix matching what was actually reported, logged so a future pass doesn't have to re-derive whether the other call sites were considered and rejected, or just never noticed.
 
 **Resolution**: all five shipped together. `tsc --noEmit` and the full 270-test suite pass. Verified live: Route/When/Mode/Preferences section cards rendering with real backgrounds, a dashed connector line spanning the route rail, "Add a stop" immediately inserting a placeholder "Stop 1" row (confirmed against a fresh install with zero saved locations — the exact case that used to fail silently), the moon icon rendering for a 1am reading vs. the sun icon for an 11am reading in the same strip, and the bookmark icon switching from outline to solid-`accentWalk`-filled on tap.
+
+---
+
+## 2026-07-27 — Maps pass: native route framing, web click/scroll hijacking, shared picker state, locate button, themed basemaps
+
+**What**: a reported "the maps aren't working very well and aren't very
+polished" pass over both map surfaces — Journey Detail's route map
+(`JourneyMap.tsx` / `.web.tsx`) and the location picker
+(`LocationPickerMap.tsx` / `.web.tsx`, used by `LocationForm.tsx` and
+onboarding's `Step1Location.tsx`), plus the Plan screen's route rail that
+the map markers now echo. Eleven changes, in rough order of how
+badly each one hurt:
+
+1. **The native route map never framed the route.** It opened on
+   `initialRegion` = the *first stop* with a fixed `0.05` delta and never
+   moved again, so anything longer than a couple of kilometres ran off the
+   edge, and a re-plan (forecast drift) or a newly saved annotation
+   couldn't move it at all — `initialRegion` is mount-only. The web map has
+   had `fitBounds()` since it was written; the native side was simply never
+   given the equivalent. Now: `initialRegion` is computed from the whole
+   route's extent, `onMapReady` plus an extent-keyed effect call
+   `fitToCoordinates()` with edge padding, and the framed set includes
+   saved annotations sitting *off* the path, not just the path itself.
+2. **The first fit no longer animates, on either platform.** Fitting over
+   the top of the initial region with an animation means the map visibly
+   lurches from "zoomed in on the origin" to the real route on every open —
+   and stays mis-framed until the animation finishes, which in a
+   backgrounded tab can be a long time. Only a later re-fit (a re-plan, a
+   new spot) animates, where the movement is the information.
+3. **A plain left-click on the web route map opened the add-a-spot sheet.**
+   Section 4.5's capture gesture is a long-press on native; the web file had
+   mapped it onto `click`, so every attempt to click the map at all threw
+   the annotation sheet open uninvited. Moved to `contextmenu` — right-click
+   on a desktop, press-and-hold on a touchscreen — and added a hint chip on
+   *both* platforms, since neither gesture is one anybody guesses at
+   (Section 4.5's flow previously had no affordance anywhere on the screen).
+4. **Scroll-wheel over the web route map hijacked the page scroll.** That
+   map sits inside Journey Detail's vertical scroll view; Leaflet's default
+   `scrollWheelZoom` meant scrolling past it zoomed the map instead. Off now
+   — zoom buttons, double-click and pinch all still work.
+5. **Annotation overlays were nested inside a plain `<View>`** on the native
+   map (one wrapper per annotation, holding its `Circle` + `Marker`). Both
+   platform backends do recurse into non-map children via `reactSubviews`,
+   but that is the legacy paper path — RN 0.86 is Fabric-only, and
+   `RNMapsMapView`'s `mountChildComponentView` hands a plain view straight
+   through, so this was at best relying on an unspecified fallback.
+   Flattened into two direct passes, the shape the web map already used.
+6. **A "use my current location" button** on both pickers. The picker
+   dropped you at a seeded pin with no way back to yourself — pan away
+   looking for a spot and your own position was unrecoverable without
+   cancelling out and reopening. Unlike the existing seeding chain (which
+   never prompts, by design — `approximateLocation.ts`), this is an explicit
+   user action, so it may ask for the permission, and it recenters the map,
+   which a tap or drag deliberately does not.
+7. **The picker's status line stopped jumping.** It rotated between a
+   spinner, a resolved address, and *nothing at all* if the lookup failed —
+   three different heights, so the map jumped on every pin move, and a
+   failed reverse-geocode left no confirmation of anything. Now always
+   exactly one line: the address if there is one, the coordinates otherwise.
+8. **Native basemaps follow the app theme.** The web maps have swapped CARTO
+   Voyager for Dark Matter with the theme since they were written; a native
+   map in the dark theme was a white rectangle. `mapDarkStyle.ts`
+   (Android/Google `customMapStyle`) plus `userInterfaceStyle` (iOS/Apple,
+   which ignores `customMapStyle` entirely) covers both. Leaflet's own
+   chrome — the zoom stack and attribution strip, hardcoded white in the
+   vendored stylesheet — is themed to match in `leafletCss.ts`.
+9. **Start, stops and destination were the same marker.** All three rendered
+   as one teardrop pin (`pinDivIcon` on web, `pinColor` on native), so a
+   multi-stop journey was a row of identical markers with nothing saying
+   which end was which or what order the middle ones came in. They now reuse
+   PlanScreen's route-rail vocabulary — a filled dot for the origin, an
+   outlined dot for each stop, the pin kept for the destination — so the rail
+   the journey was built on and the map it's read back from say the same
+   thing. The map's stops are additionally numbered, which the rail doesn't
+   need: down a page the stops are already in reading order, but scattered
+   across a map "which stop is this" has no other answer.
+10. **The Plan screen's route rail broke above every marker.** Each marker
+    was pushed to its 34px baseline by a `marginTop` on the marker itself,
+    so the dashed line simply stopped at the bottom of one row and restarted
+    34px into the next — a ~50px hole above every dot, and the destination
+    was worse still: it had no dashed segment in its own row at all, so the
+    pin floated under a 50px void *and* sat 34px higher than every dot above
+    it. That offset now comes from a lead segment *above* each marker
+    instead, dashed for anything the route arrives at and blank for the
+    origin (nothing precedes the start of a route), with a negative top
+    margin bridging `FormSection`'s 12px row gap. Every gap in the rail is
+    now the same 4px, origin to destination.
+11. Smaller: a route-line casing so the stroke stays legible where it crosses
+   same-colored roads; `tracksViewChanges` managed rather than left on
+   (custom-view markers re-rasterize every render otherwise, which is what
+   made the native map stutter); `title`/`accessibilityLabel` on every
+   marker, so a condition badge says which leg it belongs to instead of
+   being an unexplained colored dot; `toolbarEnabled={false}`,
+   `moveOnMarkerPress={false}` and pitch/rotate off on native; safe-area
+   insets on the picker's full-screen modal (its header sat under the
+   notch); a double-click on the web picker no longer drags the pin to
+   wherever you were zooming; and `LocationForm`'s "Pick on map" is a real
+   bordered button rather than a bare text link between two full-width
+   fields.
+
+**Why these needed a decision**:
+
+- **`contextmenu` over a hand-rolled long-press timer** for (3). A
+  press-and-hold timer on `mousedown` would mimic native more literally, but
+  `contextmenu` *is* the browser's long-press: it already fires on
+  touch-hold, it's what users reach for, and it costs no timing threshold
+  that has to be tuned against drag-to-pan. The cost is that it's
+  undiscoverable on desktop, which is what the hint chip is for.
+- **`ResizeObserver` rather than a window `resize` listener** for
+  re-measuring the web maps. Leaflet measures its container once at mount
+  and renders grey gutters if that size later changes. The window event
+  fires *before* react-native-web has re-laid the flex box out, so a fit
+  driven by it measures the old size and leaves the route running off the
+  edge — observing the element is the only ordering that works.
+- **A shared `useLocationPicker.ts`** rather than leaving the two platform
+  files with their own copies of seeding plus debounced geocoding. They had
+  already drifted: web reset off `visible` with cancellation, native off
+  `Modal`'s `onShow` without. Adding the locate button to both would have
+  been a third copy of the same logic.
+- **Borrowing the rail's shapes for the map markers** rather than inventing
+  a third set for (9). The rail and the map are two views of the same route
+  — the shapes are the only thing that can carry that across, since nothing
+  else about the two screens looks alike. It also fixes the vocabulary in
+  one place: a future fourth surface has an obvious thing to copy.
+- **Fixing (10) for every marker, not just the destination**, which is what
+  was actually reported. Adding a lead segment under the pin alone would
+  have left it as the one marker on a continuous line while the dots above
+  kept their holes — a *new* inconsistency, in the name of fixing an old
+  one. The cause was the same `marginTop` in all three cases, so it was one
+  fix applied three times, not scope creep.
+- The `0.05`/`0.08` and `12`/`13` seeded-vs-fallback zoom split from the
+  2026-07-22 picker entry above is **kept**, not superseded by the
+  route-framing work — it's about the *picker's* starting point, which is a
+  single pin with no extent to fit against.
+
+**Resolution**: new `src/lib/mapGeometry.ts` (pure framing/color helpers, 19
+unit tests — `regionForCoordinates` is the native counterpart to
+`fitBounds`, and `boundsKey` replaces `JSON.stringify`-ing a thousand-point
+polyline on every render just to detect a change that only its bounding box
+can express), `src/components/useLocationPicker.ts`,
+`src/components/useLeafletCss.ts` (both web maps carried a byte-identical
+copy of the stylesheet-injection effect), `src/components/mapDarkStyle.ts`,
+and a `crosshair` kind on `ActionIcon`. `tsc --noEmit`, `expo lint` and the
+full suite (829 tests, 67 suites) pass.
+
+Verified live in the browser against a real planned Auckland journey: the
+route framed with symmetric insets at both 1265px and 375px container widths
+with every marker inside the box (it opened centered on the origin before);
+the real Google-routed polyline drawn with its casing; on a Home → Work →
+Home route, three visibly distinct stop markers — an 18px filled accent
+circle, a 20px outlined circle reading "1", and the teardrop pin — each with
+its own `title` tooltip, alongside the weather-colored condition badges;
+left-click and scroll-wheel both inert over the map; right-click opening the
+sheet and rendering the radius preview in `annotationPin`; the hint chip
+hiding itself while that sheet is open. On the Plan rail with three stops,
+every gap measured 4px from the origin dot to the destination pin (it was
+4px inside a row and ~50px between rows). On the picker: tiles and dark
+chrome (zoom stack
+`#1F2447`, dark attribution), a single click moving the pin and re-resolving
+the address, a double-click *not* moving it, the locate button at 44x44
+above Leaflet's panes, and the confirm to address to lat/lng handoff into
+`LocationForm` with no second Geocoding call.
+
+Two things could **not** be verified in that environment and rest on reading
+alone: everything native (no simulator here — items 1, 5, 8 and the native
+half of 2, 9 and 11), and the `ResizeObserver` re-fit, because the headless
+preview pane never composites a frame and both `ResizeObserver` callbacks
+and `requestAnimationFrame` are delivered on the frame loop. The framing
+maths behind the native fit is what `mapGeometry.test.ts` covers directly.
