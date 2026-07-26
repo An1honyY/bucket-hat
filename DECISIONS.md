@@ -4,6 +4,93 @@ Append-only. One entry per deliberate deviation from, or judgment call
 within, the docs in `docs/`. Don't edit or delete past entries — if a
 decision is later reversed, add a new entry that supersedes it and says so.
 
+**Don't read this whole file every session.** Skim the index below (cheap),
+then grep for the date/title/section tag of any line that looks relevant to
+your current task and jump straight to that entry — see AGENTS.md §0 for
+the exact workflow. When you append a new entry, also append one matching
+line to the index, in the same position (index is in date order, oldest
+first).
+
+## Template for new entries
+
+Entries above this point predate the template and stay as-is (append-only —
+don't rewrite them). Every new entry from here on must use this compact
+form, three one-to-two-sentence fields, no sub-bullets, targeting ~10-15
+lines total including the heading and separator:
+
+```
+## YYYY-MM-DD — Short title (§X.X)
+
+**What**: one to two sentences — the change, stated plainly.
+
+**Why**: one to two sentences — what in the docs this deviates from or
+what judgment call it required.
+
+**Resolution**: one to two sentences — what was decided, how narrowly it's
+scoped, and what a future contributor should do instead of extending it
+informally.
+
+---
+```
+
+Skip restating context the title or section already covers. If a decision
+is later reversed, add a new entry that says so and references the old
+one by date — don't edit the old entry.
+
+## Index
+
+- 2026-07-19 — Advanced warmth threshold overrides (§3.6, §9.1.1)
+- 2026-07-19 — `substitutesForMidlayer` scoped to jacket-absorbs-midlayer only (§3.6, §7.12)
+- 2026-07-20 — Hot-weather guidance kept as a note, not an item-matching feature (§7.15)
+- 2026-07-20 — Severe-weather advisory is a single suggestion sentence, not a safety feature (§7.14)
+- 2026-07-20 — Mascot companion built to Tier 1+2 only; photo-derived garment generation deferred (§13.9)
+- 2026-07-20 — Locations CRUD uses text/number fields, not map pin-drop or Places search (§4)
+- 2026-07-20 — Onboarding gate uses an explicit completed flag, not the "no Inventory/no SavedLocation" check (§4.1)
+- 2026-07-20 — Plan screen's date/time picker is plain text fields (§4)
+- 2026-07-20 — Bus/train journeys with waypoints skip indoor dwell legs (§5.5)
+- 2026-07-21 — Phase 5's recommendGear() omits the annotation-gated wind/sun deltas and puddle risk (§7.8)
+- 2026-07-21 — Annotation UI simplifications: no map repositioning, no swipe-to-delete, no row thumbnails (§4.5)
+- 2026-07-21 — AT GTFS Realtime lookup keys are best-effort, not real AT GTFS ids (§5.6, Phase 7)
+- 2026-07-21 — Phase 8 leave-by notifications: freeze/recordWear via fallback + foreground listener, not background task (§7.3, §7.4, §7.16)
+- 2026-07-21 — Fixed web bundling (`metro.config.js`); `withTimeout()` is a defense-in-depth backstop, not the primary fix [build/infra]
+- 2026-07-21 — Phase 9 History: JourneyDetailScreen prefers `recommendationSnapshot` over live recompute whenever one exists (§9.4)
+- 2026-07-21 — Phase 10 Personalization: forecast drift re-check runs on foreground only, not OS background task; dev-menu triggers not built (§5.2, §12.2)
+- 2026-07-21 — Phase 11 Polish: dark/light theme retrofit built now; gear-card fallback non-interactive; rain-intensity gauge not built (§9.1, §9.5)
+- 2026-07-21 — §9.5 rain-intensity gauge built as Plan-screen-only hourly strip, not Plan+Today
+- 2026-07-21 — Gear-card fallback text wired to "tap to add" (§9.6), scoped to the live recommendation only
+- 2026-07-21 — Phase 12: SQLite left unencrypted at rest, disclosed in privacy policy instead of SQLCipher (§10)
+- 2026-07-21 — Phase 12: crash reporting is a real conditional gate with a local no-op provider, not live Sentry (§10)
+- 2026-07-21 — Phase 12: bundle identifier placeholder; `PrivacyInfo.xcprivacy` best-effort draft; store steps left as manual checklist (§10)
+- 2026-07-21 — "Paua Pop" visual identity redesign: full palette overhaul, approved via multi-round design review [design, §9]
+- 2026-07-21 — §9.0 "no drop shadows" rule reversed to shadow-based card elevation, per explicit request
+- 2026-07-21 — Weather-reactive Today-tab tint scoped to the Today tab only, not Journey Detail [§9]
+- 2026-07-21 — App icon traced from a user-supplied SVG rather than drawn from scratch [design]
+- 2026-07-21 — Onboarding collapsed to a single "where are you?" step; rest moved to postponable setup checklist (§4.1)
+- 2026-07-21 — AddressAutocomplete error visibility + race guard; map pin-drop closes the Locations CRUD deferral (§5.1)
+- 2026-07-21 — Closed three gaps: Plan-screen free-text search, recurring-journey pause, §12.2 debug menu
+- 2026-07-22 — Real web map picker (react-leaflet + OpenStreetMap); real navigation iconography (§9.2)
+- 2026-07-22 — Gear icon redrawn from a traced reference SVG; screen-edge whitespace 16px → 20px [design]
+- 2026-07-22 — Corrected whitespace pass: header buttons need text; fixed button-padding/tab-bar-label bugs [design]
+- 2026-07-22 — Header buttons back to icons, and Settings gets an actual cog [design]
+- 2026-07-22 — Settings cog traced from a second reference SVG; bucket-hat mark shown in-app, not just OS icon [design]
+- 2026-07-22 — "Repeats" scoped to Leave-by mode only, not Leave-now/Arrive-by (§4)
+- 2026-07-22 — No drive-mode "short dash to the car" umbrella workaround (yet) (§7)
+- 2026-07-22 — Bottoms recommendation expanded from cold/wet-only to always-on (§7)
+- 2026-07-22 — Web `JourneyMap` closes the last native-only-map gap (§9.2)
+- 2026-07-22 — Location-picker pin seeded from the user's real location, not always Auckland (§4)
+- 2026-07-22 — Live place-name label while dragging the pin, debounced against Geocoding cost (§5)
+- 2026-07-22 — Journey Detail's map draws the real route, not a straight line (§9.2)
+- 2026-07-22 — Fixed: new-location map picker opened on "Null Island," not Auckland [bug fix]
+- 2026-07-22 — Web maps switched to CARTO Voyager/Dark Matter basemaps, theme-matched (§9)
+- 2026-07-23 — Verified against live API keys: transit rejects waypoints (latent 400 bug), AT endpoint confirmed [bug fix, §2]
+- 2026-07-23 — Hot-weather gear now resolves a real owned item, closing the 2026-07-20 deferral (§7.15)
+- 2026-07-23 — UI/UX polish pass 2: typography tokens not retrofitted repo-wide; icons kept on emoji/Tabler [design]
+- 2026-07-23 — Fixed: fresh git worktree can't run `expo start --web` (no `.env`/`node_modules`); COOP/COEP headers for `expo-sqlite` web worker [build/infra]
+- 2026-07-23 — User-reported fixes batch: Today refresh throttle, suburb label, 12h/24h setting, Plan screen fixes [bug fix]
+- 2026-07-23 — Follow-up polish on the fixes batch: hourly outlook cards, rain fill, return-section nesting [design]
+- 2026-07-23 — Clarified carry-preference control; containerized forms; fixed back-button margin [design]
+- 2026-07-26 — Plan screen: containerized sections, route timeline, fixed Add-a-stop bug, night icon, bookmark toggle [design]
+
 ---
 
 ## 2026-07-19 — Advanced warmth threshold overrides (Section 3.6, 9.1.1)
