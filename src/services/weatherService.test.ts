@@ -108,7 +108,11 @@ describe("weatherService.getHourlyForecast", () => {
     global.fetch = originalFetch;
   });
 
-  it("starts at the first hour >= fromIso and returns exactly `hours` readings", async () => {
+  // Mid-hour: the strip must start with the hour the caller is *inside*, not
+  // the next one to begin. This previously returned 10:00 first for an 09:05
+  // request, so the outlook showed 10:00's weather beside a "leaving 9am"
+  // label.
+  it("starts at the hour containing fromIso and returns exactly `hours` readings", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => mockOpenMeteoResponse(1),
@@ -119,10 +123,39 @@ describe("weatherService.getHourlyForecast", () => {
     expect("data" in result).toBe(true);
     if (!("data" in result)) return;
     expect(result.data.map((r) => r.time)).toEqual([
+      "2026-07-20T09:00Z",
       "2026-07-20T10:00Z",
       "2026-07-20T11:00Z",
-      "2026-07-20T12:00Z",
     ]);
+  });
+
+  it("starts at that same hour when fromIso is exactly on the hour", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockOpenMeteoResponse(1),
+    }) as unknown as typeof fetch;
+
+    const result = await getHourlyForecast({ lat: -36.8485, lng: 174.7633 }, "2026-07-20T09:00:00.000Z", 2);
+
+    expect("data" in result).toBe(true);
+    if (!("data" in result)) return;
+    expect(result.data.map((r) => r.time)).toEqual(["2026-07-20T09:00Z", "2026-07-20T10:00Z"]);
+  });
+
+  // The last second of an hour still belongs to that hour — the boundary the
+  // old `>= fromIso` comparison got wrong most often, since "leave now" lands
+  // mid-hour almost always.
+  it("stays in the current hour at 59 minutes past", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockOpenMeteoResponse(1),
+    }) as unknown as typeof fetch;
+
+    const result = await getHourlyForecast({ lat: -36.8485, lng: 174.7633 }, "2026-07-20T09:59:59.000Z", 2);
+
+    expect("data" in result).toBe(true);
+    if (!("data" in result)) return;
+    expect(result.data.map((r) => r.time)).toEqual(["2026-07-20T09:00Z", "2026-07-20T10:00Z"]);
   });
 
   it("derives each hour's rainIntensity bucket from that hour's precip/probability", async () => {

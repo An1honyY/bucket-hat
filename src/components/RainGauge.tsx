@@ -8,7 +8,7 @@ import WeatherIcon, { type WeatherIconKind } from "./WeatherIcon";
 // shaped SVG clipped so a solid fill rises from the bottom to a height
 // proportional to the rain-intensity bucket (docs/06-weather-
 // classification.md §6), one per hour in a horizontal ScrollView
-// (src/components/HourlyStrip.tsx renders the row). Extended (this pass)
+// (src/components/HourlyOutlook.tsx renders the row). Extended (this pass)
 // with a condition icon + temperature above the droplet, so the strip
 // carries the same "what's it actually like" detail the leg badges/Right
 // now card already do, not just a rain-only reading.
@@ -26,15 +26,25 @@ const DROPLET_PATH = "M14 2 C14 2 24 14 24 20 A10 10 0 0 1 4 20 C4 14 14 2 14 2 
 // sync with conditionRain automatically if that token ever changes.
 const BUCKET_FILL_OPACITY: Record<RainIntensity, number> = { none: 1, low: 0.45, med: 1, high: 1 };
 
+// One decimal below 10mm, none above — 0.4mm and 12mm are both readable, but
+// "12.3mm" is more precision than an hourly forecast actually carries and
+// makes the column wider than the droplet it sits under.
+function formatMm(mm: number): string {
+  return mm < 10 ? `${Math.round(mm * 10) / 10}mm` : `${Math.round(mm)}mm`;
+}
+
 interface Props {
   hour: string; // formatted label, e.g. "3pm"
   rainIntensity: RainIntensity;
   tempC?: number;
   conditionKind?: WeatherIconKind;
   conditionLabel?: string;
+  // Rendered only when > 0 — a 12-hour row of "0mm" is noise, and the empty
+  // droplet already says "dry" on its own.
+  precipMm?: number;
 }
 
-export default function RainGauge({ hour, rainIntensity, tempC, conditionKind, conditionLabel }: Props) {
+export default function RainGauge({ hour, rainIntensity, tempC, conditionKind, conditionLabel, precipMm }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const fillPct = BUCKET_FILL_PCT[rainIntensity];
@@ -43,7 +53,13 @@ export default function RainGauge({ hour, rainIntensity, tempC, conditionKind, c
   const fillHeight = 28 * fillPct;
   const fillY = 28 - fillHeight;
 
-  const rainDescription = rainIntensity === "none" ? "no rain expected" : `${rainIntensity} rain expected`;
+  const showMm = precipMm !== undefined && precipMm > 0;
+  const rainDescription =
+    rainIntensity === "none"
+      ? "no rain expected"
+      : showMm
+        ? `${rainIntensity} rain expected, ${formatMm(precipMm)}`
+        : `${rainIntensity} rain expected`;
   const accessibilityLabel = [hour, conditionLabel, tempC !== undefined ? `${Math.round(tempC)} degrees` : undefined, rainDescription]
     .filter(Boolean)
     .join(", ");
@@ -70,6 +86,12 @@ export default function RainGauge({ hour, rainIntensity, tempC, conditionKind, c
           />
         )}
       </Svg>
+      {/* Rendered as an empty line rather than omitted on dry hours, so every
+          column in the row keeps the same height and the temperatures below
+          stay on one baseline. Skipped entirely when the caller passes no
+          precipMm at all — that's the key's swatches, which have no reading
+          behind them and shouldn't gain a blank line. */}
+      {precipMm !== undefined && <Text style={styles.mm}>{showMm ? formatMm(precipMm) : ""}</Text>}
       {tempC !== undefined && <Text style={styles.temp}>{Math.round(tempC)}°</Text>}
       <Text style={styles.label}>{hour}</Text>
     </View>
@@ -78,7 +100,9 @@ export default function RainGauge({ hour, rainIntensity, tempC, conditionKind, c
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { width: 32, alignItems: "center", gap: 3 },
+    // 36, not 32 — wide enough for "0.4mm" without wrapping.
+    container: { width: 36, alignItems: "center", gap: 3 },
+    mm: { fontSize: 10, color: theme.conditionRain, fontWeight: "600" },
     temp: { fontSize: 11, fontWeight: "600", color: theme.textPrimary },
     label: { fontSize: 11, color: theme.textSecondary },
   });

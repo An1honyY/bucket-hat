@@ -91,6 +91,8 @@ one by date — don't edit the old entry.
 - 2026-07-23 — Clarified carry-preference control; containerized forms; fixed back-button margin [design]
 - 2026-07-26 — Plan screen: containerized sections, route timeline, fixed Add-a-stop bug, night icon, bookmark toggle [design]
 - 2026-07-27 — Route-rail markers centred on the field box; origin pin, destination flag (§9.4) [design]
+- 2026-07-27 — Hourly outlook rebuilt per-location with route ETAs; icons from raw WMO code (§9.5) [design]
+- 2026-07-27 — Plan screen reordered (Mode before When); More modes removed; Preferences split; formal is now a labelled segmented control (§4.3, §9.6) [design]
 
 ---
 
@@ -1326,5 +1328,68 @@ three surfaces that draw it are listed in `flagDivIcon`'s comment and must
 stay in step. Note the native map inverts which end gets a custom view: the
 origin is now the platform `pinColor` marker and the destination the custom
 flag badge, so a single-coordinate journey renders as a plain pin.
+
+---
+
+---
+
+## 2026-07-27 — Hourly outlook rebuilt per-location with route ETAs; icons resolved from the raw WMO code (§9.5)
+
+**What**: the Plan screen's single unlabelled origin strip is now one card per
+location — origin and each stop showing the one hour they're there, the
+destination a full strip — plus a right-side "Full outlook" panel with every
+location's 12 hours and a single shared key. Icons come from a new
+display-only `hourlyIconKindForCode` keyed on the raw WMO code, the key lists
+only conditions actually on screen, and wet hours show mm.
+
+**Why**: the old strip silently showed the origin with nothing naming it, which
+for anything longer than a short hop describes the wrong place. Separately,
+`classifyWeather` collapses WMO 0/1/2 into "Dry" and all frozen precipitation
+into its `code >= 61` rain branch — correct for choosing clothing, wrong for a
+forecast row where partly cloudy drew a bright sun and snow drew raindrops.
+
+**Resolution**: `classifyWeather` is deliberately untouched — `recommend.ts`
+branches on those exact labels and severities — so the outlook has its own
+resolver in `WeatherIcon.tsx` and the two are allowed to disagree. Per-location
+ETAs come from `useRouteEtas`, a debounced `computeRoute` call; Google Routes
+is billed per request, so it is gated on a complete route and memoised on a
+signature of the inputs. Two traps found while building it, both worth knowing
+before touching this again: a raw `new Date()` in render made that signature
+change every render so the debounce never fired (fixed by `useNowBucket`), and
+Google rejects a past `departureTime` outright, so the bucket must round *up*.
+When no ETA can be computed — transit, or a failed route — every location falls
+back to the departure hour and the card says so rather than implying precision.
+
+---
+
+---
+
+## 2026-07-27 — Plan screen reordered (Mode before When); "More modes" removed; Preferences split; formal occasion is now a labelled segmented control (§4.3, §9.6)
+
+**What**: Mode now sits above When. The "More modes" disclosure is gone. The
+single Preferences card is split into "Dress code" and "Spare layer" sections,
+with "Save this route" moved to the bottom of the page beside Plan journey. The
+formal-occasion switch became a two-option segmented control with a hint.
+
+**Why**: mode decides trip duration, and the When section's hourly outlook is
+computed from that duration — choosing the time first meant choosing it against
+an outlook the next tap invalidated. "More modes" only ever disclosed that hike
+mode doesn't exist yet, which tells the user nothing actionable (it replaced a
+dead alert on 2026-07-23; the alert was the bug, the disclosure was never worth
+keeping). The Preferences card mixed two recommendation inputs with a
+save-afterwards toggle. And "Formal occasion" was a bare switch naming an
+occasion without ever saying what it changes.
+
+**Resolution**: the dress-code hint states what §7.10 actually does — prefer a
+formal-type shoe, bias layers toward `formal`-tagged items, skip the wind-chill
+layer — so the copy has to change if that logic does. One trap found while
+doing this and worth knowing repo-wide: react-native-web silently drops
+`accessibilityState` for `accessibilityRole="button"` *and* `"checkbox"` —
+neither `aria-pressed`, `aria-selected` nor `aria-checked` reaches the DOM, so
+selection was conveyed by fill colour alone, which §9.6 rules out. Selected
+state is now carried in `accessibilityLabel` on all three controls. Prefer that
+over `accessibilityState` for any new toggle here until RNW is verified to emit
+it. `MODE_LABEL` keeps its `hike` entry: the type still includes it (Phase 20),
+it just has no chip.
 
 ---

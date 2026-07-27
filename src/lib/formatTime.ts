@@ -1,5 +1,5 @@
 // Shared time-of-day formatter — every screen that renders a clock time
-// (RightNowCard, JourneyCard, LegRow, HistoryRow, HourlyStrip) used to call
+// (RightNowCard, JourneyCard, LegRow, HistoryRow, HourlyOutlook) used to call
 // `toLocaleTimeString(undefined, {...})` directly, which silently defers
 // 12h/24h choice to the device/browser's locale default rather than this
 // app's own setting (src/lib/useTimeFormatStore.ts). Centralizing the

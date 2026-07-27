@@ -11,9 +11,10 @@ import { showAlert } from "../../lib/crossPlatformAlert";
 import { findRainWindowNear } from "../../lib/weather";
 import { getHourlyForecast } from "../../services/weatherService";
 import { formatTime } from "../../lib/formatTime";
+import { useNowBucket } from "../../lib/useNowBucket";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import SavedLocationPicker from "../../components/SavedLocationPicker";
-import HourlyStrip from "../../components/HourlyStrip";
+import HourlyOutlook from "../../components/HourlyOutlook";
 import FormRow from "../../components/FormRow";
 import FormSection from "../../components/FormSection";
 import ActionIcon from "../../components/ActionIcon";
@@ -45,6 +46,18 @@ const CARRY_PREFERENCE_OPTIONS: { value: CarryPreference; label: string }[] = [
   { value: "avoid-spares", label: "Skip it" },
 ];
 
+// Was a bare "Formal occasion" switch with no supporting copy — a toggle whose
+// label named an occasion but never said what flipping it would change. It's
+// now the same labelled segmented control as the spare layer above it, with a
+// hint drawn from what §7.10 actually does: prefer a formal-type shoe (even at
+// a waterproof/grip penalty), bias layer picks toward `formal`-tagged items,
+// and skip the wind-chill layer, since bulk is likelier to be wrong for the
+// occasion than useful.
+const FORMAL_OPTIONS: { value: boolean; label: string }[] = [
+  { value: false, label: "Everyday" },
+  { value: true, label: "Formal" },
+];
+
 // A default return time needs *some* starting point before the user edits
 // it — 8h after the outbound leave time approximates a typical workday,
 // same as the placeholder value Phase 3 originally hardcoded (now
@@ -69,6 +82,11 @@ const TIME_MODE_LABEL: Record<TimeMode, string> = {
   "arrive-by": "Arrive by",
 };
 const TIME_MODES: TimeMode[] = ["leave-now", "leave-by", "arrive-by"];
+
+// Granularity "Leave now" is rounded to for the hourly outlook — see
+// selectedDepartTimeIso. Small enough that "now" stays honest, coarse enough
+// that an idle Plan screen costs at most a dozen Google Routes calls an hour.
+const DEPART_BUCKET_MS = 5 * 60_000;
 
 // Route-rail geometry. A SavedLocationPicker stacks a 13px label (12 top
 // margin + ~17 line + 4 bottom margin ≈ 33) above a 44-minHeight bordered
@@ -110,9 +128,10 @@ export default function PlanScreen() {
   // (SavedLocationPicker already renders a placeholder for `undefined`).
   // addStop() used to require an existing saved location to seed a new row
   // with, which meant it silently did nothing for a brand-new install with
-  // no saved locations yet (worse, that guard fired a showAlert(), which —
-  // per the "More modes" fix earlier — is unreliable on web, so it read as
-  // the button doing literally nothing). A stop can now always start empty.
+  // no saved locations yet (worse, that guard fired a showAlert(), which on
+  // web is a blocking window.alert and unreliable in embedded browsers — see
+  // DECISIONS.md 2026-07-23 — so it read as the button doing literally
+  // nothing). A stop can now always start empty.
   const [waypoints, setWaypoints] = useState<(SavedLocation | undefined)[]>([]);
   const [timeMode, setTimeMode] = useState<TimeMode>("leave-now");
   const [dateStr, setDateStr] = useState(nowDateStr());
@@ -127,9 +146,10 @@ export default function PlanScreen() {
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
   const [saveThisRoute, setSaveThisRoute] = useState(false);
   const [formal, setFormal] = useState(false);
-  const [moreModesOpen, setMoreModesOpen] = useState(false);
   const [carryPreference, setCarryPreference] = useState<CarryPreference>("no-preference");
   const [planning, setPlanning] = useState(false);
+  // Stable "now" for the "Leave now" outlook — see selectedDepartTimeIso below.
+  const departNowBucket = useNowBucket(DEPART_BUCKET_MS);
 
   useFocusEffect(
     useCallback(() => {
@@ -272,14 +292,28 @@ export default function PlanScreen() {
     }
   }
 
-  // §9.5 — feeds the hourly rain strip below the date/time fields; invalid
-  // in-progress typing (mid-edit date/time text) simply omits the strip
+  // §9.5 — feeds the hourly outlook below the date/time fields; invalid
+  // in-progress typing (mid-edit date/time text) simply omits the outlook
   // rather than crashing on an "Invalid Date" .toISOString() call. "Leave
-  // now" has no typed time to parse — anchor the strip on the actual
-  // current time instead.
+  // now" has no typed time to parse — anchor it on the current time instead.
+  //
+  // Quantised to a bucket (see useNowBucket) rather than read as a raw
+  // instant, which matters more than it looks. A bare `new Date()` here
+  // produces a new millisecond value on *every render*, and the outlook keys
+  // its forecast and ETA fetches on this string: each response's state update
+  // re-renders Plan, mints a new timestamp, and invalidates the request that
+  // just landed, so the route ETA's debounce is reset before it can fire.
+  //
+  // The *next* boundary, not the current one: Google Routes rejects a past
+  // departureTime outright ("Timestamp must be set to a future time", HTTP
+  // 400 — observed against the live API), which a rounded-down bucket is for
+  // all but the first instant of its window. Rounding up keeps the value
+  // stable between renders *and* always in the future, at the cost of "leave
+  // now" meaning "within the next five minutes" — well inside the hourly
+  // granularity the outlook actually displays.
   let selectedDepartTimeIso: string | undefined;
   if (timeMode === "leave-now") {
-    selectedDepartTimeIso = new Date().toISOString();
+    selectedDepartTimeIso = new Date(departNowBucket + DEPART_BUCKET_MS).toISOString();
   } else {
     const selectedDepartTime = new Date(`${dateStr}T${timeStr}:00`);
     selectedDepartTimeIso = isNaN(selectedDepartTime.getTime()) ? undefined : selectedDepartTime.toISOString();
@@ -307,7 +341,7 @@ export default function PlanScreen() {
   // suggestion-only posture as the severe-weather advisory). Runs off the
   // *destination*'s coordinates, since that's where the return leg departs
   // from. Omits the suggestion entirely on a failed fetch, same "supplement,
-  // not a blocker" degrade HourlyStrip already uses.
+  // not a blocker" degrade HourlyOutlook already uses.
   useEffect(() => {
     if (!planReturnTrip || !destination || !returnDepartTimeIso) {
       Promise.resolve().then(() => setReturnRainWindow(null));
@@ -413,6 +447,20 @@ export default function PlanScreen() {
         </Pressable>
       </FormSection>
 
+      {/* Mode sits above When deliberately: how you're travelling is what
+          decides how long the trip takes, and the When section's hourly
+          outlook is computed from that duration — picking the time first
+          means picking it against an outlook the next tap invalidates. */}
+      <FormSection title="Mode">
+        <View style={styles.row}>
+          {MODES.map((m) => (
+            <Pressable key={m} onPress={() => setMode(m)} style={[styles.modeChip, mode === m && styles.modeChipActive]}>
+              <Text style={[styles.modeChipLabel, mode === m && styles.modeChipLabelActive]}>{MODE_LABEL[m]}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </FormSection>
+
       <FormSection title="When">
         <View style={styles.row}>
           {TIME_MODES.map((tm) => (
@@ -439,8 +487,14 @@ export default function PlanScreen() {
             />
           </View>
         )}
-        {origin && selectedDepartTimeIso && (
-          <HourlyStrip origin={{ lat: origin.lat, lng: origin.lng }} fromIso={selectedDepartTimeIso} />
+        {origin && destination && selectedDepartTimeIso && (
+          <HourlyOutlook
+            origin={origin}
+            waypoints={waypoints}
+            destination={destination}
+            mode={mode}
+            departTimeIso={selectedDepartTimeIso}
+          />
         )}
 
         {timeMode === "leave-by" && (
@@ -463,51 +517,51 @@ export default function PlanScreen() {
         )}
       </FormSection>
 
-      <FormSection title="Mode">
-        <View style={styles.row}>
-          {MODES.map((m) => (
-            <Pressable key={m} onPress={() => setMode(m)} style={[styles.modeChip, mode === m && styles.modeChipActive]}>
-              <Text style={[styles.modeChipLabel, mode === m && styles.modeChipLabelActive]}>{MODE_LABEL[m]}</Text>
+      {/* One "Preferences" card used to hold the dress code, the spare layer
+          and the save-route bookmark together. They aren't one decision: the
+          first two change what gets recommended, the third only decides
+          whether the route is remembered afterwards. Split into their own
+          sections, with saving moved down beside the button that acts on it. */}
+      <FormSection title="Dress code">
+        <Text style={styles.hint}>
+          Formal prefers dress shoes and anything tagged formal, and skips the bulky wind layer.
+        </Text>
+        <View style={styles.segmentRow}>
+          {FORMAL_OPTIONS.map((option) => (
+            <Pressable
+              key={String(option.value)}
+              onPress={() => setFormal(option.value)}
+              style={[styles.segment, formal === option.value && styles.segmentActive]}
+              accessibilityRole="button"
+              // The selected state goes in the *label*, not accessibilityState:
+              // react-native-web drops accessibilityState for role="button"
+              // entirely (verified in the DOM — no aria-pressed, no
+              // aria-selected), which would leave the choice conveyed by fill
+              // colour alone, exactly what §9.6 rules out.
+              accessibilityLabel={`Dress code: ${option.label}${formal === option.value ? ", selected" : ""}`}
+            >
+              <Text style={[styles.segmentLabel, formal === option.value && styles.segmentLabelActive]}>{option.label}</Text>
             </Pressable>
           ))}
         </View>
-        <View>
-          <Pressable onPress={() => setMoreModesOpen((v) => !v)} accessibilityRole="button" accessibilityLabel="More modes">
-            <Text style={styles.moreModesLabel}>{moreModesOpen ? "▾" : "▸"} More modes</Text>
-          </Pressable>
-          {moreModesOpen && (
-            <Text style={styles.moreModesNote}>
-              Hike mode isn&apos;t available yet — walking, driving, bus, train, and cycling are ready to plan.
-            </Text>
-          )}
-        </View>
       </FormSection>
 
-      <FormSection title="Preferences">
-        <FormRow label="Formal occasion">
-          <Switch value={formal} onValueChange={setFormal} />
-        </FormRow>
-
-        <View>
-          <Text style={styles.label}>Spare layer</Text>
-          <Text style={styles.hint}>Whether to suggest packing a removable layer for this trip.</Text>
-          <View style={styles.segmentRow}>
-            {CARRY_PREFERENCE_OPTIONS.map((option) => (
-              <Pressable
-                key={option.value}
-                onPress={() => setCarryPreference(option.value)}
-                style={[styles.segment, carryPreference === option.value && styles.segmentActive]}
-              >
-                <Text style={[styles.segmentLabel, carryPreference === option.value && styles.segmentLabelActive]}>{option.label}</Text>
-              </Pressable>
-            ))}
-          </View>
+      <FormSection title="Spare layer">
+        <Text style={styles.hint}>Whether to suggest packing a removable layer for this trip.</Text>
+        <View style={styles.segmentRow}>
+          {CARRY_PREFERENCE_OPTIONS.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => setCarryPreference(option.value)}
+              style={[styles.segment, carryPreference === option.value && styles.segmentActive]}
+              accessibilityRole="button"
+              // Selected state in the label — see the dress-code segments above.
+              accessibilityLabel={`Spare layer: ${option.label}${carryPreference === option.value ? ", selected" : ""}`}
+            >
+              <Text style={[styles.segmentLabel, carryPreference === option.value && styles.segmentLabelActive]}>{option.label}</Text>
+            </Pressable>
+          ))}
         </View>
-
-        <Pressable onPress={() => setSaveThisRoute((v) => !v)} style={styles.saveRouteRow} accessibilityRole="button" accessibilityLabel="Save this route">
-          <ActionIcon kind="bookmark" size={20} color={saveThisRoute ? theme.accentWalk : theme.textSecondary} filled={saveThisRoute} />
-          <Text style={styles.label}>Save this route</Text>
-        </Pressable>
       </FormSection>
 
       {/* One card holds both the toggle and (when on) the time picker below
@@ -540,8 +594,17 @@ export default function PlanScreen() {
                 placeholder="HH:mm"
               />
             </View>
-            {destination && returnDepartTimeIso && (
-              <HourlyStrip origin={{ lat: destination.lat, lng: destination.lng }} fromIso={returnDepartTimeIso} />
+            {/* The return trip runs the same route backwards, so its outlook
+                takes the reversed stop order — the destination is where you
+                set off from on the way home. */}
+            {origin && destination && returnDepartTimeIso && (
+              <HourlyOutlook
+                origin={destination}
+                waypoints={[...waypoints].reverse()}
+                destination={origin}
+                mode={mode}
+                departTimeIso={returnDepartTimeIso}
+              />
             )}
             {returnRainWindow && (
               <View style={styles.rainSuggestion}>
@@ -555,6 +618,23 @@ export default function PlanScreen() {
           </View>
         )}
       </View>
+
+      {/* Last thing before the button that acts on it — saving is a decision
+          about this route as a whole, so it only really makes sense once the
+          route above it is settled. */}
+      <Pressable
+        onPress={() => setSaveThisRoute((v) => !v)}
+        style={styles.saveRouteRow}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: saveThisRoute }}
+        // State repeated in the label because react-native-web emits neither
+        // aria-checked nor aria-pressed here (verified in the DOM), so without
+        // it the only signal that this is on is the bookmark's fill colour.
+        accessibilityLabel={saveThisRoute ? "Save this route, on" : "Save this route, off"}
+      >
+        <ActionIcon kind="bookmark" size={20} color={saveThisRoute ? theme.accentWalk : theme.textSecondary} filled={saveThisRoute} />
+        <Text style={styles.label}>Save this route</Text>
+      </Pressable>
 
       <Pressable onPress={handlePlanJourney} disabled={planning} style={[styles.planButton, planning && styles.planButtonDisabled]}>
         {planning ? <ActivityIndicator color={theme.bg} /> : <Text style={styles.planButtonLabel}>Plan journey</Text>}
@@ -631,8 +711,6 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     modeChipActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
     modeChipLabel: { fontSize: 13, color: theme.textPrimary },
     modeChipLabelActive: { color: "#FFFFFF", fontWeight: "600" },
-    moreModesLabel: { color: theme.textSecondary, fontSize: 12, marginTop: 8 },
-    moreModesNote: { color: theme.textSecondary, fontSize: 12, marginTop: 4 },
     returnCard: {
       marginTop: 16,
       padding: 12,

@@ -172,11 +172,17 @@ export async function getHourlyForecast(
   if ("error" in result) return result;
 
   const hourly = result.data[0].hourly;
-  const fromMs = new Date(fromIso).getTime();
+  // The hour `fromIso` falls *inside*, not the next one to start. Comparing
+  // against the raw instant skipped the current hour for all but the first
+  // second of it — asking at 3:05pm returned a strip beginning 4pm, so the
+  // outlook labelled a row "leaving 3pm" and then showed 4pm's weather next
+  // to it. Flooring to the hour boundary first makes the first reading the
+  // one the user is actually living through.
+  const fromHourMs = Math.floor(new Date(fromIso).getTime() / 3_600_000) * 3_600_000;
   // Open-Meteo's hourly.time entries have no timezone suffix under
   // timezone=UTC — appending "Z" is what makes them parse as UTC instead
   // of the runtime's local time (same quirk nearestHourlyIndex() handles).
-  const startIndex = hourly.time.findIndex((t) => new Date(`${t}Z`).getTime() >= fromMs);
+  const startIndex = hourly.time.findIndex((t) => new Date(`${t}Z`).getTime() >= fromHourMs);
   if (startIndex === -1) return { data: [] };
 
   const data: HourlyReading[] = hourly.time.slice(startIndex, startIndex + hours).map((time, i) => {
