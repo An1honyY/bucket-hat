@@ -3,11 +3,10 @@ import type { LocationOutlook } from "../lib/useLocationOutlooks";
 import { useTimeFormatStore } from "../lib/useTimeFormatStore";
 import useTheme from "../theme/useTheme";
 import { RADIUS, SPACING } from "../theme/typography";
+import HourlyForecastRow from "./HourlyForecastRow";
 import ActionIcon from "./ActionIcon";
-import RainGauge from "./RainGauge";
 import WeatherKey from "./WeatherKey";
-import { collectKeyEntries, formatHourLabel, iconKindFor } from "../lib/outlookDisplay";
-import { WEATHER_ICON_LABEL } from "./WeatherIcon";
+import { collectKeyEntries, formatHourLabel } from "../lib/outlookDisplay";
 
 // The "Full outlook" panel — every location on the trip, each with its
 // complete hourly strip, sliding in from the right.
@@ -66,23 +65,13 @@ export default function HourlyOutlookPanel({ outlooks, onClose }: Props) {
                   {outlook.location.label}
                 </Text>
                 <Text style={styles.fromNote}>from {formatHourLabel(outlook.atIso, hour12)}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stripContent}>
-                  {outlook.readings.map((reading) => (
-                    <RainGauge
-                      key={reading.time}
-                      hour={formatHourLabel(reading.time, hour12)}
-                      rainIntensity={reading.rainIntensity}
-                      tempC={reading.tempC}
-                      precipMm={reading.precipMm}
-                      conditionKind={iconKindFor(reading)}
-                      conditionLabel={WEATHER_ICON_LABEL[iconKindFor(reading)]}
-                    />
-                  ))}
-                </ScrollView>
+                <HourlyForecastRow readings={outlook.readings} nowIso={outlook.atIso} />
               </View>
             ))}
 
-            <WeatherKey rainBuckets={rainBuckets} skyKinds={skyKinds} />
+            <View style={[styles.block, styles.keyBlock]}>
+              <WeatherKey rainBuckets={rainBuckets} skyKinds={skyKinds} />
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -111,11 +100,22 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     },
     heading: { fontSize: 17, fontWeight: "600", color: theme.textPrimary },
     close: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
-    body: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl, gap: SPACING.lg },
-    block: { gap: 2 },
+    body: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl, gap: SPACING.md },
+    // Matches LocalForecastPanel — one card per location instead of stacked
+    // runs of text, so each strip has an edge to scroll against. Fill and
+    // border both, since `surface` and `surfaceRaised` are the same white in
+    // the light theme and only the border separates them there.
+    block: {
+      gap: 2,
+      backgroundColor: theme.surface,
+      borderRadius: RADIUS.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: SPACING.md,
+    },
+    keyBlock: { paddingTop: 0 },
     roleLabel: { fontSize: 10, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase" },
     locationName: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
     fromNote: { fontSize: 11, color: theme.textSecondary, marginBottom: 6 },
-    stripContent: { gap: 12, paddingRight: 4 },
   });
 }

@@ -159,11 +159,23 @@ function pickCandidate(
 // one, rather than telling someone who's never touched the Gear tab that
 // they own "no available X" — that reads as a complaint about ownership
 // they never claimed.
-const GENERIC_LAYER_TEXT: Record<LayerType, string> = {
-  jacket: "A jacket will do the trick",
-  midlayer: "Wear a midlayer",
-  base: "A base layer works",
-};
+// Bare noun phrases — "Warm jacket", not "Wear a warm jacket". These render
+// under a "What to wear" heading, so the verb was being said twice on every
+// line and cost width in a chip that has little to spare.
+//
+// Warmth-aware, because the same three slots mean different things at 1°C and
+// 14°C: at the top of the scale the plan is a full cold-weather stack and the
+// copy should say "warm", lower down it's just a layer. Keyed on the same
+// warmthLevel that chose the slots in the first place (layerPlanForWarmthLevel),
+// so the words and the plan can't drift apart.
+const COLD_STACK_LEVEL = 3;
+
+function genericLayerText(type: LayerType, warmthLevel: 0 | 1 | 2 | 3 | 4): string {
+  const cold = warmthLevel >= COLD_STACK_LEVEL;
+  if (type === "jacket") return cold ? "Warm jacket" : "Jacket";
+  if (type === "midlayer") return cold ? "Midlayer" : "Light midlayer";
+  return cold ? "Warm base layer" : "Base layer";
+}
 // Gear is set up, but nothing in this category currently fits (none owned,
 // or what's owned is unavailable/doesn't match) — name the gap and suggest
 // a practical workaround, same pattern the umbrella fallback already used.
@@ -181,12 +193,13 @@ function pickLayer(
   requirePackable: boolean,
   departTime: string,
   hasNoGearSetup: boolean,
+  warmthLevel: 0 | 1 | 2 | 3 | 4,
   preferTags: string[] = []
 ): LayerPick {
   const picked = pickCandidate(inventory, type, targetWarmth, needsWaterproof, requirePackable, departTime, preferTags);
   if (picked) return picked;
   return {
-    fallbackText: hasNoGearSetup ? GENERIC_LAYER_TEXT[type] : WORKAROUND_LAYER_TEXT[type],
+    fallbackText: hasNoGearSetup ? genericLayerText(type, warmthLevel) : WORKAROUND_LAYER_TEXT[type],
     layerType: type,
     isGenericAssumption: hasNoGearSetup || undefined,
   };
@@ -322,6 +335,7 @@ export function recommendGear(
     (s) => isAvailable(s, journey.departTime) && (shoesNeedWaterproof ? s.waterproof : true)
   );
   let shoes: Recommendation["shoes"];
+  let needsGenericShoeText = false;
   if (isFormal) {
     const formalShoe = inventory.shoes.find((s) => s.type === "formal" && isAvailable(s, journey.departTime));
     if (formalShoe) {
@@ -336,7 +350,11 @@ export function recommendGear(
     if (pickedShoe) {
       shoes = pickedShoe;
     } else if (!shoesNeedWaterproof) {
-      shoes = { fallbackText: "Any regular shoes fine" };
+      // Text deferred: this generic line is warmth-aware ("Warm socks and any
+      // shoes" at 1°C reads very differently from "Any regular shoes fine"),
+      // but warmthLevel isn't final until the environment deltas below have
+      // been applied. Flagged here, worded once the number settles.
+      needsGenericShoeText = true;
     } else if (hasNoShoesSetup) {
       shoes = { fallbackText: "Waterproof shoes recommended", isGenericAssumption: true };
     } else {
@@ -457,6 +475,7 @@ export function recommendGear(
       requirePackable,
       journey.departTime,
       hasNoClothingSetup,
+      warmthLevel,
       preferTags
     )
   );
@@ -487,7 +506,23 @@ export function recommendGear(
       notes.push(`Warm one today — your ${breathableTop.name} will breathe better than a heavier top`);
     } else {
       notes.push("Warm enough today that something breathable and light-coloured will feel better than your usual pick");
+      // The layer plan is empty at this level, so without this the card had
+      // nothing at all to say about tops on a hot day — just shoes. Say the
+      // useful thing outright rather than leaving a gap.
+      layers = [{ fallbackText: "Single layer — it's hot", layerType: "base", isGenericAssumption: true }];
     }
+  }
+
+  // Deferred from the shoes block above, now that warmthLevel is final.
+  if (needsGenericShoeText) {
+    shoes = {
+      fallbackText:
+        warmthLevel >= COLD_STACK_LEVEL
+          ? "Warm socks and any shoes"
+          : isHot
+            ? "Breathable shoes"
+            : "Any regular shoes fine",
+    };
   }
 
   // 4.5. Legwear (§7.13) — always attempts a pick now, matching shoes'

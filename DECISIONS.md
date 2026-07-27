@@ -93,6 +93,10 @@ one by date — don't edit the old entry.
 - 2026-07-27 — Route-rail markers centred on the field box; origin pin, destination flag (§9.4) [design]
 - 2026-07-27 — Hourly outlook rebuilt per-location with route ETAs; icons from raw WMO code (§9.5) [design]
 - 2026-07-27 — Plan screen reordered (Mode before When); More modes removed; Preferences split; formal is now a labelled segmented control (§4.3, §9.6) [design]
+- 2026-07-27 — Today gains an hourly forecast card + 48h/7-day panel, reversing the 2026-07-21 Plan-only call; Right now keeps stale data through refreshes (§4.2, §9.5) [design]
+- 2026-07-27 — HorizontalStrip: forecast rows were unscrollable by mouse on web; side panels containerized (§9.5, §9.6) [bug fix]
+- 2026-07-27 — Day labels inside the scrolling hourly rows; §9.1's severity→condition colour lookup finally built; header buttons given a target (§9.1, §9.5) [design]
+- 2026-07-28 — Gear glyphs for gloves/hat/midlayer; generic gear copy is bare noun phrases and warmth-aware (§7, §9.3.1) [design]
 
 ---
 
@@ -1391,5 +1395,144 @@ state is now carried in `accessibilityLabel` on all three controls. Prefer that
 over `accessibilityState` for any new toggle here until RNW is verified to emit
 it. `MODE_LABEL` keeps its `hike` entry: the type still includes it (Phase 20),
 it just has no chip.
+
+---
+
+---
+
+## 2026-07-27 — Today gains an hourly forecast card and a 48h/7-day panel, reversing the 2026-07-21 Plan-only call; Right now keeps its reading through refreshes (§4.2, §9.5)
+
+**What**: Today now has a second weather card — the next 8 hours for the
+current suburb, with a right-side panel holding a 48-hour strip and a 7-day
+list. The Right now card no longer blanks to a spinner when its cached reading
+goes stale; it keeps showing the stored reading and its "as of" stamp while a
+refresh runs behind it. Adds a 15-minute auto-refresh while Today is focused
+and pull-to-refresh.
+
+**Why**: this directly reverses the 2026-07-21 entry that kept the hourly strip
+off Today on the grounds that §9.3.1 frames Right now as "just current
+conditions". That entry explicitly left the call to whoever touched Today next
+— this is that pass, and it was user-requested. Right now keeps its narrow
+scope; the forecast lives in its own card rather than being folded into it.
+Separately, `loading: true` on every stale refetch threw away a perfectly good
+reading the user could still act on, in exchange for a spinner.
+
+**Resolution**: `loading` is now the cold start only — it is set in exactly one
+place, the initial empty state — and background updates use `refreshing`, which
+drives pull-to-refresh and an "updating…" suffix but never clears the card. A
+failed refresh keeps the stale reading rather than surfacing an error. The
+15-minute cadence is derived from Open-Meteo's published model table (checked
+2026-07-27: GFS/HRRR/UKMO/AROME hourly, ICON 3-hourly, IFS/GEM 6-hourly), so
+nothing displayed changes faster than hourly and polling harder buys nothing;
+re-derive from that table rather than tuning the number by feel. All three
+cards are fed by one `getLocalOutlook()` call — current snapshot, 48h hourly
+and 7 days come out of a single response the shared fetch was already pulling,
+so the cards cannot disagree about the weather. Note `past_days=1` is on that
+request for `recentPrecipMm6h`, so the daily block leads with yesterday and is
+filtered to today onward.
+
+---
+
+---
+
+## 2026-07-27 — HorizontalStrip: forecast rows could not be scrolled with a mouse on web; side panels containerized (§9.5, §9.6)
+
+**What**: every horizontal forecast row now renders through `HorizontalStrip`,
+a platform-split component. Native is a plain horizontal `ScrollView`; the web
+build adds wheel-to-scroll and click-drag-to-pan. Both side panels' sections
+are now separate bordered cards rather than runs of text on one background.
+
+**Why**: with `showsHorizontalScrollIndicator={false}` the rows were genuinely
+unusable with a mouse — a wheel only scrolls a horizontal container with shift
+held, drag doesn't pan a scroll container at all, and there was no visible bar
+to grab. The row was scrollable in principle and unreachable in practice. An
+earlier attempt to fix discoverability with a "swipe across" hint addressed the
+wrong half of the problem: it said scrolling was possible without making it so.
+
+**Resolution**: the web handler yields the wheel at either end so the page can
+still scroll past the row, with a 1px tolerance — `scrollWidth`/`clientWidth`
+are integers while `scrollLeft` is fractional, and exact equality left the row
+one sub-pixel short of its maximum, swallowing the gesture forever. Drag is
+mouse-only; touch and pen already pan natively and hijacking them would kill
+momentum scrolling. Panel section cards use fill *and* border because
+`surface` and `surfaceRaised` are both `#FFFFFF` in the light theme, where only
+the border separates them. Separately, `LocalForecastCard` resolves its own
+`useWeatherTheme` instead of taking TodayScreen's pre-computed value the way
+JourneyCard does — taking the prop rendered it in the dark mood palette while
+the light theme was active, measured in the DOM (`#1C2C4A` against white
+neighbours). The cause of that divergence was not identified; if JourneyCard
+ever shows the same symptom, this is the known-good pattern.
+
+---
+
+---
+
+## 2026-07-27 — Day labels inside the scrolling hourly rows; §9.1's severity→condition colour lookup finally built; header buttons given a visible target (§9.1, §9.5)
+
+**What**: every hourly row now renders through `HourlyForecastRow`, which
+splits readings into day groups and puts the day's name at the head of each
+group. Weather icons take a condition-derived colour from a new
+`theme/conditionColor.ts`. Header buttons sit on a tinted disc, and the
+`settings` glyph gained an explicit `fill="none"`.
+
+**Why**: the rows had no date anchor at all, so hour 30 of a 48-hour strip was
+unplaceable. Colour-wise, §9.1 has always said to "map classifyWeather()'s
+severity (0–4) directly to the active theme's condition* tokens via a lookup
+array" — the lookup was never written, so every surface drew its icons in one
+flat `textSecondary` and the forecast read as a grey grid with nothing to catch
+the eye.
+
+**Resolution**: day labels live *inside* the scrolling content rather than
+pinned above the row, so each tracks its own hours — scroll to the next day and
+its label arrives over that day's first column, midnight. A sticky label would
+need measurement plumbing neither platform gives cheaply, and a single label
+above the strip goes stale the moment you scroll. Colour is keyed on the
+rendered icon kind, not severity: the rows resolve glyphs from the raw WMO code
+(`hourlyIconKindForCode`), so severity would have coloured the new
+partly-cloudy and snow glyphs by whichever bucket their code lands in.
+`conditionColorForSeverity` exists alongside it for callers that genuinely
+start from severity. Two traps worth knowing: `uvBadge` and `conditionLight`
+are the same `#FFD23F` in the dark theme, so clear-day and partly-cloudy-day
+must not both use a yellow; and severity 0 maps to the deliberately muted
+`conditionDry`, which made Right now's hero icon *dimmer* than the plain
+`textPrimary` it replaced — that card colours from its glyph instead. The
+`settings` fill fix is cross-platform: an unset `fill` inherits `none` from the
+root `<Svg>` on web but paints solid black in react-native-svg, which is why
+the cog measured near-white in the browser and was reported as black on device.
+
+---
+
+---
+
+## 2026-07-28 — Gear glyphs for gloves/hat/midlayer; generic gear copy is bare noun phrases and warmth-aware (§7, §9.3.1)
+
+**What**: `accessoryIconKind` now resolves gloves and hats to their own glyphs
+instead of falling through to a backpack, and `midlayer` is a long-sleeved
+jumper rather than an abstract gilet outline. The Right now card's picks are a
+labelled "What to wear" subsection of chips. `GENERIC_LAYER_TEXT` became
+`genericLayerText(type, warmthLevel)` — bare noun phrases that change with the
+temperature.
+
+**Why**: the cold-weather line "Consider gloves/a hat — it's cold out" drew a
+*bag*, because only sunglasses were ever matched. The old copy was also
+warmth-blind — "A jacket will do the trick" read the same at 1°C and 14°C — and
+phrased as observation rather than instruction, so the reader had to translate
+it. Under a "What to wear" heading, "Wear a" was then saying the verb twice.
+
+**Resolution**: matching order in `accessoryIconKind` matters, because both
+engine strings name more than one garment ("sunglasses/a hat", "gloves/a hat")
+— sunglasses and gloves are tested first so the hat glyph is left for text that
+only says hat. Copy keys off the same `warmthLevel` that picked the slots, so
+words and plan can't drift; `COLD_STACK_LEVEL` is the one threshold to move.
+Warmth level 0 previously produced *no* layer line at all, so hot days said
+nothing about tops — it now emits "Single layer — it's hot". Two tests pin both
+ends of the scale, since the hot branch is unreachable by hand in an Auckland
+winter. Icon shapes went through several rejected attempts, worth not repeating:
+fingered gloves turn to mush at 15px (mitt with the thumb as part of one
+continuous outline reads best — a thumb drawn as a separate stroke leaves the
+body's edge between them and looks detached); a beanie needs height and a flush
+ribbed band or it reads as a serving dome; and a midlayer with short flared
+sleeves is indistinguishable from `base`. Tabler's jacket and shoe were tried
+as hand-drawn replacements and reverted — the originals were better.
 
 ---

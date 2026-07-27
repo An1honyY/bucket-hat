@@ -22,8 +22,26 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 // buttons use theme.textPrimary (matching the header title's color, not
 // the accent — accent stays reserved for the active tab / primary
 // interactive emphasis elsewhere in the app).
-const headerButtonStyle = { minHeight: 44, minWidth: 44, alignItems: "center" as const, justifyContent: "center" as const };
 const headerButtonRowStyle = { flexDirection: "row" as const, gap: 8, marginRight: 4 };
+
+// A bare 22px stroke glyph on the header was easy to miss — thin lines on a
+// large flat header read as decoration rather than something tappable, and
+// there was nothing marking the 44px target. A tinted disc behind each icon
+// gives the button an edge and lifts the glyph off the background without
+// spending the accent colour, which stays reserved for the active tab and
+// primary actions.
+function headerButtonStyle(theme: ReturnType<typeof useTheme>) {
+  return {
+    minHeight: 44,
+    minWidth: 44,
+    borderRadius: 22,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+  };
+}
 
 function TodayHeaderButtons() {
   const theme = useTheme();
@@ -32,7 +50,7 @@ function TodayHeaderButtons() {
     <View style={headerButtonRowStyle}>
       <Pressable
         onPress={() => navigation.navigate("Settings")}
-        style={headerButtonStyle}
+        style={headerButtonStyle(theme)}
         accessibilityRole="button"
         accessibilityLabel="Settings"
       >
@@ -40,7 +58,7 @@ function TodayHeaderButtons() {
       </Pressable>
       <Pressable
         onPress={() => navigation.navigate("History")}
-        style={headerButtonStyle}
+        style={headerButtonStyle(theme)}
         accessibilityRole="button"
         accessibilityLabel="History"
       >
@@ -57,7 +75,7 @@ function LocalKnowledgeButton() {
     <View style={headerButtonRowStyle}>
       <Pressable
         onPress={() => navigation.navigate("LocalKnowledge")}
-        style={headerButtonStyle}
+        style={headerButtonStyle(theme)}
         accessibilityRole="button"
         accessibilityLabel="Local knowledge"
       >

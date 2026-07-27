@@ -40,8 +40,25 @@ interface OpenMeteoHourly {
   is_day: number[];
 }
 
+// Day-level aggregates for the Today screen's 7-day list. Requested on the
+// same call as the hourly block — Open-Meteo bills nothing and the response
+// already carries 16 days of hourly data, so a handful of daily arrays is a
+// rounding error on a payload we're fetching anyway.
+const DAILY_VARS = ["weather_code", "temperature_2m_max", "temperature_2m_min", "precipitation_sum"].join(",");
+
+interface OpenMeteoDaily {
+  time: string[]; // YYYY-MM-DD
+  weather_code: number[];
+  temperature_2m_max: number[];
+  temperature_2m_min: number[];
+  precipitation_sum: number[];
+}
+
 interface OpenMeteoLocationResponse {
   hourly: OpenMeteoHourly;
+  // Optional because every existing caller ignores it, and a dev-override or
+  // a trimmed test fixture may not include it.
+  daily?: OpenMeteoDaily;
 }
 
 // Open-Meteo returns local (no-offset) timestamps even under timezone=UTC —
@@ -89,7 +106,7 @@ async function fetchOpenMeteoHourly(latitude: string, longitude: string): Promis
 
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
-    `&hourly=${HOURLY_VARS}&timezone=UTC&forecast_days=16&past_days=1`;
+    `&hourly=${HOURLY_VARS}&daily=${DAILY_VARS}&timezone=UTC&forecast_days=16&past_days=1`;
 
   let response: Response;
   try {
@@ -199,4 +216,99 @@ export async function getHourlyForecast(
   });
 
   return { data };
+}
+
+// One day of the Today screen's week list.
+export interface DailyReading {
+  date: string; // YYYY-MM-DD, as returned — a calendar day, not an instant
+  weatherCode: number;
+  tempMaxC: number;
+  tempMinC: number;
+  precipMm: number;
+}
+
+export interface LocalOutlook {
+  current: WeatherSnapshot;
+  hourly: HourlyReading[];
+  daily: DailyReading[];
+}
+
+// Everything the Today screen needs about "here", from a single request.
+//
+// Today used to be able to make three separate Open-Meteo calls for one
+// location — the Right now snapshot, and then an hourly and a daily read for
+// the forecast card. They all come out of the same response body (the shared
+// fetch already asks for 16 days of hourly and now the daily block too), so
+// splitting them was three round-trips to slice one payload three ways.
+// Keeping it as one call also means the two cards can never disagree about
+// what the weather is, which they could when each fetched independently.
+export async function getLocalOutlook(
+  point: { lat: number; lng: number },
+  hourlyHours: number,
+  dailyDays: number
+): Promise<ServiceResult<LocalOutlook>> {
+  const result = await fetchOpenMeteoHourly(String(point.lat), String(point.lng));
+  if ("error" in result) return result;
+
+  const location = result.data[0];
+  const hourly = location.hourly;
+  const nowIso = new Date().toISOString();
+  const nowMs = new Date(nowIso).getTime();
+
+  const currentIndex = nearestHourlyIndex(hourly.time, nowIso);
+  const current: WeatherSnapshot = {
+    time: nowIso,
+    weatherCode: hourly.weather_code[currentIndex],
+    precipMm: hourly.precipitation[currentIndex],
+    precipProbability: hourly.precipitation_probability[currentIndex],
+    tempC: hourly.temperature_2m[currentIndex],
+    apparentTempC: hourly.apparent_temperature[currentIndex],
+    windKph: hourly.wind_speed_10m[currentIndex],
+    windGustKph: hourly.wind_gusts_10m[currentIndex],
+    relativeHumidityPct: hourly.relative_humidity_2m[currentIndex],
+    uvIndex: hourly.uv_index[currentIndex],
+    isDaylight: hourly.is_day[currentIndex] === 1,
+    forecastConfidence: forecastConfidence(nowIso, nowIso),
+    recentPrecipMm6h: sumRecentPrecipMm6h(hourly, nowMs),
+  };
+
+  // Same containing-hour rule getHourlyForecast uses — start on the hour the
+  // user is living through, not the next one to begin.
+  const fromHourMs = Math.floor(nowMs / 3_600_000) * 3_600_000;
+  const startIndex = hourly.time.findIndex((t) => new Date(`${t}Z`).getTime() >= fromHourMs);
+  const hourlyReadings: HourlyReading[] =
+    startIndex === -1
+      ? []
+      : hourly.time.slice(startIndex, startIndex + hourlyHours).map((time, i) => {
+          const index = startIndex + i;
+          return {
+            time: `${time}Z`,
+            tempC: hourly.temperature_2m[index],
+            weatherCode: hourly.weather_code[index],
+            precipMm: hourly.precipitation[index],
+            windKph: hourly.wind_speed_10m[index],
+            rainIntensity: rainIntensityBucket(hourly.precipitation[index], hourly.precipitation_probability[index]),
+            isDaylight: hourly.is_day[index] === 1,
+          };
+        });
+
+  // past_days=1 is on the shared request for recentPrecipMm6h, so the daily
+  // block leads with *yesterday* — drop anything before today rather than
+  // showing a week that starts in the past.
+  const todayDate = nowIso.slice(0, 10);
+  const daily = location.daily;
+  const dailyReadings: DailyReading[] = !daily
+    ? []
+    : daily.time
+        .map((date, i) => ({
+          date,
+          weatherCode: daily.weather_code[i],
+          tempMaxC: daily.temperature_2m_max[i],
+          tempMinC: daily.temperature_2m_min[i],
+          precipMm: daily.precipitation_sum[i],
+        }))
+        .filter((d) => d.date >= todayDate)
+        .slice(0, dailyDays);
+
+  return { data: { current, hourly: hourlyReadings, daily: dailyReadings } };
 }

@@ -1,0 +1,103 @@
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { DailyReading, HourlyReading } from "../../services/weatherService";
+import type { WeatherSnapshot } from "../../types";
+import { cardElevationStyle, type ThemeTokens } from "../../theme/tokens";
+import useWeatherTheme from "../../theme/useWeatherTheme";
+import { RADIUS, SPACING } from "../../theme/typography";
+import HourlyForecastRow from "../../components/HourlyForecastRow";
+import LocalForecastPanel from "./LocalForecastPanel";
+
+// Today's hourly forecast for wherever the user is — the hours right ahead of
+// them, with a button opening the full 48-hour and 7-day view.
+//
+// This deliberately reverses the 2026-07-21 call that kept an hourly strip off
+// Today ("§9.3.1 says just current conditions"). That entry left the door open
+// for whoever touched Today next, and this is that pass: the Right now card
+// still answers "what is it like *now*", and this card answers "what happens
+// next" without changing what Right now shows.
+//
+// Only the first few hours are on the card. The rest is a tap away rather than
+// a longer horizontal scroll, since Today is a dashboard — the point is a
+// glance, not a study.
+const HOURS_ON_CARD = 8;
+
+interface Props {
+  suburb: string | null;
+  hourly: HourlyReading[];
+  daily: DailyReading[];
+  // The same snapshot the Right now card renders, used only to resolve the
+  // weather-reactive mood.
+  //
+  // Resolved here rather than accepted pre-computed from TodayScreen, which is
+  // what JourneyCard does. Taking the prop rendered this card in the *dark*
+  // mood palette while the light theme was active and every neighbouring card
+  // was white — reproduced by measuring the DOM, not just eyeballed. Calling
+  // the hook here, exactly as RightNowCard does, gives the same mood for the
+  // same weather and tracks the light/dark switch correctly.
+  weather: WeatherSnapshot | null;
+}
+
+export default function LocalForecastCard({ suburb, hourly, daily, weather }: Props) {
+  const theme = useWeatherTheme(weather);
+  const styles = getStyles(theme);
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  // Same omit-rather-than-placeholder rule the rest of this app uses: with no
+  // readings there is nothing to show, so the card doesn't appear at all.
+  if (hourly.length === 0) return null;
+
+  const onCard = hourly.slice(0, HOURS_ON_CARD);
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Hourly forecast</Text>
+          {suburb && <Text style={styles.suburbLabel}>{suburb}</Text>}
+        </View>
+        <Pressable
+          onPress={() => setPanelOpen(true)}
+          style={styles.moreButton}
+          accessibilityRole="button"
+          accessibilityLabel="Open the 48 hour and 7 day forecast"
+        >
+          <Text style={styles.moreLabel}>48h &amp; week</Text>
+        </Pressable>
+      </View>
+
+      <HourlyForecastRow readings={onCard} />
+
+      {panelOpen && (
+        <LocalForecastPanel suburb={suburb} hourly={hourly} daily={daily} onClose={() => setPanelOpen(false)} />
+      )}
+    </View>
+  );
+}
+
+function getStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    card: {
+      padding: SPACING.lg,
+      borderRadius: RADIUS.card,
+      backgroundColor: theme.surfaceRaised,
+      gap: SPACING.sm,
+      marginBottom: SPACING.lg,
+      ...cardElevationStyle(theme),
+    },
+    headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
+    headerText: { flexShrink: 1 },
+    title: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
+    suburbLabel: { fontSize: 12, color: theme.textSecondary },
+    moreButton: {
+      minHeight: 32,
+      justifyContent: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: RADIUS.pill,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    moreLabel: { fontSize: 11, fontWeight: "600", color: theme.accentWalk },
+  });
+}

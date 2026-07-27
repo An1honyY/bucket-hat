@@ -23,6 +23,8 @@ export type ClothingIconKind =
   | "shoe"
   | "umbrella"
   | "sunglasses"
+  | "gloves"
+  | "hat"
   | "accessory"
   | "vehicle";
 
@@ -34,11 +36,24 @@ interface Props {
 
 // A picked/fallback accessory's `name`/`fallbackText` is free text with no
 // further discriminated subtype (§3's ClothingItem has no accessory
-// sub-kind) — recommend.ts's own fallback copy already says "sunglasses/a
-// hat", so a name/text match is the only signal available without a schema
-// change. Anything that doesn't match reads as the generic accessory glyph.
+// sub-kind), so a name/text match is the only signal available without a
+// schema change.
+//
+// Only sunglasses were matched before, which meant recommend.ts's cold-weather
+// line — "Consider gloves/a hat — it's cold out" — fell through to the generic
+// glyph, a *backpack*. Nothing about that advice involves carrying a bag.
+//
+// Order matters, because both engine strings name more than one garment:
+// "UV is high — sunglasses/a hat recommended" and "Consider gloves/a hat —
+// it's cold out" each mention a hat, so sunglasses and gloves are tested first
+// and the hat glyph is left for text that only says hat (a user-named "Beanie"
+// or "Wool hat"). The generic bag now only appears for an accessory that
+// really is a carried thing.
 export function accessoryIconKind(text: string): ClothingIconKind {
-  return /sunglasses/i.test(text) ? "sunglasses" : "accessory";
+  if (/sunglass|shades/i.test(text)) return "sunglasses";
+  if (/glove|mitten/i.test(text)) return "gloves";
+  if (/hat|beanie|cap\b|toque/i.test(text)) return "hat";
+  return "accessory";
 }
 
 const PATHS: Record<ClothingIconKind, { d: string[]; lines?: { x1: number; y1: number; x2: number; y2: number }[]; rects?: { x: number; y: number; w: number; h: number; rx: number }[] }> = {
@@ -53,13 +68,20 @@ const PATHS: Record<ClothingIconKind, { d: string[]; lines?: { x1: number; y1: n
       "M12,19v-11",
     ],
   },
-  // Hand-drawn — a sleeveless vest/gilet, distinguished from the jacket by
-  // its cut-away armholes and lack of a collar/lapel.
+  // A crew-neck jumper with long sleeves. Replaces a hand-drawn "gilet" that
+  // was three strokes around an open quadrilateral and read as an abstract
+  // shape rather than a garment. Long sleeves are what separate it from
+  // `base` (a short-sleeved tee) at this size; the round collar separates it
+  // from `jacket`, which has a V-neck, pockets and a centre zip.
   midlayer: {
     d: [
-      "M9,4.5 Q12,3 15,4.5 L15,19.5 L12,17.5 L9,19.5 Z",
-      "M9,4.5 L6.5,6 L7,10.5",
-      "M15,4.5 L17.5,6 L17,10.5",
+      // Sleeves run *down the sides* to cuffs near the hem, rather than
+      // flaring off the shoulder. A first attempt kept the Tabler shirt's
+      // short flared sleeve and the result was indistinguishable from `base`
+      // at any size — long sleeves are the whole distinction between a jumper
+      // and a tee, so they have to be unmistakably long.
+      "M8.5,5 L5,6.5 L3.5,15.5 L6.5,16.6 L7.5,10.5 L7.5,20 L16.5,20 L16.5,10.5 L17.5,16.6 L20.5,15.5 L19,6.5 L15.5,5 Z",
+      "M8.5,5 a3.5,3.5,0,0,0,7,0",
     ],
   },
   // Tabler Icons "shirt" (MIT) — a t-shirt collar/sleeve silhouette.
@@ -96,8 +118,32 @@ const PATHS: Record<ClothingIconKind, { d: string[]; lines?: { x1: number; y1: n
       "M15,14l4.5,4.5",
     ],
   },
-  // Tabler Icons "backpack" (MIT) — a generic carried-accessory glyph
-  // (bag), used whenever the free-text accessory name isn't sunglasses.
+  // Hand-drawn — a mitt whose thumb is a lobe of the *same* outline, not a
+  // stroke tacked onto the side. Two earlier attempts failed differently:
+  // separate fingers turned to mush at 15px, and a mitten drawn as body +
+  // thumb left the body's edge running between them, so the thumb read as a
+  // detached blob. One continuous silhouette fixes both.
+  gloves: {
+    d: [
+      "M8,20.4 V15 C6.3,15.2 5,14.1 5,12.6 C5,11.3 6.5,10.8 7.4,11.7 L8,12.4 V10.2 a4,4,0,0,1,8,0 V20.4 Z",
+      "M8,17.4 H16",
+    ],
+  },
+  // Hand-drawn — a ribbed beanie: tall crown, a flush turned-up band, and
+  // three rib strokes through the band. No pom, by request. An earlier
+  // version used a shallow dome on an over-wide band and read as a cloche or
+  // a serving cover; the height and the ribbing are what sell "knitted".
+  hat: {
+    d: [
+      "M6.5,15.2 C6.5,9.2 8.6,5.2 12,5.2 C15.4,5.2 17.5,9.2 17.5,15.2",
+      "M6.2,15.2 h11.6 a0.9,0.9,0,0,1,.9,.9 v2.1 a0.9,0.9,0,0,1,-.9,.9 h-11.6 a0.9,0.9,0,0,1,-.9,-.9 v-2.1 a0.9,0.9,0,0,1,.9,-.9 z",
+      "M9.4,15.6 v2.9",
+      "M12,15.6 v2.9",
+      "M14.6,15.6 v2.9",
+    ],
+  },
+  // Tabler Icons "backpack" (MIT) — a genuinely carried accessory. No longer
+  // the catch-all for gloves and hats; see accessoryIconKind above.
   accessory: {
     d: [
       "M5,18v-6a6,6,0,0,1,6,-6h2a6,6,0,0,1,6,6v6a3,3,0,0,1,-3,3h-8a3,3,0,0,1,-3,-3",

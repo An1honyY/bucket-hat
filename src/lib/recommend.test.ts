@@ -721,8 +721,29 @@ describe("recommendGear — never-set-up vs. genuinely-unavailable gear copy", (
     const cold = journeyWithLegs([walkLeg({ weather: weather({ apparentTempC: 6 }) })]); // level 3: midlayer + jacket
     const result = recommendGear(cold, inventory({ clothing: [], shoes: [], umbrellas: [] }), NO_CALIBRATION, "no-preference");
     const midlayerPick = result.layers.find((l) => "layerType" in l && l.layerType === "midlayer");
-    expect(midlayerPick).toMatchObject({ fallbackText: "Wear a midlayer", isGenericAssumption: true });
+    expect(midlayerPick).toMatchObject({ fallbackText: "Midlayer", isGenericAssumption: true });
     expect(result.notes).toContain("These are generic picks — add your gear in the Gear tab for suggestions tailored to what you own.");
+  });
+
+  // The generic copy is warmth-aware, and the hot branch in particular is
+  // unreachable by hand in an Auckland winter — these pin both ends of the
+  // scale so the wording can't silently drift back to one-size-fits-all.
+  it("generic layer and shoe copy says 'warm' at the coldest level", () => {
+    const freezing = journeyWithLegs([walkLeg({ weather: weather({ apparentTempC: 0 }) })]); // level 4: base + midlayer + jacket
+    const result = recommendGear(freezing, inventory({ clothing: [], shoes: [], umbrellas: [] }), NO_CALIBRATION, "no-preference");
+    const layerText = (type: string) => result.layers.find((l) => "layerType" in l && l.layerType === type) as { fallbackText: string };
+    expect(layerText("base").fallbackText).toBe("Warm base layer");
+    expect(layerText("jacket").fallbackText).toBe("Warm jacket");
+    expect(result.shoes).toMatchObject({ fallbackText: "Warm socks and any shoes" });
+  });
+
+  it("hot weather says a single layer and breathable shoes", () => {
+    const hot = journeyWithLegs([walkLeg({ weather: weather({ apparentTempC: 27 }) })]); // level 0: empty layer plan
+    const result = recommendGear(hot, inventory({ clothing: [], shoes: [], umbrellas: [] }), NO_CALIBRATION, "no-preference");
+    expect(result.layers).toEqual([
+      expect.objectContaining({ fallbackText: "Single layer — it's hot" }),
+    ]);
+    expect(result.shoes).toMatchObject({ fallbackText: "Breathable shoes" });
   });
 
   it("gear set up but this category empty gives a workaround, not a generic assumption", () => {

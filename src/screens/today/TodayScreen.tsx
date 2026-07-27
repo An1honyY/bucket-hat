@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { materializeTodaysJourneys } from "../../lib/materializeToday";
@@ -7,6 +7,7 @@ import { useRightNow } from "../../lib/useRightNow";
 import type { RootStackParamList } from "../../navigation/types";
 import type { Journey } from "../../types";
 import RightNowCard from "./RightNowCard";
+import LocalForecastCard from "./LocalForecastCard";
 import JourneyCard from "./JourneyCard";
 import SetupChecklist from "./SetupChecklist";
 import ScreenPattern from "../../components/ScreenPattern";
@@ -50,8 +51,30 @@ export default function TodayScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScreenPattern tint={weatherTheme.patternTint} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        // Manual refresh for when the "as of" stamp looks older than the user
+        // wants to trust. The automatic cadence in useRightNow is matched to
+        // how often Open-Meteo's models actually publish, so this exists to
+        // give the user a way to override that judgement, not to compensate
+        // for it.
+        refreshControl={
+          <RefreshControl
+            refreshing={rightNow.refreshing}
+            onRefresh={rightNow.refresh}
+            tintColor={theme.textSecondary}
+            colors={[weatherTheme.accentWalk]}
+          />
+        }
+      >
         <RightNowCard {...rightNow} />
+
+        <LocalForecastCard
+          suburb={rightNow.suburb}
+          hourly={rightNow.hourly}
+          daily={rightNow.daily}
+          weather={rightNow.weather}
+        />
 
         <SetupChecklist />
 

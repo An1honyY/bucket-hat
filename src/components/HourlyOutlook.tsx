@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { collectKeyEntries, formatHourLabel, iconKindFor } from "../lib/outlookDisplay";
 import { useLocationOutlooks, type LocationOutlook } from "../lib/useLocationOutlooks";
 import { useRouteEtas } from "../lib/useRouteEtas";
@@ -8,6 +8,7 @@ import useTheme from "../theme/useTheme";
 import { cardElevationStyle } from "../theme/tokens";
 import { RADIUS, SPACING } from "../theme/typography";
 import type { SavedLocation, TravelMode } from "../types";
+import HourlyForecastRow from "./HourlyForecastRow";
 import HourlyOutlookPanel from "./HourlyOutlookPanel";
 import RainGauge from "./RainGauge";
 import WeatherKey from "./WeatherKey";
@@ -117,19 +118,7 @@ export default function HourlyOutlook({ origin, waypoints, destination, mode, de
                 {destinationOutlook.readings.length} hours
               </Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stripContent}>
-              {destinationOutlook.readings.map((reading) => (
-                <RainGauge
-                  key={reading.time}
-                  hour={formatHourLabel(reading.time, hour12)}
-                  rainIntensity={reading.rainIntensity}
-                  tempC={reading.tempC}
-                  precipMm={reading.precipMm}
-                  conditionKind={iconKindFor(reading)}
-                  conditionLabel={WEATHER_ICON_LABEL[iconKindFor(reading)]}
-                />
-              ))}
-            </ScrollView>
+            <HourlyForecastRow readings={destinationOutlook.readings} nowIso={departTimeIso} />
           </View>
         )}
 

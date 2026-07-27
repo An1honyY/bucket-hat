@@ -39,12 +39,16 @@ interface Props {
   tempC?: number;
   conditionKind?: WeatherIconKind;
   conditionLabel?: string;
+  // Condition-derived icon colour (see theme/conditionColor.ts). Optional so
+  // the key's swatches can stay neutral; without it the icon falls back to the
+  // flat textSecondary every strip used to draw.
+  conditionColor?: string;
   // Rendered only when > 0 — a 12-hour row of "0mm" is noise, and the empty
   // droplet already says "dry" on its own.
   precipMm?: number;
 }
 
-export default function RainGauge({ hour, rainIntensity, tempC, conditionKind, conditionLabel, precipMm }: Props) {
+export default function RainGauge({ hour, rainIntensity, tempC, conditionKind, conditionLabel, conditionColor, precipMm }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const fillPct = BUCKET_FILL_PCT[rainIntensity];
@@ -66,7 +70,7 @@ export default function RainGauge({ hour, rainIntensity, tempC, conditionKind, c
 
   return (
     <View style={styles.container} accessible accessibilityLabel={accessibilityLabel}>
-      {conditionKind && <WeatherIcon kind={conditionKind} size={14} color={theme.textSecondary} />}
+      {conditionKind && <WeatherIcon kind={conditionKind} size={16} color={conditionColor ?? theme.textSecondary} />}
       <Svg width={28} height={28} viewBox="0 0 28 28">
         <Defs>
           <ClipPath id={`droplet-${hour}`}>
@@ -103,7 +107,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // 36, not 32 — wide enough for "0.4mm" without wrapping.
     container: { width: 36, alignItems: "center", gap: 3 },
     mm: { fontSize: 10, color: theme.conditionRain, fontWeight: "600" },
-    temp: { fontSize: 11, fontWeight: "600", color: theme.textPrimary },
-    label: { fontSize: 11, color: theme.textSecondary },
+    // Temperature is the one number people scan a forecast row for, so it
+    // outranks the hour beneath it — previously both were 11px and the row
+    // read as an undifferentiated grid of small text.
+    temp: { fontSize: 13, fontWeight: "700", color: theme.textPrimary },
+    label: { fontSize: 10, color: theme.textSecondary },
   });
 }
