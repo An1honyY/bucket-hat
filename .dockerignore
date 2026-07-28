@@ -1,0 +1,34 @@
+# Keeps `COPY . .` in the Dockerfile from undoing the `npm ci` layer above
+# it (docs/12-dev-workflow-ci.md §12.4). Without this, a host node_modules
+# is copied straight over the freshly-installed one — which is both slower
+# and wrong, since host installs can carry platform-specific binaries that
+# don't run in the image.
+#
+# This matters more since worker/ arrived: it's a second npm package with
+# its own ~300 MB of dependencies that the app image has no use for at all.
+node_modules
+worker/node_modules
+
+# Cloudflare local state — a simulated D1 database and Miniflare's
+# generated bundles. Local dev artifacts, never part of a build.
+worker/.wrangler
+worker/.dev.vars
+
+# Expo/Metro build output and caches.
+.expo
+.expo-shared
+dist
+web-build
+
+# Secrets and local config must never reach an image layer.
+.env
+.env.*
+
+.git
+.github
+*.log
+npm-debug.log*
+
+# Docs and scratch files the running app doesn't need.
+*.md
+!README.md

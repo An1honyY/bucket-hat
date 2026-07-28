@@ -4,7 +4,7 @@ import * as Location from "expo-location";
 import AddressAutocomplete from "../../../components/AddressAutocomplete";
 import LocationPickerMap from "../../../components/LocationPickerMap";
 import { reverseGeocode } from "../../../services/placesService";
-import { isNullIsland } from "../../../lib/approximateLocation";
+import { getPositionWithinTimeout } from "../../../lib/approximateLocation";
 import useTheme from "../../../theme/useTheme";
 
 // docs/04-screens-navigation.md §4.1 (2026-07-21 minimal-onboarding
@@ -34,12 +34,13 @@ export default function Step1Location({ onDone }: Props) {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") return;
-      const position = await Location.getCurrentPositionAsync({});
-      const { latitude: lat, longitude: lng } = position.coords;
-      // A (0,0) "fix" is never a real location (see approximateLocation.ts)
-      // — treat it the same as the request having failed rather than
-      // saving it as this user's location.
-      if (isNullIsland(lat, lng)) return;
+      // Bounded, so onboarding can't stall indefinitely on a device that
+      // never gets a fix. A (0,0) result is filtered out too — it's never a
+      // real location (see approximateLocation.ts) and is treated the same
+      // as the request having failed, rather than saved as this user's spot.
+      const position = await getPositionWithinTimeout();
+      if (!position) return;
+      const { lat, lng } = position;
       // A bare "Current location" tells the user nothing about where that
       // actually is — reverse-geocode to a real place name, falling back to
       // the generic label only if that lookup itself fails.

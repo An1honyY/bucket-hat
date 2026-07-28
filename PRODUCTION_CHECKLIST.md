@@ -23,6 +23,51 @@ behind each judgment call referenced below.
       one) and the AT dev portal. Can't be done from this repo/session —
       needs a real release keystore's SHA-1, which only exists once an EAS
       build has actually been produced.
+
+      **Unblocked as of the first EAS Android build (2026-07-28).** EAS
+      generates and holds the keystore, so the fingerprint is now
+      obtainable with:
+
+      ```
+      npx eas-cli@latest credentials --platform android
+      ```
+
+      Restriction is the *only* protection these keys have. Both are
+      `EXPO_PUBLIC_*`, which means they are inlined into the JS bundle at
+      build time and can be extracted from the APK by anyone who has it —
+      marking them "secret" in EAS controls who can read them back in the
+      EAS dashboard and build logs, nothing more. Use EAS's **sensitive**
+      visibility (redacted in logs, hidden in the dashboard) rather than
+      "secret", which EAS rejects for this prefix precisely because it
+      would imply a protection that doesn't exist.
+
+      **This needs TWO Google keys, not one.** An Android application
+      restriction (package + SHA-1) makes a key usable *only* for Maps SDK
+      calls from the signed app. Routes and Places (New) are web-service
+      APIs that this app calls directly over HTTPS from the client, and
+      those requests carry no app signature — so putting an Android
+      restriction on the shared key silently breaks journey planning and
+      address search. Google's own guidance is one key per client type.
+
+      - **Maps key** — application restriction: Android apps, package
+        `nz.co.commuteweatherplanner.app` + SHA-1
+        `F4:D2:3E:28:23:FC:C4:04:BD:2C:47:42:BD:AA:0B:3D:08:07:55:9E`
+        (EAS-managed keystore, read 2026-07-28; a fingerprint is public
+        information, not a credential). API restriction: Maps SDK for
+        Android only. Supply it as `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`,
+        which `app.config.js` already prefers over the Routes key.
+      - **Routes/Places key** — *cannot* carry an application restriction
+        while it's called from the client. API-restrict it to Routes API
+        and Places API (New), and rely on quotas plus a billing budget
+        alert. This key stays extractable from the APK; that is inherent
+        to calling a web service directly from a client, not a gap in
+        configuration.
+
+      Note the asymmetry: the Maps key can be locked down to the point
+      where an extracted copy is near-useless. The Routes/Places key and
+      the AT subscription key can't be — usage monitoring and
+      rotation are the only mitigations. Don't record this row as "done"
+      without acknowledging that half of it can't be fully closed.
 - [ ] **Google Cloud budget alert configured (§2.1)** — external, manual:
       `Billing → Budgets & alerts` in the GCP Console, $5 NZD starting
       threshold per `docs/02-external-apis.md` §2.1. Requires the GCP

@@ -67,5 +67,25 @@ version bumps), update the `Dockerfile` to match** — otherwise the image
 silently drifts from what `npm ci` actually needs and stops being useful
 as a fast-start baseline.
 
+### 12.5 Editing `.env` requires a cache-clearing restart
+
+**`EXPO_PUBLIC_*` variables are inlined into the bundle at transform time,
+and Metro caches that transform. Restarting the dev server is not enough —
+the old value survives.** Use the `expo-web-clear` configuration in
+`.claude/launch.json` (or `npx expo start --web --clear`) after any change
+to `.env`.
+
+This fails in the most misleading way available: the app keeps calling the
+previous URL, and every symptom points at the server rather than the
+client. It cost real debugging time during Phase 19 — the app sat there
+issuing requests to `localhost:8787` long after `.env` had been repointed
+at the deployed Worker, while the deployed Worker itself answered `curl`
+perfectly. If a service works from the terminal but not from the app after
+you've touched `.env`, check this before anything else.
+
+Deleting `.expo/web/cache` and `node_modules/.cache` by hand is *not*
+sufficient — Metro keeps a further transform cache outside the project
+directory, which only `--clear` resets.
+
 ---
 

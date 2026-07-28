@@ -97,6 +97,17 @@ one by date — don't edit the old entry.
 - 2026-07-27 — HorizontalStrip: forecast rows were unscrollable by mouse on web; side panels containerized (§9.5, §9.6) [bug fix]
 - 2026-07-27 — Day labels inside the scrolling hourly rows; §9.1's severity→condition colour lookup finally built; header buttons given a target (§9.1, §9.5) [design]
 - 2026-07-28 — Gear glyphs for gloves/hat/midlayer; generic gear copy is bare noun phrases and warmth-aware (§7, §9.3.1) [design]
+- 2026-07-28 — Phase 19 sync bookkeeping: SQLite triggers, plus tombstones the spec never mentions (§13.7, §3.1)
+- 2026-07-28 — Cloud sync excludes `app_settings` and gear photos (§13.7, §3.3)
+- 2026-07-28 — Sync pull watermarks are server-clock, LWW is device-clock (§13.7)
+- 2026-07-28 — Phase 19 built engine-first; backend provider deliberately unchosen (§13.7)
+- 2026-07-28 — Phase 19 backend is Cloudflare Workers + D1 + Better Auth, not a BaaS (§13.7) [supersedes the line above]
+- 2026-07-28 — Remote schema stores rows as opaque JSON, not mirrored tables (§13.7, §3.1)
+- 2026-07-28 — Sync hardened against future-dated timestamps and unwritable rows (§13.7)
+- 2026-07-28 — Gear photos sync as R2 objects, native-only, and never as row columns (§3.3, §13.7) [supersedes the photo exclusion above]
+- 2026-07-28 — Web renders gear photos from R2 via blob URLs, not signed URLs (§3.3, §13.7)
+- 2026-07-28 — Google Maps Android key moved into a dynamic app.config.js [bug fix, §9.2]
+- 2026-07-29 — GPS lookups are time-bounded and prefer the last known fix [bug fix, §4, §5]
 
 ---
 
@@ -1534,5 +1545,261 @@ body's edge between them and looks detached); a beanie needs height and a flush
 ribbed band or it reads as a serving dome; and a midlayer with short flared
 sleeves is indistinguishable from `base`. Tabler's jacket and shoe were tried
 as hand-drawn replacements and reverted — the originals were better.
+
+---
+## 2026-07-28 — Phase 19 sync bookkeeping: SQLite triggers, plus tombstones the spec never mentions (§13.7, §3.1)
+
+**What**: migration `004_sync_metadata.ts` adds `updated_at` to the ten synced
+tables and a `sync_tombstones` table, and maintains both with SQLite triggers
+(`AFTER INSERT/UPDATE` stamp, `AFTER DELETE` tombstone) rather than by editing
+the ~30 write functions in `src/db/repositories/*`, which are unchanged.
+
+**Why**: §13.7 specifies "last-write-wins per row" without saying what "last"
+is measured against, and never mentions deletes at all. Neither is optional:
+LWW needs a per-row modification timestamp, and without tombstones a delete on
+one device is silently resurrected by any peer that still holds the row.
+
+**Resolution**: triggers were chosen over hand-stamping so a future write path
+(or a targeted UPDATE like `updateClothingWearTracking()`) gets sync
+bookkeeping automatically — a forgotten hand-stamp doesn't fail loudly, it
+syncs the row with a wrong timestamp. The `WHEN NEW.updated_at IS OLD.updated_at`
+guard lets a pull write a remote timestamp without the trigger stomping it;
+the one gap (supplying the timestamp the row already has re-stamps it) is
+only reachable via a no-op write and is pinned by a test. Don't add a synced
+table without adding it to `SYNCED_TABLES` in that migration.
+
+---
+
+## 2026-07-28 — Cloud sync excludes `app_settings` and gear photos (§13.7, §3.3)
+
+**What**: `SYNCED_TABLES` omits `app_settings`, and `photo_uri` is listed in
+`DEVICE_LOCAL_COLUMNS` (`src/lib/sync/localChanges.ts`) so a pull never
+overwrites it. Everything else in the ten tables syncs.
+
+**Why**: §13.7 says nothing about either. `app_settings` holds device-local
+preferences (theme, 12h/24h, crash-reporting opt-in, onboarding state) which
+would be wrong to propagate — a phone's dark-mode choice is not a laptop's.
+`photoUri` is a local `file://` path under documentDirectory; the *file*
+doesn't travel with the row, so accepting a peer's path yields a reference to
+something that was never on this device.
+
+**Resolution**: scoped deliberately, not deferred by oversight. Syncing the
+images themselves is a separate piece of work (object storage, upload/download
+lifecycle, orphan cleanup) that every candidate backend can support; until
+then each device keeps its own photos and the rest of the row syncs normally.
+If it's built, add it as its own pass rather than widening `DEVICE_LOCAL_COLUMNS`
+semantics — that constant means "never travels", not "not yet".
+
+---
+
+## 2026-07-28 — Sync pull watermarks are server-clock, LWW is device-clock (§13.7)
+
+**What**: `SyncBackend.pull(since)` filters on a stamp the *backend* assigns on
+write, while last-write-wins compares the `updatedAt` the *device* wrote. The
+two clock domains are kept separate, documented on the interface, and modelled
+by `MemoryBackend`'s `serverStamp` field.
+
+**Why**: found while testing delete propagation — filtering a pull on
+device-written timestamps looks correct and passes casual testing, but any
+device whose clock runs behind the server has its writes excluded from every
+later pull, making them permanently invisible to that user's other devices.
+
+**Resolution**: any concrete adapter must keep a backend-maintained
+`server_updated_at` (trigger or `DEFAULT now()`), index it, and filter on it.
+`updated_at` stays the client's value and is used only for conflict
+resolution. The engine's own tests run against `MemoryBackend`, so pointing
+that suite at a new adapter is the check that it got this right.
+
+---
+
+## 2026-07-28 — Phase 19 built engine-first; backend provider deliberately unchosen (§13.7)
+
+**What**: the sync engine, its local SQLite half, the `SyncBackend` interface
+and a full `MemoryBackend` reference implementation are built and tested (12
+tests); no vendor SDK is installed and no concrete adapter exists yet.
+
+**Why**: §13.7 names Supabase or Firebase, but Supabase's free tier pauses a
+project after ~7 days of inactivity and requires a *manual* dashboard resume —
+no auto-wake on request — which is disqualifying for a portfolio project meant
+to stay reachable. The usual GitHub Actions keep-alive doesn't rescue it
+either, since GitHub disables scheduled workflows after 60 days without new
+commits. Appwrite is strictly worse (same 7-day clock, runtime traffic doesn't
+count, 90-day deletion).
+
+**Resolution**: evaluation left Firebase (no idle pause, auth included, NoSQL)
+against Turso or Cloudflare D1 paired with Better Auth (SQL end-to-end, needs a
+thin two-endpoint API). All sync intelligence is client-side precisely so this
+stays a one-file decision. Whoever picks: implement `SyncBackend`, honour the
+clock-domain rule above, and run the engine suite against it.
+
+---
+## 2026-07-28 — Phase 19 backend is Cloudflare Workers + D1 + Better Auth, not a BaaS (§13.7)
+
+**What**: `worker/` holds a Hono Worker fronting D1, with Better Auth for
+accounts; supersedes the same-day "backend provider deliberately unchosen"
+entry. Auth is email+password with the `bearer` plugin, not §13.7's
+preferred magic link.
+
+**Why**: §13.7 named Supabase or Firebase, but Supabase's free tier pauses
+after ~7 days idle and needs a *manual* dashboard resume, which is
+disqualifying for a portfolio project. Firebase clears that bar but its JS
+SDK has ongoing Expo auth-persistence problems and the native SDK needs a
+dev build — and this repo already has one feature (`dataExport.ts`)
+crippled on web by exactly that kind of native-only dependency.
+
+**Resolution**: the client talks to the Worker with plain `fetch`, so web
+and native share one code path and no vendor SDK. Magic link was dropped
+because it needs an outbound email provider — a second vendor and API key —
+for a single-user app; the password-reset flow §13.7 wanted to avoid simply
+isn't built (`sendResetPassword` unset). Bearer tokens rather than cookies
+because React Native has no cookie jar. Swapping to magic link later is a
+plugin change plus one screen, with the sync layer untouched.
+
+---
+
+## 2026-07-28 — Remote schema stores rows as opaque JSON, not mirrored tables (§13.7, §3.1)
+
+**What**: D1 holds `sync_rows(user_id, table_name, row_id, updated_at,
+server_updated_at, data)` with `data` a JSON blob the Worker never parses,
+rather than ten tables mirroring the local schema.
+
+**Why**: mirroring would make every additive migration in `migrations/`
+require a matching remote migration, and the failure mode when someone
+forgets is silent — the column just stops syncing, with no error anywhere.
+Sync is row-level and schema-agnostic by design, so the Worker has no need
+to understand the columns.
+
+**Resolution**: `migrations/005_*` and beyond need no remote change at all.
+The accepted cost is that D1 can't be queried per-field — the remote
+database is a sync relay, not a queryable copy, and SQLite on the device
+stays the source of truth for every read. If a future feature genuinely
+needs server-side queries over user data, that's when mirrored tables earn
+their keep; nothing in Phase 19 does.
+
+---
+
+## 2026-07-28 — Sync hardened against future-dated timestamps and unwritable rows (§13.7)
+
+**What**: `runSync()` caps the push watermark at now + 5 minutes, discards
+a stored watermark already beyond that, and `applyRemoteChanges()` catches
+per-row write failures instead of letting them propagate.
+
+**Why**: both were found by running the real app against the real Worker,
+not by unit tests. A row dated 2032 (left by a manual test) pushed this
+device's watermark into the future, after which every new local edit read
+as "already pushed" — the device silently stopped uploading while still
+reporting successful syncs. Separately, one row that failed to write threw
+out of `runSync`, rejected `syncNow()`, and left the sign-in button
+spinning forever; because the watermark never advanced, every later sync
+refetched the same row and died on it again.
+
+**Resolution**: three regression tests pin all of it
+(`syncEngine.test.ts`). The 5-minute tolerance is deliberate — exact
+now() comparison flakes, since SQLite's clock and JavaScript's can invert
+by a millisecond, and real peers drift by seconds. Treat "sync reports
+success but nothing uploads" as the failure mode to protect against first;
+it is far worse than a wasted request.
+
+---
+## 2026-07-28 — Gear photos sync as R2 objects, native-only, and never as row columns (§3.3, §13.7)
+
+**What**: photos move through their own `/photos` endpoints backed by R2,
+reconciled by `src/lib/sync/photoSync.ts` after row sync. Migration 005 adds
+a device-local `gear_photo_sync` table. `photo_uri` is now withheld from the
+push payload as well as protected on pull. Supersedes the same-day "cloud
+sync excludes gear photos" entry, which scoped them out pending this work.
+
+**Why**: a row is small JSON that changes often and needs last-write-wins; a
+photo is ~100 KB of JPEG written once and then immutable. Folding photos
+into rows would base64-inflate every image into the row payload and re-send
+it whenever any field on that item changed. There's also no conflict to
+resolve — an item either has a photo or it doesn't.
+
+**Resolution**: re-capture is detected by file mtime, because PhotoPicker
+overwrites `gear-photos/{itemId}.jpg` in place so the path never changes.
+The upload scan is driven off the database, not a directory listing, so an
+orphaned file left by gear deleted while offline is never re-uploaded.
+Deleting gear deletes its photo, handled in the push handler so it happens
+regardless of which device issued the delete. Photo failures are counted,
+never fatal — gear rows feed the recommendation engine, photos are
+decoration. Native-only: `expo-file-system` reports `documentDirectory` as
+null on web, so there is no local file to upload and nowhere to put a
+download; web reports a skip rather than an error.
+
+---
+
+---
+
+## 2026-07-28 — Web renders gear photos from R2 via blob URLs, not signed URLs (§3.3, §13.7)
+
+**What**: `src/lib/sync/remotePhotoCache.ts` + `useGearPhoto.ts` let the web
+build display gear photos by fetching `/photos/:itemId` with the bearer
+token and handing the browser a `blob:` URL. Native is untouched and still
+renders the local file. Partially supersedes the same-day entry that made
+photos native-only — capture and local storage still are; display no longer
+is.
+
+**Why**: photos are captured on a phone but the web build has no local photo
+storage at all (`documentDirectory` is null), so gear synced to a desktop
+appeared permanently pictureless — which undercut the reason cloud sync was
+wanted in the first place. An `<img>` can't send an `Authorization` header,
+so something had to give.
+
+**Resolution**: rejected signed URLs, the obvious alternative, because a
+token in a query string leaks into browser history, referrer headers and
+any intermediary's logs; fetching with the header keeps the credential in
+one place. A per-account manifest is fetched once and cached so a
+thirty-row gear list costs one request instead of thirty 404s, concurrent
+requests for the same item coalesce, and blob URLs are revoked on sign-out
+so one account's images can't outlive its session. Don't switch to signed
+URLs without revisiting that reasoning.
+
+---
+## 2026-07-28 — Google Maps Android key moved into a dynamic app.config.js [bug fix, §9.2]
+
+**What**: added `app.config.js`, layered over `app.json`, solely to inject
+`android.config.googleMaps.apiKey` from the environment at build time.
+
+**Why**: `react-native-maps` renders through the Google Maps SDK on Android,
+which reads its key from `com.google.android.geo.API_KEY` in the manifest.
+The key was never set, so opening the location picker hard-crashed the app
+on a real device. It went unnoticed through every prior session because all
+testing ran on web, where `LocationPickerMap.web.tsx` uses Leaflet and needs
+no key. The value can't live in the committed `app.json`, and only a dynamic
+config can read from `process.env`.
+
+**Resolution**: prefers `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, falls back to
+`EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY` — matching the existing single-key
+approach — so the two can be split later without touching the file. Warns
+at build time when an Android build has no key, rather than shipping a
+crash. Note `expo config --type public` deliberately strips
+`android.config`; use `--type prebuild` to verify it, or you'll conclude
+the config isn't applied when it is. iOS is untouched: nothing passes
+PROVIDER_GOOGLE, so it renders with Apple Maps and needs no key.
+
+---
+## 2026-07-29 — GPS lookups are time-bounded and prefer the last known fix [bug fix, §4, §5]
+
+**What**: new `getPositionWithinTimeout()` in `approximateLocation.ts` tries
+`getLastKnownPositionAsync()` first, then races `getCurrentPositionAsync`
+against an 8s timeout. All three GPS call sites now use it
+(`resolveApproximateLocation`, `useLocationPicker.useCurrentLocation`,
+`Step1Location.useCurrentLocation`).
+
+**Why**: `getCurrentPositionAsync` resolves only once the device actually
+gets a fix and has no timeout of its own, so indoors it can hang more or
+less forever. Every call site blocks UI on it. Reported as "the Locations
+screen's Pick on map button doesn't work": the modal did open, but sat on
+its loading spinner because `seed` never resolved. Onboarding's identical
+picker looked fine only because permission isn't granted yet at that point,
+so the GPS branch is skipped entirely.
+
+**Resolution**: last-known-first means the common case returns instantly
+rather than merely being bounded. The race doesn't cancel the underlying
+request — expo-location exposes no cancellation — it just stops the caller
+waiting on it. Accuracy dropped to `Balanced`, since a commute start point
+doesn't need metre precision and high accuracy is the slow path. Nine tests
+cover it. Don't add a fourth bare `getCurrentPositionAsync` call site;
+route it through the helper.
 
 ---

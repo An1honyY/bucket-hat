@@ -78,7 +78,7 @@ export default function VehicleList() {
           }
           renderItem={({ item }) => (
             <Pressable onPress={() => setMode({ kind: "edit", item })} style={styles.row}>
-              <GearThumbnail photoUri={item.photoUri} kind="vehicle" />
+              <GearThumbnail itemId={item.id} photoUri={item.photoUri} kind="vehicle" />
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>{item.name}</Text>
                 <Text style={styles.rowMeta}>

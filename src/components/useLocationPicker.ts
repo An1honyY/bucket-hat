@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
-import { isNullIsland, resolveApproximateLocation } from "../lib/approximateLocation";
+import { getPositionWithinTimeout, resolveApproximateLocation } from "../lib/approximateLocation";
 import { reverseGeocode } from "../services/placesService";
 
 // Everything LocationPickerMap does that isn't drawing a map: seeding the
@@ -129,14 +129,16 @@ export function useLocationPicker(visible: boolean, initialCoords?: PickerCoords
         setLocateError("Location permission is off — you can still drop the pin by hand.");
         return;
       }
-      const position = await Location.getCurrentPositionAsync({});
-      const { latitude: lat, longitude: lng } = position.coords;
-      // A (0,0) "fix" is never a real location — see approximateLocation.ts.
-      if (isNullIsland(lat, lng)) {
+      // Bounded: an unbounded wait leaves the button spinning forever with
+      // no way to tell a slow fix from a broken one. Also filters out a
+      // (0,0) "fix", which is never a real location — see
+      // approximateLocation.ts.
+      const position = await getPositionWithinTimeout();
+      if (!position) {
         setLocateError("Couldn't get a location fix — drop the pin by hand instead.");
         return;
       }
-      setMarker({ lat, lng });
+      setMarker(position);
       setRecenterToken((token) => token + 1);
     } catch {
       setLocateError("Couldn't get a location fix — drop the pin by hand instead.");

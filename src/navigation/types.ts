@@ -32,6 +32,10 @@ export type RootStackParamList = {
   History: undefined;
   LocalKnowledge: undefined;
   Settings: undefined;
+  // docs/13-extended-features.md §13.7 — cloud sync account management.
+  // Always registered: the screen itself explains when sync isn't
+  // configured, rather than the row silently vanishing from Settings.
+  Account: undefined;
   // docs/04-screens-navigation.md §4.1 (2026-07-21 minimal-onboarding
   // rework) — reached from the Today tab's SetupChecklist, not forced
   // onboarding steps.

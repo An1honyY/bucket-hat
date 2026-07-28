@@ -138,7 +138,7 @@ export default function ShoeList({ autoOpenAdd }: Props) {
             const isUnavailable = !!item.unavailableUntil && new Date(item.unavailableUntil).getTime() > nowMs;
             return (
               <Pressable onPress={() => setMode({ kind: "edit", item })} style={styles.row}>
-                <GearThumbnail photoUri={item.photoUri} kind="shoe" dimmed={isUnavailable} />
+                <GearThumbnail itemId={item.id} photoUri={item.photoUri} kind="shoe" dimmed={isUnavailable} />
                 <View style={styles.rowText}>
                   <Text style={[styles.rowLabel, isUnavailable && styles.dimmedText]}>{item.name}</Text>
                   <Text style={styles.rowMeta}>

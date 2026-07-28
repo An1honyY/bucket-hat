@@ -6,6 +6,7 @@ import JourneyDetailScreen from "../screens/journey-detail/JourneyDetailScreen";
 import HistoryScreen from "../screens/history/HistoryScreen";
 import LocalKnowledgeScreen from "../screens/local-knowledge/LocalKnowledgeScreen";
 import SettingsScreen from "../screens/settings/SettingsScreen";
+import AccountScreen from "../screens/settings/AccountScreen";
 import GearBasicsSetup from "../screens/setup/GearBasicsSetup";
 import NotificationsSetup from "../screens/setup/NotificationsSetup";
 import DevMenuScreen from "../screens/dev/DevMenuScreen";
@@ -85,6 +86,7 @@ export default function RootNavigator({ needsOnboarding = false }: Props) {
         <Stack.Screen name="History" component={HistoryScreen} />
         <Stack.Screen name="LocalKnowledge" component={LocalKnowledgeScreen} options={{ title: "Local knowledge" }} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Sync & account" }} />
         <Stack.Screen name="SetupGearBasics" component={SetupGearBasicsScreen} options={{ title: "Add gear basics" }} />
         <Stack.Screen name="SetupNotifications" component={SetupNotificationsScreen} options={{ title: "Notifications" }} />
         {/* docs/12-dev-workflow-ci.md §12.2 — only registered in dev/preview

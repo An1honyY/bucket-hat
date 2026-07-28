@@ -14,3 +14,12 @@ web-build/
 # Native builds (managed workflow — shouldn't normally exist, but ignore if generated)
 ios/
 android/
+
+# Android/Java signing key material. A .jks holds the PRIVATE key your app
+# is signed with — committing it lets anyone publish an update that Android
+# accepts as genuinely yours. EAS downloads one here when you export
+# credentials; keep it out of the repo and out of history.
+*.jks
+*.keystore
+*.p12
+credentials.json

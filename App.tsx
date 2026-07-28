@@ -12,6 +12,7 @@ import { withTimeout } from "./src/lib/withTimeout";
 import { freezeJourneyByIdIfDue } from "./src/lib/leaveBy";
 import { runCalibrationDecayIfDue } from "./src/lib/calibration";
 import { checkForecastDrift } from "./src/lib/forecastDrift";
+import { syncNow } from "./src/lib/sync/runSyncNow";
 import { initCrashReportingIfEnabled } from "./src/lib/crashReporting";
 import { useThemeStore } from "./src/theme/useThemeStore";
 import { useTimeFormatStore } from "./src/lib/useTimeFormatStore";
@@ -20,6 +21,12 @@ import { useTimeFormatStore } from "./src/lib/useTimeFormatStore";
 // supplement instead just covers "anything departing soon enough that a
 // stale forecast plausibly matters," independent of exact lead time.
 const FOREGROUND_DRIFT_WINDOW_HOURS = 24;
+
+// docs/13-extended-features.md §13.7's "periodic background sync". Five
+// minutes is frequent enough that switching devices mid-session feels
+// current, and rare enough to stay far inside the Worker's free-tier
+// request budget even with several devices open all day.
+const SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 const queryClient = new QueryClient();
 
@@ -83,6 +90,14 @@ export default function App() {
     // errors so one failing journey/check can't take down the others.
     async function runForegroundChecks() {
       runCalibrationDecayIfDue().catch(() => {});
+      // docs/13-extended-features.md §13.7 — "pull remote changes on
+      // foreground + a periodic background sync." Deliberately not
+      // awaited: sync is a background reconciliation against SQLite, which
+      // is already the source of truth for everything on screen, so
+      // nothing here should ever delay a render. syncNow() is a no-op when
+      // signed out or unconfigured, and de-duplicates overlapping runs
+      // itself, so this is safe to call unconditionally.
+      syncNow().catch(() => {});
       try {
         const upcoming = await listUpcomingJourneys(FOREGROUND_DRIFT_WINDOW_HOURS);
         for (const journey of upcoming) {
@@ -97,7 +112,22 @@ export default function App() {
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") runForegroundChecks();
     });
-    return () => subscription.remove();
+
+    // The "periodic" half of §13.7. A timer rather than an OS background
+    // task, matching the precedent already set for leave-by notifications
+    // and forecast drift (DECISIONS.md, 2026-07-21): those deliberately
+    // run foreground-only because the background-task work needs
+    // expo-dev-client. This covers the real case — a device left open on
+    // the Today tab while another device is being edited — without that
+    // native investment. Revisit alongside whichever phase adds it.
+    const timer = setInterval(() => {
+      syncNow().catch(() => {});
+    }, SYNC_INTERVAL_MS);
+
+    return () => {
+      subscription.remove();
+      clearInterval(timer);
+    };
   }, []);
 
   if (!ready) {

@@ -8,6 +8,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 // keeps the string-path API docs/03-data-models.md §3.3 is written against.
 import * as FileSystem from "expo-file-system/legacy";
 import useTheme from "../theme/useTheme";
+import { useGearPhoto } from "./useGearPhoto";
 
 // Optional photo well for gear add/edit forms — docs/03-data-models.md §3.3.
 // Camera or library via an action sheet, resized/compressed to an 800px
@@ -50,6 +51,11 @@ export default function PhotoPicker({ itemId, photoUri, onChange }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const [busy, setBusy] = useState(false);
+  // On web an existing item's photo lives only in object storage, so the
+  // well would otherwise show "+ Add photo" over a photo that does exist —
+  // and tapping it would silently replace one the user couldn't see.
+  // `photoUri` still drives the Remove control, which acts on the row.
+  const displayUri = useGearPhoto(itemId, photoUri);
 
   async function pickFrom(source: "camera" | "library") {
     const permission =
@@ -109,8 +115,8 @@ export default function PhotoPicker({ itemId, photoUri, onChange }: Props) {
   return (
     <View style={styles.container}>
       <Pressable onPress={openPicker} style={styles.well} disabled={busy}>
-        {photoUri ? (
-          <Image source={{ uri: photoUri }} style={styles.photo} />
+        {displayUri ? (
+          <Image source={{ uri: displayUri }} style={styles.photo} />
         ) : (
           <Text style={styles.placeholder}>{busy ? "Saving…" : "+ Add photo"}</Text>
         )}

@@ -283,6 +283,24 @@ export default function SettingsScreen() {
         </FormRow>
       </View>
 
+      {/* docs/13-extended-features.md §13.7 — sits directly above "Your
+          data" because both are about where your data lives; sync is the
+          cross-device answer, export/import the offline one. */}
+      <Text style={styles.sectionTitle}>Sync</Text>
+      <View style={styles.sectionCard}>
+        <Text style={styles.body}>
+          Keep your gear, places and journeys in step across your devices.
+        </Text>
+        <Pressable
+          onPress={() => navigation.navigate("Account")}
+          style={styles.dataButton}
+          accessibilityRole="button"
+          accessibilityLabel="Sync and account settings"
+        >
+          <Text style={styles.dataButtonLabel}>Sync &amp; account</Text>
+        </Pressable>
+      </View>
+
       <Text style={styles.sectionTitle}>Your data</Text>
       <View style={styles.sectionCard}>
         <Text style={styles.body}>

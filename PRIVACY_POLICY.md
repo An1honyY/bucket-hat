@@ -26,11 +26,44 @@ account.
 
 ## Where it's stored
 
-Everything above is stored **only on your device**, in a local SQLite
-database. It is not encrypted at rest (this is a single-user local app, and
-the data — home/work addresses and gear inventory — is personal but not
-high-sensitivity: no payment details, no linked accounts). Nothing is
-uploaded to a server we run, because we don't run one.
+Everything above is stored on your device, in a local SQLite database. It
+is not encrypted at rest (this is a single-user app, and the data —
+home/work addresses and gear inventory — is personal but not
+high-sensitivity: no payment details, no linked accounts).
+
+**If you turn on sync**, that same data is also stored on a server we run.
+Sync is entirely optional and off until you create an account under
+Settings → Sync & account. Without an account, nothing leaves your device
+and the app is fully functional.
+
+When sync is on:
+
+- Your gear, saved places, journeys and warmth calibration are copied to a
+  Cloudflare D1 database (Cloudflare's hosted SQLite service) so your other
+  devices can read them. Cloudflare acts as our hosting provider and does
+  not use this data for its own purposes.
+- Your **email address and a password hash** are stored there too, because
+  an account needs them. The password itself is never stored — only a hash
+  that can't be reversed back into it.
+- **Gear photos are uploaded** to Cloudflare R2 (object storage) so your
+  other devices can show them, and are deleted from the server when you
+  delete the gear item they belong to. Photos are taken and stored on
+  phones and tablets; the web version doesn't keep its own copy, but does
+  display them by loading them from the server while you're signed in.
+- **Device preferences are not uploaded** — your theme, 12h/24h choice and
+  crash-reporting setting stay local to each device.
+- Your device keeps working normally offline; changes sync when you're back
+  online.
+
+Your data is visible only to your own account. Signing out removes the
+account credentials from that device and stops syncing; it does not delete
+anything, locally or on the server.
+
+There is currently **no in-app "delete my account"** action. If you want
+your synced data removed from the server, contact us and we'll delete the
+account and everything attached to it. (Your on-device data is unaffected
+by that — deleting from Settings, or uninstalling, is what clears it
+locally.)
 
 You control your own backups: the **Export my data** action in Settings
 bundles your gear, locations, journey history, and calibration state
@@ -42,8 +75,8 @@ other app's local data.
 
 ## Who else sees it
 
-To do its job, the app sends specific pieces of data to three third-party
-services, and to no one else:
+To do its job, the app sends specific pieces of data to the third-party
+services below, and to no one else:
 
 - **Google Routes API** — receives the coordinates of your journey's
   origin, destination, and any stops, to compute a route.
@@ -53,10 +86,16 @@ services, and to no one else:
 - **Auckland Transport GTFS Realtime** — receives a route/stop identifier
   to return live bus/train delay information.
 
-Each of these receives only the coordinates and timestamps needed to answer
-that specific request — never your gear inventory, journey history, or
-feedback. We do not use any advertising network or third-party analytics
-SDK, and nothing is sold or shared beyond the three requests above.
+- **Cloudflare** — *only if you turn on sync.* Hosts the server that stores
+  your synced data, your gear photos, and your account, as described above.
+  Unlike the three services above, this one does receive your gear
+  inventory, gear photos, and journey history, because storing them for
+  your other devices is its entire purpose.
+
+The first three receive only the coordinates and timestamps needed to
+answer that specific request — never your gear inventory, journey history,
+or feedback. We do not use any advertising network or third-party analytics
+SDK, and nothing is sold or shared beyond the requests above.
 
 ## Crash reporting
 

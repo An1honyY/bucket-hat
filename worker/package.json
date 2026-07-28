@@ -1,0 +1,27 @@
+{
+  "name": "commute-weather-planner-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker backing Phase 19 cloud sync (docs/13-extended-features.md §13.7) — Better Auth over D1, plus the two sync endpoints.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 execute commute-weather-planner --local --file=./schema.sql",
+    "db:migrate:remote": "wrangler d1 execute commute-weather-planner --remote --file=./schema.sql",
+    "db:auth:local": "wrangler d1 execute commute-weather-planner --local --file=./auth-schema.sql",
+    "db:auth:remote": "wrangler d1 execute commute-weather-planner --remote --file=./auth-schema.sql"
+  },
+  "dependencies": {
+    "@better-auth/kysely-adapter": "^1.6.25",
+    "better-auth": "^1.5.0",
+    "hono": "^4.6.0",
+    "kysely": "^0.29.4",
+    "kysely-d1": "^0.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260728.1",
+    "typescript": "~6.0.3",
+    "wrangler": "^4.114.0"
+  }
+}
