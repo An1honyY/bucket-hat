@@ -3,5 +3,16 @@
   "compilerOptions": {
     "strict": true,
     "types": ["jest"]
-  }
+  },
+  // `worker/` is a separate npm package with its own dependencies and its
+  // own tsconfig, typechecked by its own CI job. Without this it gets
+  // swept into the app's compilation, which appears to work locally only
+  // because worker/node_modules happens to sit next to node_modules —
+  // CI installs the two packages independently, so hono/better-auth/etc.
+  // are simply absent and the app's typecheck fails on files it has no
+  // business compiling.
+  //
+  // `android/` and `dist/` are generated output; nothing there should be
+  // typechecked as source either.
+  "exclude": ["node_modules", "worker", "android", "dist"]
 }

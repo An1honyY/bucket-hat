@@ -16,8 +16,13 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
+  // Deliberately does NOT extend expo/tsconfig.base. This is a Cloudflare
+  // Worker, not an Expo app — it has no React, no JSX, no React Native
+  // types. Extending it resolved locally only because Node walked up to
+  // the repo root's node_modules to find `expo`; the CI job for this
+  // package installs only worker/package.json, where expo doesn't exist,
+  // so the build failed with "File 'expo/tsconfig.base' not found."
   "include": [
     "src/**/*.ts"
-  ],
-  "extends": "expo/tsconfig.base"
+  ]
 }
