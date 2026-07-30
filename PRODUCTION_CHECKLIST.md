@@ -179,13 +179,21 @@ required by §10.1–§10.4's body text)
   Google Maps key restriction must be re-pointed.
   `android.allowBackup: true` set explicitly (§10.3, rather than relying on
   the platform default silently).
-- App icon redesigned to match §10.4's concept: a flat, geometric amber
-  umbrella silhouette (`accentWalk`'s hex, `#E8A860`) on the dark theme's
-  `bg` token (`#161B26`), replacing the generic default Expo template
-  icon. Generated `icon.png`, `android-icon-foreground.png`,
-  `android-icon-background.png`, and `android-icon-monochrome.png`
-  (Android 13+ themed-icon support) to match; `favicon.png` updated to the
-  same mark. Verified legible at a simulated 40px.
+- App icon is the NZ-outdoors **bucket hat** described in §10.4 — khaki/tan,
+  faceted straight-edge illustration, on the dark `bg` token (`#171B36`).
+  (An earlier amber umbrella concept was replaced on 2026-07-21; this
+  checklist described that stale version until 2026-07-31.) `icon.png`,
+  `android-icon-foreground.png`, `android-icon-background.png` and
+  `android-icon-monochrome.png` (Android 13+ themed icons) are a matched
+  set; `favicon.png` is the same mark with the background removed.
+- Icon padding corrected 2026-07-31. The artwork previously filled 78% of
+  `icon.png` and 66% of the adaptive foreground, which left the brim sitting
+  exactly on Android's safe-zone boundary — launchers that mask to a circle
+  clipped it. Now 62% and 53% respectively, with the furthest opaque pixel
+  of the adaptive foreground at 88% of the safe radius. **Any future icon
+  edit must re-check that**: Android guarantees only the inner 66%-diameter
+  circle is visible, so a bounding box that merely "fits the canvas" is not
+  enough.
 - `STORE_LISTING.md` drafted (App Store + Play Store copy, leading with the
   "recommends your actual wardrobe" differentiator and stating the
   Auckland-only scope in the description itself, per §10.4).

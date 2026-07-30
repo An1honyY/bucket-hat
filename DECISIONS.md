@@ -116,6 +116,7 @@ one by date — don't edit the old entry.
 - 2026-07-30 — Web app is served by the sync Worker itself; COOP/COEP via public/_headers [§12, §13.7]
 - 2026-07-30 — Renamed the project to bucket-hat; new D1 and R2, old data abandoned [maintenance]
 - 2026-07-31 — Display name and all user-facing copy rebranded to Bucket Hat [maintenance]
+- 2026-07-31 — Icon padding fixed for Android's safe zone; favicon made transparent [bug fix, §10.4]
 
 ---
 
@@ -2044,5 +2045,35 @@ in detail elsewhere and will drift silently.
 **Not renamed**: the app icon and header logo are artwork, not copy, so they
 still show the old umbrella mark. The `nz.co.buckethat.app` identifiers and
 `bucket-hat` resource names are unchanged from yesterday.
+
+---
+## 2026-07-31 — Icon padding fixed for Android's safe zone; favicon made transparent [bug fix, §10.4]
+
+**What**: `icon.png` content reduced from 78% to 62% of the canvas, and both
+`android-icon-foreground.png` and `android-icon-monochrome.png` from 66% to
+53%. `favicon.png` regenerated with no background, cropped tight to the hat,
+at 256px.
+
+**Why the adaptive icon mattered most**: Android guarantees only the inner
+**66%-diameter circle** of an adaptive icon is visible; launchers mask to
+circles, squircles and rounded squares. The hat spanned 66% of the *width*,
+and its widest point is the brim — which sits below centre, where the circle
+has already narrowed. So it was being clipped on exactly the devices that use
+a circular mask. Now the furthest opaque pixel is at 88% of the safe radius.
+A square preview will not show this; it has to be checked numerically.
+
+**The favicon's background was actively wrong**, not merely unnecessary: a
+tab sits on browser chrome that is light or dark by user theme, so a baked-in
+navy square reads as a misaligned box rather than as the mark. Transparency
+was produced by flood-filling the navy inward from the four corners, not by
+matching that colour globally — the hat's outline is near-black and
+numerically close to the navy, so a global match punches holes through the
+linework. Expo's export downsamples it to a 48px `.ico`; verified the
+deployed file still has zero alpha in all four corners.
+
+**Docs corrected too**: `PRODUCTION_CHECKLIST.md` still described the icon as
+"a flat, geometric amber umbrella silhouette", the pre-2026-07-21 concept.
+`docs/10-production-readiness.md` had the bucket hat right and now carries
+both sizing rules as well.
 
 ---
