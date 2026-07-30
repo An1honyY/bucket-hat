@@ -1,16 +1,16 @@
 {
-  "name": "commute-weather-planner-worker",
+  "name": "bucket-hat-worker",
   "version": "1.0.0",
   "private": true,
-  "description": "Cloudflare Worker backing Phase 19 cloud sync (docs/13-extended-features.md §13.7) — Better Auth over D1, plus the two sync endpoints.",
+  "description": "Cloudflare Worker backing Bucket Hat: Better Auth over D1, gear photos in R2, and the web build served from the same origin.",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "db:migrate:local": "wrangler d1 execute commute-weather-planner --local --file=./schema.sql",
-    "db:migrate:remote": "wrangler d1 execute commute-weather-planner --remote --file=./schema.sql",
-    "db:auth:local": "wrangler d1 execute commute-weather-planner --local --file=./auth-schema.sql",
-    "db:auth:remote": "wrangler d1 execute commute-weather-planner --remote --file=./auth-schema.sql"
+    "db:migrate:local": "wrangler d1 execute bucket-hat --local --file=./schema.sql",
+    "db:migrate:remote": "wrangler d1 execute bucket-hat --remote --file=./schema.sql",
+    "db:auth:local": "wrangler d1 execute bucket-hat --local --file=./auth-schema.sql",
+    "db:auth:remote": "wrangler d1 execute bucket-hat --remote --file=./auth-schema.sql"
   },
   "dependencies": {
     "@better-auth/kysely-adapter": "^1.6.25",

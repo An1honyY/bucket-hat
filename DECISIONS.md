@@ -114,6 +114,7 @@ one by date — don't edit the old entry.
 - 2026-07-30 — Migrated off expo-file-system/legacy; File/Directory must never be constructed at module scope [maintenance, §3.3]
 - 2026-07-30 — SafeAreaView now comes from react-native-safe-area-context in all screens [bug fix, §9]
 - 2026-07-30 — Web app is served by the sync Worker itself; COOP/COEP via public/_headers [§12, §13.7]
+- 2026-07-30 — Renamed the project to bucket-hat; new D1 and R2, old data abandoned [maintenance]
 
 ---
 
@@ -1978,5 +1979,42 @@ perfectly. Note the guards had to become `url === undefined`: the fallback is
 an empty string, so the previous `if (!url)` checks would have rejected it as
 unconfigured. Verified by building with `.env` hidden and deploying that
 bundle.
+
+---
+## 2026-07-30 — Renamed the project to bucket-hat; new D1 and R2, old data abandoned [maintenance]
+
+**What**: Worker, D1 database, R2 bucket, npm package names, EAS slug, URL
+scheme and both platform bundle identifiers are now `bucket-hat` /
+`bucket-hat-photos` / `nz.co.buckethat.app` / `buckethat`. The Worker is
+served from `https://bucket-hat.anthonyy.workers.dev` (the workers.dev
+subdomain also changed, from `ant-jo-yuen` to `anthonyy`).
+
+**Why the data wasn't migrated**: D1 databases and R2 buckets cannot be
+renamed in place, so matching names meant new resources either way. The
+existing contents — one account, six synced rows, one photo — were
+unreachable regardless: the account password was lost and §13.7's decision
+to skip a password-reset flow means there is no recovery path. Migrating
+rows nobody can authenticate against would have preserved nothing of value.
+The old `commute-weather-planner` D1 and `commute-weather-planner-photos`
+bucket are left in place to be deleted by hand.
+
+**That lost password is worth treating as a signal**, not a one-off: it is
+the second time the missing reset flow has cost something. §13.7 chose
+email+password without reset to avoid depending on an email provider. If
+this app is ever used by anyone else, that decision needs revisiting before
+it costs them their data too.
+
+**Consequences of the identifier rename, all deliberate**: the Android
+package change makes this a different application to the OS and to EAS — the
+build already on the phone must be uninstalled rather than upgraded, EAS
+issues fresh credentials (so the SHA-1 recorded in PRODUCTION_CHECKLIST.md is
+void and must be re-read after the next build), and the Google Maps key
+restriction must be re-pointed at the new package. Secrets are per-Worker, so
+`BETTER_AUTH_SECRET` had to be set again on `bucket-hat`; it is not inherited.
+
+**Left alone deliberately**: the user-facing display name is still "Commute
+Weather Planner", in app.json, STORE_LISTING.md and the permission strings.
+"Rename the project" was read as the project's identifiers rather than its
+branding — renaming what users see is a product decision, not a refactor.
 
 ---

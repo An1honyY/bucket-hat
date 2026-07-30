@@ -22,7 +22,7 @@
       },
       "env": {
         "NODE_ENV": "production",
-        "EXPO_PUBLIC_SYNC_API_URL": "https://commute-weather-planner-sync.ant-jo-yuen.workers.dev"
+        "EXPO_PUBLIC_SYNC_API_URL": "https://bucket-hat.anthonyy.workers.dev"
       }
     },
     "production": {

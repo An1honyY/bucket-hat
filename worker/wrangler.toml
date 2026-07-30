@@ -1,4 +1,4 @@
-name = "commute-weather-planner-sync"
+name = "bucket-hat"
 main = "src/index.ts"
 compatibility_date = "2026-07-01"
 # Better Auth pulls in Node built-ins (crypto, buffer) for password hashing
@@ -45,28 +45,28 @@ run_worker_first = ["/health", "/sync/*", "/photos", "/photos/*", "/api/auth/*"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "commute-weather-planner"
-# From `wrangler d1 create commute-weather-planner` (region OC). Safe to
+database_name = "bucket-hat"
+# From `wrangler d1 create bucket-hat` (region OC). Safe to
 # commit — a database id is not a credential; access is controlled by the
 # Cloudflare account the Worker is deployed under.
-database_id = "7ef37d5d-a407-4a2a-aecf-7848a559726c"
+database_id = "75b1c7e6-85ee-4ce7-bd48-e8ec5bcc33ea"
 
 # Object storage for gear photos (docs/03-data-models.md §3.3). Keys are
 # `${userId}/${itemId}.jpg`, written by the /photos endpoints in
 # src/photos.ts and deleted alongside their gear item.
 [[r2_buckets]]
 binding = "PHOTOS"
-bucket_name = "commute-weather-planner-photos"
+bucket_name = "bucket-hat-photos"
 
 [vars]
 # The Worker's own public URL, used by Better Auth to construct callbacks.
 # Must match the hostname clients actually reach, or sessions misbehave.
-BETTER_AUTH_URL = "https://commute-weather-planner-sync.ant-jo-yuen.workers.dev"
+BETTER_AUTH_URL = "https://bucket-hat.anthonyy.workers.dev"
 # Origins allowed to call the API — the CORS allowlist in src/index.ts
 # checks against exactly this list, with no wildcard, because the bearer
 # token is the credential. localhost:8081 is the Expo web dev server (see
 # .claude/launch.json); add any deployed web origin here too.
-TRUSTED_ORIGINS = "http://localhost:8081,http://localhost:8787,https://commute-weather-planner-sync.ant-jo-yuen.workers.dev"
+TRUSTED_ORIGINS = "http://localhost:8081,http://localhost:8787,https://bucket-hat.anthonyy.workers.dev"
 
 # BETTER_AUTH_SECRET is a secret, not a var — never commit it.
 # Set it with:  wrangler secret put BETTER_AUTH_SECRET

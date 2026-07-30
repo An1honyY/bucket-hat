@@ -1,15 +1,15 @@
 {
   "expo": {
     "name": "Commute Weather Planner",
-    "slug": "commute-weather-planner",
+    "slug": "bucket-hat",
     "version": "1.0.0",
-    "scheme": "commuteweatherplanner",
+    "scheme": "buckethat",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "nz.co.commuteweatherplanner.app",
+      "bundleIdentifier": "nz.co.buckethat.app",
       "buildNumber": "1",
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -35,7 +35,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "allowBackup": true,
-      "package": "nz.co.commuteweatherplanner.app",
+      "package": "nz.co.buckethat.app",
       "versionCode": 1,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",

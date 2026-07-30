@@ -45,7 +45,7 @@ npx wrangler login
 ### 2. Create the database
 
 ```bash
-npx wrangler d1 create commute-weather-planner
+npx wrangler d1 create bucket-hat
 ```
 
 Copy the `database_id` it prints into `wrangler.toml`, replacing
@@ -83,7 +83,7 @@ npx wrangler deploy
 ```
 
 Cloudflare prints the Worker's URL, something like
-`https://commute-weather-planner-sync.<your-subdomain>.workers.dev`. Two
+`https://bucket-hat.<your-subdomain>.workers.dev`. Two
 places need it:
 
 - `wrangler.toml` → `BETTER_AUTH_URL`, and add the app's web origin to

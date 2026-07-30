@@ -50,12 +50,26 @@ behind each judgment call referenced below.
       address search. Google's own guidance is one key per client type.
 
       - **Maps key** — application restriction: Android apps, package
-        `nz.co.commuteweatherplanner.app` + SHA-1
-        `F4:D2:3E:28:23:FC:C4:04:BD:2C:47:42:BD:AA:0B:3D:08:07:55:9E`
-        (EAS-managed keystore, read 2026-07-28; a fingerprint is public
-        information, not a credential). API restriction: Maps SDK for
-        Android only. Supply it as `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`,
-        which `app.config.js` already prefers over the Routes key.
+        `nz.co.buckethat.app` + the SHA-1 of the signing certificate. API
+        restriction: Maps SDK for Android only. Supply it as
+        `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, which `app.config.js` already
+        prefers over the Routes key.
+
+        **The previously recorded fingerprint is void.** It was
+        `F4:D2:3E:28:23:FC:C4:04:BD:2C:47:42:BD:AA:0B:3D:08:07:55:9E`,
+        read on 2026-07-28 against the old package
+        `nz.co.commuteweatherplanner.app`. The 2026-07-30 rename to
+        `nz.co.buckethat.app` makes that a different application as far as
+        Android and EAS are concerned, so EAS issues separate credentials
+        for it. Read the new one *after* the first build under the new
+        package, and restrict against that:
+
+        ```
+        npx eas-cli@latest credentials --platform android
+        ```
+
+        A fingerprint is public information, not a credential — it's
+        recorded here only so the restriction can be checked later.
       - **Routes/Places key** — *cannot* carry an application restriction
         while it's called from the client. API-restrict it to Routes API
         and Places API (New), and rely on quotas plus a billing budget
@@ -156,9 +170,13 @@ required by §10.1–§10.4's body text)
 - `eas.json` created with `development`/`preview`/`production` build
   profiles (§10.4).
 - `app.json`: `ios.bundleIdentifier` / `android.package` set to
-  `nz.co.commuteweatherplanner.app` (placeholder reverse-DNS — rename
-  before real submission if a different org identifier is preferred, since
-  bundle/package IDs can't change after a store listing is created).
+  `nz.co.buckethat.app`, renamed 2026-07-30 from
+  `nz.co.commuteweatherplanner.app` alongside the project rename to
+  bucket-hat. Still a placeholder reverse-DNS: settle it before any store
+  listing exists, because bundle/package IDs cannot change afterwards.
+  Changing it again means a new app identity — the installed app must be
+  uninstalled rather than upgraded, EAS issues fresh credentials, and the
+  Google Maps key restriction must be re-pointed.
   `android.allowBackup: true` set explicitly (§10.3, rather than relying on
   the platform default silently).
 - App icon redesigned to match §10.4's concept: a flat, geometric amber
