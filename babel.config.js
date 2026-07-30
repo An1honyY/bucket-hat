@@ -8,7 +8,12 @@ module.exports = function (api) {
   return {
     presets: ["babel-preset-expo"],
     plugins: [
-      "react-native-reanimated/plugin",
+      // `react-native-worklets/plugin`, not `react-native-reanimated/plugin`.
+      // As of Reanimated 4 the worklet transform lives in its own package,
+      // and the old path is a one-line shim that just re-exports this — so
+      // naming it directly is the same transform without depending on a
+      // compatibility alias that will eventually be dropped.
+      "react-native-worklets/plugin",
       ...(isProduction ? ["transform-remove-console"] : []),
     ],
   };

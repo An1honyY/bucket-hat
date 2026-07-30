@@ -108,6 +108,9 @@ one by date — don't edit the old entry.
 - 2026-07-28 — Web renders gear photos from R2 via blob URLs, not signed URLs (§3.3, §13.7)
 - 2026-07-28 — Google Maps Android key moved into a dynamic app.config.js [bug fix, §9.2]
 - 2026-07-29 — GPS lookups are time-bounded and prefer the last known fix [bug fix, §4, §5]
+- 2026-07-29 — Dependency ceilings: jest, eslint and typescript majors are blocked by Expo's own presets [maintenance]
+- 2026-07-29 — Removed unused react-native-dotenv; babel uses worklets/plugin; audit clean [maintenance]
+- 2026-07-29 — wrangler.toml top-level keys must precede every [table] header [bug fix]
 
 ---
 
@@ -1801,5 +1804,84 @@ waiting on it. Accuracy dropped to `Balanced`, since a commute start point
 doesn't need metre precision and high accuracy is the slow path. Nine tests
 cover it. Don't add a fourth bare `getCurrentPositionAsync` call site;
 route it through the helper.
+
+---
+## 2026-07-29 — Dependency ceilings: jest, eslint and typescript majors are blocked by Expo's own presets [maintenance]
+
+**What**: everything Expo governs is aligned to SDK 57 (`expo install --check`
+clean, doctor 20/20) and all in-range non-Expo updates are applied. Four
+majors were tried and reverted, and should not be re-attempted without
+first checking the blocker named here:
+
+- **jest 30** — `jest-expo@57.0.3` depends on jest *29* internals
+  (`@jest/globals`, `babel-jest`, `jest-snapshot`, all `^29.2.1`). Bumping
+  puts two jest majors in one tree. Blocked until jest-expo ships for 30.
+- **eslint 10** — the `eslint-plugin-react` bundled inside
+  `eslint-config-expo` calls `context.getFilename()`, removed in 10.
+  Fails at rule-load time. Note the peer range says `>=8.10`, which is
+  misleading; the peer range is not evidence of compatibility.
+- **typescript 7** — `tsc` alone passes, but `ts-api-utils` (via
+  `@typescript-eslint`) reads `TypeFlags.Intrinsic` and crashes, so lint
+  dies and CI fails. Kept at 6 in *both* packages deliberately; the worker
+  could run 7 today since it has no lint, but version skew across two
+  packages in one repo is worse than being a major behind on a
+  typecheck-only tool.
+- **better-sqlite3 13** — dropped its prebuilt binaries: the install
+  script changed from `prebuild-install || node-gyp rebuild` to bare
+  `node-gyp rebuild`, so `npm ci` fails without a compiler. Stays on 12.x.
+  Test-only dependency; nothing gained by compiling it in CI.
+
+**Why**: an Expo project's dependency graph is only as new as its presets.
+"Latest" is the wrong target for anything Expo pins — `expo install --check`
+is the authority. It currently wants `reanimated@4.5.1` and
+`worklets@0.10.1` where npm reports 4.5.3 and 0.11.3 as latest.
+
+**Resolution**: verify major bumps by running the whole CI sequence from a
+clean `npm ci`, not just `tsc`. Two of the four above pass `tsc` and fail
+lint or install — checking only the typechecker would have shipped them.
+
+---
+
+## 2026-07-29 — Removed unused react-native-dotenv; babel uses worklets/plugin; audit clean [maintenance]
+
+**What**: `react-native-dotenv` deleted (installed, never imported, not in
+`babel.config.js` — the project uses Expo's own `EXPO_PUBLIC_*` inlining).
+Babel now names `react-native-worklets/plugin` directly rather than
+`react-native-reanimated/plugin`, which as of Reanimated 4 is a one-line
+shim re-exporting it. `npm audit` is **0 vulnerabilities** in both packages,
+via `overrides` pinning `brace-expansion ^5.0.8` and `uuid ^11.1.1`.
+
+**Why**: both advisories were transitive and build-time only —
+brace-expansion via eslint→minimatch, uuid via
+expo-sharing→@expo/config-plugins→xcode (iOS prebuild tooling). Confirmed
+neither appears in the 1.7 MB web bundle before overriding them, so the
+overrides buy a clean audit rather than fixing shipped exposure. Worth
+knowing which it is: a red audit number on a dev-only transitive is not the
+same risk as one in app code.
+
+**Resolution**: `@typescript-eslint/parser` is now an explicit devDependency.
+It was previously only reachable because npm happened to hoist it out of
+`eslint-config-expo`; regenerating the lockfile nested it instead and lint
+died with 668 "Cannot find module '@typescript-eslint/parser'" errors from a
+clean install. Declaring it directly makes lint independent of tree shape.
+
+---
+
+## 2026-07-29 — wrangler.toml top-level keys must precede every [table] header [bug fix]
+
+**What**: `workers_dev` and `preview_urls` sat below `[[r2_buckets]]` and
+were therefore parsed as fields *of that bucket*, not as Worker settings.
+Moved above the first table header, with a comment saying why placement
+matters.
+
+**Why**: TOML assigns bare keys to the most recently opened table. wrangler
+accepted the file silently for several deploys and only flagged it after a
+version bump, as "Unexpected fields found in r2_buckets[0]". The practical
+consequence: `preview_urls = false` never applied, so every deployed version
+had its own public hostname serving a live auth endpoint against the
+production database — the exact thing that setting was added to prevent.
+
+**Resolution**: treat a wrangler config warning as a failure, not noise.
+When adding a top-level Worker setting, put it at the top of the file.
 
 ---

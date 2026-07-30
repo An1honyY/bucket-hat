@@ -5,6 +5,22 @@ compatibility_date = "2026-07-01"
 # and token signing; without this flag the Worker fails to bundle.
 compatibility_flags = ["nodejs_compat"]
 
+workers_dev = true
+
+# Preview URLs are disabled deliberately. Enabled (the default), every
+# deployed *version* also gets its own public hostname — which for this
+# Worker means additional origins serving a live auth endpoint against the
+# production database. There's no review workflow here that would use them,
+# so they're all surface and no benefit.
+#
+# NOTE ON PLACEMENT: every key above this line must stay above the first
+# [table] header. TOML assigns bare keys to the most recent table, so these
+# two originally sat below [[r2_buckets]] and were silently absorbed into it
+# — accepted without error, and completely ineffective. wrangler only
+# surfaced it as "Unexpected fields found in r2_buckets[0]" after a version
+# bump. Preview URLs were live for several deploys as a result.
+preview_urls = false
+
 [[d1_databases]]
 binding = "DB"
 database_name = "commute-weather-planner"
@@ -13,27 +29,12 @@ database_name = "commute-weather-planner"
 # Cloudflare account the Worker is deployed under.
 database_id = "7ef37d5d-a407-4a2a-aecf-7848a559726c"
 
-# Object storage for gear photos (docs/03-data-models.md §3.3).
-#
-# Provisioned ahead of the feature that uses it: photo sync is NOT built
-# yet. `photo_uri` is currently in DEVICE_LOCAL_COLUMNS
-# (src/lib/sync/localChanges.ts), so photos stay on the device that took
-# them and nothing reads or writes this bucket. The binding is declared so
-# the plumbing is in place; adding the upload/download lifecycle is its own
-# pass. See DECISIONS.md (2026-07-28, "Cloud sync excludes app_settings and
-# gear photos").
+# Object storage for gear photos (docs/03-data-models.md §3.3). Keys are
+# `${userId}/${itemId}.jpg`, written by the /photos endpoints in
+# src/photos.ts and deleted alongside their gear item.
 [[r2_buckets]]
 binding = "PHOTOS"
 bucket_name = "commute-weather-planner-photos"
-
-workers_dev = true
-
-# Preview URLs are disabled deliberately. Enabled (the default), every
-# deployed *version* also gets its own public hostname — which for this
-# Worker means additional origins serving a live auth endpoint against the
-# production database. There's no review workflow here that would use them,
-# so they're all surface and no benefit.
-preview_urls = false
 
 [vars]
 # The Worker's own public URL, used by Better Auth to construct callbacks.

@@ -8,7 +8,7 @@
 | Local storage | `expo-sqlite` (preferred) or `@react-native-async-storage/async-storage` for simpler key-value | Inventory + saved locations are structured/relational → SQLite is worth it |
 | State | Zustand (lightweight, no boilerplate) | Context is fine too if the agent prefers |
 | HTTP | `fetch` or `axios`, wrapped by `@tanstack/react-query` | Query/cache layer for dedup, retry, and background refetch (Section 5.4) |
-| Env/secrets | `expo-constants` + `.env` via `react-native-dotenv` or Expo's `app.config.ts` extra field | Never commit real keys |
+| Env/secrets | `EXPO_PUBLIC_*` vars in `.env`, read via `process.env` (Expo inlines them at build time); `app.config.js` for native config that needs a key, e.g. the Android Maps key | Never commit real keys. `react-native-dotenv` was listed here as an alternative and was installed but never used — removed 2026-07-29, since Expo's built-in handling is what the code actually relies on. Note `EXPO_PUBLIC_*` values are inlined into the bundle and are therefore extractable from a build — see PRODUCTION_CHECKLIST.md on restricting rather than hiding them |
 | Location | `expo-location` | For "current location" as journey origin |
 | Notifications | `expo-notifications` | Scheduled local "leave by" alerts (Section 7.3) — local only, no push server needed for v1 |
 | Sharing / files | `expo-file-system` + `expo-sharing` + `expo-document-picker` | Data export/import (Section 10.3) |
