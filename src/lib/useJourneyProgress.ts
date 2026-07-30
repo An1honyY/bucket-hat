@@ -43,6 +43,8 @@ export interface UseJourneyProgress {
   arrived: boolean;
   /** True when this journey has no geometry to track against at all. */
   untrackable: boolean;
+  /** The distance-indexed route, so callers can splitPath() without re-decoding. */
+  route: IndexedRoute | null;
 }
 
 export function useJourneyProgress(journey: Journey | null | undefined, active: boolean): UseJourneyProgress {
@@ -176,6 +178,7 @@ export function useJourneyProgress(journey: Journey | null | undefined, active: 
     progress: active && tracked?.route === route ? tracked.progress : null,
     arrived: active && arrivedRoute === route && route !== null,
     untrackable: active && route !== null && route.totalM === 0,
+    route,
   };
 }
 

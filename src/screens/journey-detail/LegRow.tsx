@@ -33,14 +33,26 @@ function annotationEffects(leg: JourneyLeg): EnvironmentEffectType[] {
   return effects;
 }
 
+// Phase 22 — where this leg sits relative to the user's actual progress.
+// "upcoming" is the only state a journey that isn't being followed ever has,
+// so the planning view renders exactly as it did before.
+export type LegState = "completed" | "current" | "upcoming";
+
 interface Props {
   leg: JourneyLeg;
+  state?: LegState;
+  /** 0-1 through the current leg; only read when state === "current". */
+  progressFraction?: number;
+  /** Pace-adjusted minutes left on this leg, for the current leg's meta line. */
+  remainingMin?: number;
 }
 
-export default function LegRow({ leg }: Props) {
+export default function LegRow({ leg, state = "upcoming", progressFraction = 0, remainingMin }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
+  const isCurrent = state === "current";
+  const isCompleted = state === "completed";
   const pillLabel = !leg.outdoor && !leg.isStationary ? (leg.climate === "ac" ? "AC" : leg.climate === "heated" ? "Heated" : undefined) : undefined;
   const isPill = pillLabel !== undefined;
   const modeIconKind = leg.isStationary ? "stationary" : !leg.outdoor ? "indoor" : leg.mode;
@@ -49,8 +61,9 @@ export default function LegRow({ leg }: Props) {
   // §9.6 — one coherent screen-reader label per row (icon + text + badge
   // read as a single stop) rather than three separate ones.
   const accessibilityLabel = [
+    isCompleted ? "Completed" : isCurrent ? "Currently on" : undefined,
     leg.label,
-    `${leg.durationMin} minutes`,
+    isCurrent && remainingMin !== undefined ? `${Math.max(1, Math.round(remainingMin))} minutes left` : `${leg.durationMin} minutes`,
     leg.weather ? `${Math.round(leg.weather.apparentTempC)} degrees` : undefined,
     condition?.label,
   ]
@@ -58,15 +71,33 @@ export default function LegRow({ leg }: Props) {
     .join(", ");
 
   return (
-    <View style={styles.row} accessible accessibilityLabel={accessibilityLabel}>
-      <View style={[styles.iconCircle, isPill && styles.pillCircle]}>
-        {isPill ? <Text style={styles.pillLabel}>{pillLabel}</Text> : <ModeIcon kind={modeIconKind} size={16} color={theme.textPrimary} />}
+    <View
+      style={[styles.row, isCurrent && styles.rowCurrent, isCompleted && styles.rowCompleted]}
+      accessible
+      accessibilityLabel={accessibilityLabel}
+    >
+      <View style={[styles.iconCircle, isPill && styles.pillCircle, isCurrent && { backgroundColor: theme.accentWalk }]}>
+        {isPill ? (
+          <Text style={styles.pillLabel}>{pillLabel}</Text>
+        ) : (
+          <ModeIcon kind={modeIconKind} size={16} color={isCurrent ? "#FFFFFF" : isCompleted ? theme.textSecondary : theme.textPrimary} />
+        )}
       </View>
       <View style={styles.center}>
-        <Text style={styles.label}>{leg.label}</Text>
+        <Text style={[styles.label, isCompleted && styles.labelCompleted]}>{leg.label}</Text>
+        {/* The remaining-time text is the point, not the bar underneath it:
+            §9.6 requires the leg list to be a complete summary on its own,
+            so progress can never be conveyed by a graphic alone. */}
         <Text style={styles.meta}>
-          {leg.durationMin} min · {formatTimeRange(leg.startTime, leg.durationMin, hour12)}
+          {isCurrent && remainingMin !== undefined
+            ? `${Math.max(1, Math.round(remainingMin))} min left · ${formatTimeRange(leg.startTime, leg.durationMin, hour12)}`
+            : `${leg.durationMin} min · ${formatTimeRange(leg.startTime, leg.durationMin, hour12)}`}
         </Text>
+        {isCurrent && (
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.round(Math.min(1, Math.max(0, progressFraction)) * 100)}%` }]} />
+          </View>
+        )}
         {effects.length > 0 && (
           <View style={styles.annotationRow}>
             {effects.map((effect) => (
@@ -102,6 +133,15 @@ export default function LegRow({ leg }: Props) {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 12, backgroundColor: theme.surface, marginBottom: 12 },
+    // Phase 22 — the leg you're on gets an accent edge and a raised surface;
+    // a finished one recedes without disappearing.
+    rowCurrent: { backgroundColor: theme.surfaceRaised, borderLeftWidth: 3, borderLeftColor: theme.accentWalk, paddingLeft: 9 },
+    // Dimmed via tokens rather than the `opacity` prop, so contrast against
+    // the background stays predictable instead of compounding.
+    rowCompleted: { paddingVertical: 8, marginBottom: 8 },
+    labelCompleted: { color: theme.textSecondary, fontWeight: "500" },
+    progressTrack: { height: 3, borderRadius: 2, backgroundColor: theme.border, marginTop: 6, overflow: "hidden" },
+    progressFill: { height: 3, borderRadius: 2, backgroundColor: theme.accentWalk },
     iconCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: theme.border },
     pillCircle: { width: "auto", paddingHorizontal: 8, borderRadius: 8, backgroundColor: theme.acBadge },
     pillLabel: { fontSize: 11, fontWeight: "600", color: "#FFFFFF" },

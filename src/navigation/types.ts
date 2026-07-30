@@ -28,7 +28,13 @@ export type RootStackParamList = {
   // Detail shows the "using a saved route from…" banner when present.
   // readOnly is set when opened from History (§4.4) — hides the
   // return-trip toggle, which doesn't apply to something already past.
-  JourneyDetail: { journeyId: string; cachedFromDate?: string; readOnly?: boolean };
+  // journeyMode (Phase 22) starts the screen already following the journey,
+  // set by Today's "Leaving now" action so that tap goes straight from "I'm
+  // heading out" to a live map. Only a seed: the screen owns the state from
+  // then on, and it's deliberately not persisted — a journey in progress is
+  // ephemeral, and a stale "in progress" flag surviving a force-quit would
+  // be worse than starting it again.
+  JourneyDetail: { journeyId: string; cachedFromDate?: string; readOnly?: boolean; journeyMode?: boolean };
   History: undefined;
   LocalKnowledge: undefined;
   Settings: undefined;
