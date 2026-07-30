@@ -113,6 +113,7 @@ one by date — don't edit the old entry.
 - 2026-07-29 — wrangler.toml top-level keys must precede every [table] header [bug fix]
 - 2026-07-30 — Migrated off expo-file-system/legacy; File/Directory must never be constructed at module scope [maintenance, §3.3]
 - 2026-07-30 — SafeAreaView now comes from react-native-safe-area-context in all screens [bug fix, §9]
+- 2026-07-30 — Web app is served by the sync Worker itself; COOP/COEP via public/_headers [§12, §13.7]
 
 ---
 
@@ -1941,5 +1942,41 @@ whenever a screen's header option changes. Verified on web (insets are 0
 there, so no visual change) and by navigating the header'd and headerless
 variants; the Android inset improvement follows from React Navigation's
 documented behaviour rather than from a device check.
+
+---
+## 2026-07-30 — Web app is served by the sync Worker itself; COOP/COEP via public/_headers [§12, §13.7]
+
+**What**: `worker/wrangler.toml` gained an `[assets]` block serving
+`worker/public` (the `npm run build:web` output) with
+`not_found_handling = "single-page-application"` and `run_worker_first` for
+the API paths. `public/_headers` at the repo root — copied into the export by
+Expo automatically — sets `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: credentialless`.
+
+**Why the headers are mandatory, not hardening**: the web build's database is
+`expo-sqlite`'s wa-sqlite WASM backend, which needs SharedArrayBuffer, which
+browsers only expose to a cross-origin isolated document. Without them the
+page loads and then cannot open its database at all — no gear, no locations,
+no journeys — a failure that looks nothing like a missing HTTP header.
+`metro.config.js` sets the same pair for local dev, but its own comment notes
+it only runs inside the Expo CLI process, so production had to set them
+separately. They live in `_headers` rather than Worker code because
+`_headers` applies to static assets, and Worker code can't add headers to a
+response it never handles.
+
+**Why one Worker rather than two**: the site is then same-origin with its own
+API, so there is no CORS preflight and no `TRUSTED_ORIGINS` entry to keep in
+step with the deployed URL. Verified live: `crossOriginIsolated === true`,
+onboarding completes (which writes to SQLite), OPFS holds the `expo-sqlite`
+store, and `/sync/pull` returns 401 rather than an asset.
+
+**Same-origin base URL fallback**: `src/services/syncApiBase.ts` returns `""`
+on web when `EXPO_PUBLIC_SYNC_API_URL` is unset. `.env` is gitignored, so a
+cloud build has no value for it — without the fallback the deployed site
+would report "sync isn't configured in this build" while a local build worked
+perfectly. Note the guards had to become `url === undefined`: the fallback is
+an empty string, so the previous `if (!url)` checks would have rejected it as
+unconfigured. Verified by building with `.env` hidden and deploying that
+bundle.
 
 ---

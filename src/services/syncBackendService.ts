@@ -12,6 +12,7 @@
 //
 // Lives in src/services/ per docs/12-dev-workflow-ci.md §12.1: one module
 // per external API, one seam to intercept for tests and the dev menu.
+import { isSyncApiConfigured, syncApiBase } from "./syncApiBase";
 import type {
   PhotoBackend,
   PullResult,
@@ -25,9 +26,8 @@ import type {
 
 // Matches the other services' env-var convention (see routesService.ts).
 // EXPO_PUBLIC_ is required for the value to survive into the bundle.
-function baseUrl(): string | undefined {
-  return process.env.EXPO_PUBLIC_SYNC_API_URL;
-}
+// Falls back to same-origin on web — see syncApiBase.ts for why.
+const baseUrl = syncApiBase;
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -43,7 +43,7 @@ async function request<T>(
   init?: { method?: string; body?: unknown }
 ): Promise<SyncResult<T>> {
   const url = baseUrl();
-  if (!url) return { error: "unreachable" };
+  if (url === undefined) return { error: "unreachable" };
 
   // AbortController rather than lib/withTimeout: that helper resolves a
   // fallback value and lets the underlying promise run on, which for a
@@ -98,7 +98,9 @@ export function createSyncBackend(token: string): SyncBackend {
 }
 
 export function isSyncConfigured(): boolean {
-  return Boolean(baseUrl());
+  // Not `Boolean(baseUrl())`: the same-origin fallback is an empty string,
+  // which is falsy but perfectly usable.
+  return isSyncApiConfigured();
 }
 
 // Photo transfers get their own timeout: an image is ~100 KB base64-inflated
@@ -131,7 +133,7 @@ export function createPhotoBackend(token: string): PhotoBackend {
   return {
     async listPhotos(): Promise<SyncResult<RemotePhoto[]>> {
       const url = baseUrl();
-      if (!url) return { error: "unreachable" };
+      if (url === undefined) return { error: "unreachable" };
       try {
         return await withTimeoutSignal(async (signal) => {
           const response = await fetch(`${url}/photos`, { headers: authHeaders, signal });
@@ -146,7 +148,7 @@ export function createPhotoBackend(token: string): PhotoBackend {
 
     async putPhoto(itemId: string, base64: string): Promise<SyncResult<{ uploadedAt: string }>> {
       const url = baseUrl();
-      if (!url) return { error: "unreachable" };
+      if (url === undefined) return { error: "unreachable" };
       try {
         return await withTimeoutSignal(async (signal) => {
           // Decoded here rather than server-side so what lands in R2 is a
@@ -169,7 +171,7 @@ export function createPhotoBackend(token: string): PhotoBackend {
 
     async getPhoto(itemId: string): Promise<SyncResult<string>> {
       const url = baseUrl();
-      if (!url) return { error: "unreachable" };
+      if (url === undefined) return { error: "unreachable" };
       try {
         return await withTimeoutSignal(async (signal) => {
           const response = await fetch(`${url}/photos/${encodeURIComponent(itemId)}`, {
@@ -201,7 +203,7 @@ export function createPhotoBackend(token: string): PhotoBackend {
  */
 export async function fetchPhotoObjectUrl(token: string, itemId: string): Promise<string | undefined> {
   const url = baseUrl();
-  if (!url) return undefined;
+  if (url === undefined) return undefined;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PHOTO_TIMEOUT_MS);

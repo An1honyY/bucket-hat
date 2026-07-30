@@ -4,9 +4,11 @@ The Cloudflare Worker behind Phase 19 cloud sync
 (`docs/13-extended-features.md` §13.7). Better Auth for accounts, D1 for
 storage, two endpoints for sync.
 
-The app works completely without this. If `EXPO_PUBLIC_SYNC_API_URL` is
-unset, the Sync & account screen says so and everything else behaves
-exactly as it did before — SQLite remains the source of truth either way.
+The app works completely without this. On native, an unset
+`EXPO_PUBLIC_SYNC_API_URL` makes the Sync & account screen say so and
+everything else behaves exactly as before. On web the value is optional,
+because this Worker serves the web build too and the client falls back to
+same-origin requests. Either way SQLite remains the source of truth.
 
 ---
 
@@ -199,3 +201,49 @@ Checked end-to-end against a local D1 instance:
 
 The client half is covered by `src/lib/sync/syncEngine.test.ts`, which
 runs the same scenarios against two real SQLite databases.
+
+---
+
+## Hosting the web app
+
+The Worker serves the web build alongside the API, from the same origin.
+
+```bash
+npm run deploy:web
+```
+
+That runs `expo export --platform web` into `worker/public` (gitignored) and
+then `wrangler deploy`. The `[assets]` block in `wrangler.toml` picks it up.
+
+**`public/_headers` is not optional.** It sets the cross-origin isolation
+headers `expo-sqlite`'s WASM backend needs; without them the site loads and
+then fails to open its database. It lives at the *repo root* under `public/`,
+which Expo copies into the export on every build — do not move it into
+`worker/public`, which is wiped and regenerated each time.
+
+Check a deploy with:
+
+```bash
+curl -sD - -o /dev/null https://<your-worker>.workers.dev/ | grep -i cross-origin
+```
+
+Both `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: credentialless` must be present. In the
+browser console, `self.crossOriginIsolated` must be `true`.
+
+### Cloudflare Workers Builds (deploy from GitHub)
+
+| Field | Value |
+|---|---|
+| Build command | `npm ci && npm run build:web` |
+| Deploy command | `npx wrangler deploy --config worker/wrangler.toml` |
+| Root directory | *(repo root, leave blank)* |
+
+`EXPO_PUBLIC_SYNC_API_URL` does **not** need setting for a cloud build: the
+web bundle falls back to same-origin requests when it's absent
+(`src/services/syncApiBase.ts`), which is correct because this Worker serves
+both. Journey planning and address search *do* need
+`EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY` and `EXPO_PUBLIC_AT_SUBSCRIPTION_KEY` as
+build-time variables, since those are inlined into the bundle and `.env` is
+gitignored. Without them the app still loads and syncs; routing and transit
+times fail.

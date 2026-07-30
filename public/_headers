@@ -1,0 +1,19 @@
+# Cross-origin isolation for expo-sqlite's WASM backend.
+#
+# The web build stores its database via wa-sqlite, which needs
+# SharedArrayBuffer, which browsers only expose to a cross-origin isolated
+# document. Without these two headers the page loads and then fails to open
+# its database — no gear, no locations, no journeys — which looks nothing
+# like a missing HTTP header.
+#
+# metro.config.js sets the same pair for the local dev server, but its own
+# comment notes it "only runs inside the local Metro/Expo CLI process", so
+# production hosting has to set them itself.
+#
+# COEP is `credentialless`, not `require-corp`: it still isolates the
+# document, but doesn't require every cross-origin resource the app loads
+# (CARTO map tiles, Google Places/Routes responses) to opt in with its own
+# CORP header. See DECISIONS.md 2026-07-22.
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless

@@ -8,6 +8,7 @@
 // ourselves, which works the same in both places — see the note in
 // syncBackendService.ts on why avoiding platform-specific code matters
 // here in particular.
+import { isSyncApiConfigured, syncApiBase } from "./syncApiBase";
 import type { ServiceResult } from "./types";
 
 export interface Account {
@@ -30,12 +31,12 @@ export type AuthError =
 
 export type AuthResult<T> = { data: T } | { error: AuthError };
 
-function baseUrl(): string | undefined {
-  return process.env.EXPO_PUBLIC_SYNC_API_URL;
-}
+// Falls back to same-origin on web — see syncApiBase.ts for why.
+const baseUrl = syncApiBase;
 
 export function isAuthConfigured(): boolean {
-  return Boolean(baseUrl());
+  // Not `Boolean(baseUrl())`: the same-origin fallback is an empty string.
+  return isSyncApiConfigured();
 }
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -58,7 +59,7 @@ function mapError(status: number, body: BetterAuthErrorBody | undefined): AuthEr
 
 async function post<T>(path: string, body: unknown, token?: string): Promise<AuthResult<T>> {
   const url = baseUrl();
-  if (!url) return { error: "not-configured" };
+  if (url === undefined) return { error: "not-configured" };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -138,7 +139,7 @@ export async function signOut(token: string): Promise<ServiceResult<true>> {
 /** Verifies a stored token is still valid, e.g. on app start. */
 export async function getSession(token: string): Promise<AuthResult<Session>> {
   const url = baseUrl();
-  if (!url) return { error: "not-configured" };
+  if (url === undefined) return { error: "not-configured" };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);

@@ -21,6 +21,28 @@ workers_dev = true
 # bump. Preview URLs were live for several deploys as a result.
 preview_urls = false
 
+# The web build, served from this same Worker (docs/12-dev-workflow-ci.md).
+#
+# Same-origin with the API, which is the point: no CORS preflight, and no
+# TRUSTED_ORIGINS entry to maintain for the deployed site. `./public` is
+# `worker/public`, produced by `npm run build:web` at the repo root and
+# gitignored — Workers Builds regenerates it on each deploy.
+#
+# `single-page-application` sends unmatched paths to index.html so
+# client-side routes like /Main/Gear work on a hard refresh. It does *not*
+# swallow the API: client-side fetch() calls are non-navigation requests and
+# reach the Worker. run_worker_first states that explicitly anyway, so the
+# routing doesn't depend on request-header nuance.
+#
+# COOP/COEP for the SQLite WASM backend come from `public/_headers` at the
+# repo root, which Expo copies into the export. They can't be set here —
+# `_headers` applies to static assets, and Worker code can't add headers to
+# a response it never handles.
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
+run_worker_first = ["/health", "/sync/*", "/photos", "/photos/*", "/api/auth/*"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "commute-weather-planner"
