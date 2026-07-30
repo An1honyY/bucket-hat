@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -6,9 +6,17 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/types";
 import { deleteJourney, getJourney, updateJourney } from "../../db/repositories/journeys";
 import { createAnnotation, listAnnotations } from "../../db/repositories/annotations";
+import { getAnnotationAlertMode, type AnnotationAlertMode } from "../../db/repositories/settings";
 import { applyAnnotationsToLegs, decodePolyline } from "../../lib/annotations";
 import { useJourneyProgress } from "../../lib/useJourneyProgress";
 import { splitPath } from "../../lib/journeyProgress";
+import {
+  annotationAlerts,
+  gearTimingAlerts,
+  topAlert,
+  weatherAheadAlerts,
+  type JourneyAlert,
+} from "../../lib/journeyAlerts";
 import { useRecommendation } from "../../lib/useRecommendation";
 import { freezeIfDue } from "../../lib/leaveBy";
 import { cancelLeaveByNotification } from "../../lib/notifications";
@@ -32,6 +40,7 @@ import { EFFECT_META, EFFECT_MARKER_EMOJI } from "../local-knowledge/effectMeta"
 import GearRecommendationCard from "./GearRecommendationCard";
 import LegRow, { type LegState } from "./LegRow";
 import ActionIcon from "../../components/ActionIcon";
+import EffectIcon from "../../components/EffectIcon";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle, conditionColorForSeverity } from "../../theme/tokens";
 import { RADIUS } from "../../theme/typography";
@@ -138,16 +147,59 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
   const [cameraLocked, setCameraLocked] = useState(true);
   const [showCompletedLegs, setShowCompletedLegs] = useState(false);
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
+  // Phase 22 — how the user wants their saved spots surfaced. The Settings
+  // value is the persistent one; `alertsMuted` below is a per-trip quiet
+  // switch that deliberately does NOT write it back, so one tap while
+  // walking can't silently change a global preference.
+  const [annotationAlertMode, setAnnotationAlertModeState] = useState<AnnotationAlertMode>("briefing");
+  const [alertsMuted, setAlertsMuted] = useState(false);
+  // Spots already called out this trip, so GPS jitter in and out of a
+  // radius can't re-fire the same one. A ref because it's memory, not
+  // display state — it's only ever read and written inside the effect below.
+  const firedAnnotationIds = useRef<Set<string>>(new Set());
+  const [enteredSpotAlert, setEnteredSpotAlert] = useState<JourneyAlert | null>(null);
+  // Phase 22 — arriving ends the follow, derived rather than pushed through
+  // state so there's no effect racing the render. The subscription itself is
+  // torn down inside useJourneyProgress the moment arrival fires.
+  //
+  // Deliberately does NOT call recordWear(): that already fires exactly once
+  // per journey from freezeIfDue() at leave-by time (src/lib/leaveBy.ts —
+  // "recordWear() must only ever fire once per Journey"), so calling it again
+  // here would double every wear count for anyone who follows a journey.
+  // Arrival retimes the *feedback prompt*, which is the part that was
+  // previously guessing from the clock.
   const tracking = useJourneyProgress(journey, journeyMode);
   const { progress } = tracking;
+  const following = journeyMode && !tracking.arrived;
 
   // Load saved local-knowledge spots for the map; refreshes when the screen
   // regains focus so a spot added elsewhere shows up here too.
+  // Phase 22 — walking into a saved spot is an event, so it's detected in an
+  // effect rather than derived during render: the "already called out" set
+  // is memory that has to be written when it happens, and mutating it while
+  // rendering would make the alert depend on how many times React chose to
+  // re-render.
+  const currentFix = tracking.fix;
+  useEffect(() => {
+    if (!following || annotationAlertMode !== "live" || !currentFix) return;
+    const entered = annotationAlerts(
+      { lat: currentFix.lat, lng: currentFix.lng },
+      annotations,
+      firedAnnotationIds.current
+    );
+    if (entered.length === 0) return;
+    for (const alert of entered) firedAnnotationIds.current.add(alert.id.replace(/^annotation-/, ""));
+    setEnteredSpotAlert(entered[0]);
+  }, [following, annotationAlertMode, currentFix, annotations]);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       listAnnotations().then((rows) => {
         if (!cancelled) setAnnotations(rows);
+      });
+      getAnnotationAlertMode().then((mode) => {
+        if (!cancelled) setAnnotationAlertModeState(mode);
       });
       return () => {
         cancelled = true;
@@ -246,7 +298,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
         : currentLeg.mode
     : "walk";
   const userPuck: MapUserPuck | null =
-    journeyMode && tracking.fix
+    following && tracking.fix
       ? {
           lat: tracking.fix.lat,
           lng: tracking.fix.lng,
@@ -263,7 +315,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
     tracking.route && progress
       ? splitPath(tracking.route, progress.distanceAlongM)
       : { traveled: [], remaining: [] };
-  const followMode: MapFollowMode = !journeyMode ? "off" : cameraLocked ? "follow" : "free";
+  const followMode: MapFollowMode = !following ? "off" : cameraLocked ? "follow" : "free";
 
   // Following is offered from half an hour before departure until the
   // journey's planned end, plus slack for running late. Outside that window
@@ -275,15 +327,43 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
   // Every leg is "upcoming" unless a journey is actually being followed, so
   // the planning and History views are untouched by any of this.
   const legStateFor = (index: number): LegState => {
-    if (!journeyMode || !progress) return "upcoming";
+    if (!following || !progress) return "upcoming";
     if (index < progress.currentLegIndex) return "completed";
     return index === progress.currentLegIndex ? "current" : "upcoming";
   };
-  const completedCount = journeyMode && progress ? progress.currentLegIndex : 0;
+  const completedCount = following && progress ? progress.currentLegIndex : 0;
+
+  // Phase 22 — the one live alert worth showing right now. Weather and gear
+  // timing always apply while following; the saved-spot alerts are the ones
+  // the user gets to opt into, and the per-trip mute silences the lot.
+  const liveAlert =
+    !following || !progress || alertsMuted
+      ? null
+      : topAlert([
+          ...weatherAheadAlerts(journey.legs, progress),
+          ...gearTimingAlerts(journey.legs, progress),
+          ...(enteredSpotAlert ? [enteredSpotAlert] : []),
+        ]);
+
+  // The pre-departure briefing: the spots this route actually passes,
+  // resolved from the ids applyAnnotationsToLegs already stamped on each leg
+  // — no new matching logic, and it can't disagree with the leg rows.
+  const routeAnnotations =
+    annotationAlertMode === "off"
+      ? []
+      : annotations.filter((a) => journey.legs.some((leg) => leg.matchedAnnotationIds?.includes(a.id)));
+  const showBriefing = !following && !route.params.readOnly && routeAnnotations.length > 0;
 
   const totalDurationMin = journey.legs.reduce((sum, leg) => sum + leg.durationMin, 0);
   const journeyEndMs = new Date(journey.departTime).getTime() + totalDurationMin * 60_000;
-  const showFeedbackStrip = !feedbackGiven && !journey.feedback && journeyEndMs < nowMs;
+  // §4.2 — the prompt appears once the journey is over. "Over" was scheduled
+  // departTime + total planned duration, which is wrong in both directions:
+  // it prompts while you're still walking when you're running late, and makes
+  // you wait when you got in early. A detected arrival is the real signal, so
+  // it wins when there is one; the clock stays as the fallback for journeys
+  // that were never followed.
+  const journeyIsOver = tracking.arrived || journeyEndMs < nowMs;
+  const showFeedbackStrip = !feedbackGiven && !journey.feedback && journeyIsOver;
 
   // §5.3 — only medium/low confidence gets a banner; high is the common
   // case and stays silent. Worst (lowest-confidence) outdoor leg wins,
@@ -379,7 +459,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
-        <View style={[styles.mapContainer, journeyMode && styles.mapContainerJourney]}>
+        <View style={[styles.mapContainer, following && styles.mapContainerJourney]}>
           <JourneyMap
             stops={stops}
             routePath={routePath}
@@ -398,7 +478,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
           {/* Re-locking the camera is the one control that has to sit on the
               map itself — it's about the map's own state, and it appears
               exactly when the user has panned away from the puck. */}
-          {journeyMode && !cameraLocked && (
+          {following && !cameraLocked && (
             <Pressable
               onPress={() => setCameraLocked(true)}
               style={styles.recenterChip}
@@ -411,7 +491,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
           )}
         </View>
 
-        {journeyMode && (
+        {following && (
           <View style={styles.journeyBar}>
             <View style={styles.journeyBarText}>
               {/* The ETA is the headline once there's a real one; until then
@@ -435,12 +515,30 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
+        {/* Phase 22 — one alert at a time. This sits on a screen someone is
+            glancing at mid-stride; a stack of chips here is a stack nobody
+            reads. The mute is per-trip only and never writes the Settings
+            preference. */}
+        {liveAlert && (
+          <View style={styles.alertChip}>
+            <Text style={styles.alertChipText}>{liveAlert.message}</Text>
+            <Pressable
+              onPress={() => setAlertsMuted(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Quiet alerts for this trip"
+            >
+              <Text style={styles.alertChipAction}>Quiet</Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* Off route is a real state, not a failure — the ETA above keeps
             counting off the route you planned, which stops being true once
             you've left it. Re-planning is the honest fix, so this offers it
             directly rather than leaving the user to work out that the
             numbers above have quietly gone stale. */}
-        {journeyMode && progress?.isOffRoute && (
+        {following && progress?.isOffRoute && (
           <View style={styles.offRouteBanner}>
             <Text style={styles.offRouteText}>
               You&apos;ve left the planned route — times below may no longer be right.
@@ -456,10 +554,27 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
+        {/* Phase 22 — the spots on this route, read before you set off. This
+            is the path that works with the phone in a pocket, which is why
+            it's the default rather than live alerts. */}
+        {showBriefing && (
+          <View style={styles.briefingCard}>
+            <Text style={styles.briefingTitle}>On this route</Text>
+            {routeAnnotations.map((annotation) => (
+              <View key={annotation.id} style={styles.briefingRow}>
+                <EffectIcon kind={annotation.effect} size={14} color={theme.annotationPin} />
+                <Text style={styles.briefingText}>
+                  {annotation.label} — {EFFECT_META[annotation.effect].label.toLowerCase()}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Journeys reached any other way (History aside) still need a way
             in. Offered near the departure window only — following a journey
             you're not on yet is just a battery drain. */}
-        {!route.params.readOnly && !journeyMode && canStartJourney && (
+        {!route.params.readOnly && !following && canStartJourney && (
           <Pressable
             onPress={() => {
               setCameraLocked(true);
@@ -704,6 +819,32 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       backgroundColor: theme.accentWalk,
     },
     startJourneyLabel: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
+    alertChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      marginHorizontal: 20,
+      marginTop: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: RADIUS.card,
+      backgroundColor: theme.surfaceRaised,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.accentWalk,
+    },
+    alertChipText: { flex: 1, fontSize: 14, fontWeight: "600", color: theme.textPrimary },
+    alertChipAction: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
+    briefingCard: {
+      marginHorizontal: 20,
+      marginTop: 12,
+      padding: 12,
+      borderRadius: RADIUS.card,
+      backgroundColor: theme.surface,
+      gap: 6,
+    },
+    briefingTitle: { fontSize: 13, fontWeight: "700", color: theme.textPrimary },
+    briefingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    briefingText: { flex: 1, fontSize: 13, color: theme.textSecondary },
     cachedBanner: { paddingHorizontal: 20, paddingVertical: 8, backgroundColor: theme.conditionLight },
     cachedBannerText: { fontSize: 12, color: theme.textPrimary },
     severeBanner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.conditionStorm },

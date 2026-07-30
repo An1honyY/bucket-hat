@@ -69,6 +69,10 @@ export function useJourneyProgress(journey: Journey | null | undefined, active: 
   // the subscription callback rather than one closed over at subscribe time.
   const carryRef = useRef<ProgressCarry | undefined>(undefined);
   const arrivalSinceRef = useRef<number | undefined>(undefined);
+  // Held so arrival can tear the subscription down from inside applyFix —
+  // there's nothing left to follow once you're there, and leaving a
+  // high-accuracy watcher running at the destination is pure battery cost.
+  const watcherRef = useRef<PositionWatcher | null>(null);
 
   // Writing refs in an effect is fine; this deliberately sets no state, so
   // it can't cascade renders.
@@ -97,7 +101,11 @@ export function useJourneyProgress(journey: Journey | null | undefined, active: 
           arrivalSinceRef.current
         );
         arrivalSinceRef.current = arrival.withinRadiusSinceMs;
-        if (arrival.arrived) setArrivedRoute(route);
+        if (arrival.arrived) {
+          setArrivedRoute(route);
+          watcherRef.current?.remove();
+          watcherRef.current = null;
+        }
       }
     },
     [route, legs, destination]
@@ -106,7 +114,8 @@ export function useJourneyProgress(journey: Journey | null | undefined, active: 
   // Keeping the screen on while following is what makes foreground-only
   // tracking a real feature rather than a compromise — a journey you're
   // watching shouldn't be interrupted by the display timing out mid-leg.
-  useKeepAwakeWhile(active && status === "tracking");
+  const arrived = arrivedRoute === route && route !== null;
+  useKeepAwakeWhile(active && status === "tracking" && !arrived);
 
   useFocusEffect(
     useCallback(() => {
@@ -116,7 +125,6 @@ export function useJourneyProgress(journey: Journey | null | undefined, active: 
       }
 
       let cancelled = false;
-      let watcher: PositionWatcher | null = null;
 
       (async () => {
         setStatus("requesting");
@@ -141,19 +149,21 @@ export function useJourneyProgress(journey: Journey | null | undefined, active: 
         if (cancelled) return;
         if (seed) applyFix({ ...seed, timestampMs: Date.now() });
 
-        watcher = await watchPosition((next) => {
+        const watcher = await watchPosition((next) => {
           if (!cancelled) applyFix(next);
         });
         if (cancelled) {
           watcher?.remove();
           return;
         }
+        watcherRef.current = watcher;
         setStatus(watcher ? "tracking" : "denied");
       })();
 
       return () => {
         cancelled = true;
-        watcher?.remove();
+        watcherRef.current?.remove();
+        watcherRef.current = null;
       };
     }, [active, applyFix])
   );
@@ -176,7 +186,10 @@ export function useJourneyProgress(journey: Journey | null | undefined, active: 
     status,
     fix: active ? fix : null,
     progress: active && tracked?.route === route ? tracked.progress : null,
-    arrived: active && arrivedRoute === route && route !== null,
+    // Deliberately not gated on `active`: the caller turns following off
+    // *because* of this flag, and a value that vanished the moment it did
+    // would flip straight back.
+    arrived,
     untrackable: active && route !== null && route.totalM === 0,
     route,
   };

@@ -7,6 +7,8 @@ import {
   getCarryPreferenceDefault,
   getCrashReportingEnabled,
   getDismissedSetupTasks,
+  getAnnotationAlertMode,
+  setAnnotationAlertMode,
   getThemePreference,
   getTimeFormatPreference,
   resetDismissedSetupTasks,
@@ -14,6 +16,7 @@ import {
   setCrashReportingEnabled,
   setThemePreference,
   setTimeFormatPreference,
+  type AnnotationAlertMode,
   type ThemePreference,
   type TimeFormatPreference,
 } from "../../db/repositories/settings";
@@ -46,6 +49,15 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 const TIME_FORMAT_OPTIONS: { value: TimeFormatPreference; label: string }[] = [
   { value: "12h", label: "12-hour (am/pm)" },
   { value: "24h", label: "24-hour" },
+];
+
+// Phase 22 — when the spots you've marked should reach you. Labelled by
+// *when* rather than by mechanism, since that's the actual choice being
+// made; "During the journey" is the only one that buzzes mid-trip.
+const ANNOTATION_ALERT_OPTIONS: { value: AnnotationAlertMode; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "briefing", label: "Before I leave" },
+  { value: "live", label: "During the journey" },
 ];
 
 // §7.9 — "avoid-spares" means recommendGear() skips suggesting a
@@ -84,6 +96,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [theme, setTheme] = useState<ThemePreference>("system");
   const [timeFormat, setTimeFormat] = useState<TimeFormatPreference>("12h");
+  const [annotationAlerts, setAnnotationAlerts] = useState<AnnotationAlertMode>("briefing");
   const [carryPreference, setCarryPreference] = useState<CarryPreference>("no-preference");
   const [crashReporting, setCrashReporting] = useState(false);
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
@@ -97,6 +110,7 @@ export default function SettingsScreen() {
     useCallback(() => {
       getThemePreference().then(setTheme);
       getTimeFormatPreference().then(setTimeFormat);
+      getAnnotationAlertMode().then(setAnnotationAlerts);
       getCarryPreferenceDefault().then(setCarryPreference);
       getCrashReportingEnabled().then(setCrashReporting);
       getAdvancedThresholds().then(setThresholds);
@@ -179,6 +193,11 @@ export default function SettingsScreen() {
     await setWindSensitivityOffset(value);
   }
 
+  async function selectAnnotationAlerts(mode: AnnotationAlertMode) {
+    setAnnotationAlerts(mode);
+    await setAnnotationAlertMode(mode);
+  }
+
   const seasonalSampleCounts = calibration.seasonalSampleCounts;
   const hasSeasonalSamples = seasonalSampleCounts && Object.values(seasonalSampleCounts).some((n) => n > 0);
 
@@ -209,6 +228,29 @@ export default function SettingsScreen() {
               style={[styles.segment, timeFormat === option.value && styles.segmentActive]}
             >
               <Text style={[styles.segmentLabel, timeFormat === option.value && styles.segmentLabelActive]}>{option.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>Local knowledge alerts</Text>
+      <View style={styles.sectionCard}>
+        <Text style={styles.body}>
+          The spots you&apos;ve marked — covered walkways, windy corners — can be listed before you set off, or
+          called out as you reach them.
+        </Text>
+        <View style={styles.segmentRow}>
+          {ANNOTATION_ALERT_OPTIONS.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => selectAnnotationAlerts(option.value)}
+              style={[styles.segment, annotationAlerts === option.value && styles.segmentActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: annotationAlerts === option.value }}
+            >
+              <Text style={[styles.segmentLabel, annotationAlerts === option.value && styles.segmentLabelActive]}>
+                {option.label}
+              </Text>
             </Pressable>
           ))}
         </View>
