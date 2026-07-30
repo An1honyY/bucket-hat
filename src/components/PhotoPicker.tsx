@@ -3,10 +3,10 @@ import { ActionSheetIOS, Alert, Image, Platform, Pressable, StyleSheet, Text, Vi
 import { showAlert } from "../lib/crossPlatformAlert";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
-// expo-file-system's SDK 54+ default export replaced documentDirectory/
-// copyAsync with a new File/Directory class API — `expo-file-system/legacy`
-// keeps the string-path API docs/03-data-models.md §3.3 is written against.
-import * as FileSystem from "expo-file-system/legacy";
+// The modern File/Directory API (SDK 54+). §3.3 is written against the old
+// string-path calls, but the storage contract it describes is unchanged:
+// still `gear-photos/{itemId}.jpg` under the document directory.
+import { Directory, File, Paths } from "expo-file-system";
 import useTheme from "../theme/useTheme";
 import { useGearPhoto } from "./useGearPhoto";
 
@@ -19,7 +19,17 @@ import { useGearPhoto } from "./useGearPhoto";
 // form generates it up front via rowMapping.newId(), even for a
 // not-yet-saved item, specifically so this component has somewhere to
 // write to before "Save" is tapped.
-const PHOTO_DIR = `${FileSystem.documentDirectory}gear-photos/`;
+// Constructed lazily, never at module scope. `expo-file-system` is
+// unsupported on web, where `Paths.document` is a stub and
+// `new Directory(...)` throws immediately ("this.validatePath is not a
+// function"). At module scope that exception escapes the import itself and
+// takes the entire web bundle down — this component is reachable from the
+// gear forms, so nothing renders at all. The legacy API tolerated this by
+// returning null for `documentDirectory`, which merely produced a useless
+// path string; the class API does not.
+function photoDir(): Directory {
+  return new Directory(Paths.document, "gear-photos");
+}
 
 interface Props {
   itemId: string;
@@ -27,11 +37,12 @@ interface Props {
   onChange: (photoUri: string | undefined) => void;
 }
 
-async function ensurePhotoDir() {
-  const info = await FileSystem.getInfoAsync(PHOTO_DIR);
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(PHOTO_DIR, { intermediates: true });
-  }
+function ensurePhotoDir(): Directory {
+  const dir = photoDir();
+  // `idempotent` rather than checking `exists` first: create() throws on an
+  // existing directory, and check-then-create is a race.
+  if (!dir.exists) dir.create({ intermediates: true, idempotent: true });
+  return dir;
 }
 
 async function processAndStore(uri: string, itemId: string): Promise<string> {
@@ -40,11 +51,13 @@ async function processAndStore(uri: string, itemId: string): Promise<string> {
     [{ resize: { width: 800 } }],
     { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
   );
-  await ensurePhotoDir();
-  const dest = `${PHOTO_DIR}${itemId}.jpg`;
-  await FileSystem.copyAsync({ from: manipulated.uri, to: dest });
+  const dir = ensurePhotoDir();
+  const dest = new File(dir, `${itemId}.jpg`);
+  // `overwrite` matters: re-capture deliberately writes over the same
+  // filename (§3.3), and copy() throws onto an existing path without it.
+  await new File(manipulated.uri).copy(dest, { overwrite: true });
   // Cache-bust the thumbnail — same filename, different content on re-capture.
-  return `${dest}?t=${Date.now()}`;
+  return `${dest.uri}?t=${Date.now()}`;
 }
 
 export default function PhotoPicker({ itemId, photoUri, onChange }: Props) {

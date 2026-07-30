@@ -7,6 +7,7 @@ import * as m002 from "./002_app_settings";
 import * as m003 from "./003_calibration_toasts";
 import * as m004 from "./004_sync_metadata";
 import * as m005 from "./005_photo_sync";
+import * as m006 from "./006_photo_mtime_units";
 
 interface Migration {
   version: number;
@@ -15,7 +16,7 @@ interface Migration {
 
 // Ordered oldest to newest. Append new migrations here — never reorder or
 // remove an entry once shipped.
-const migrations: Migration[] = [m001, m002, m003, m004, m005];
+const migrations: Migration[] = [m001, m002, m003, m004, m005, m006];
 
 // The version a fully-migrated DB ends up at. Derived from the list rather
 // than hardcoded so it can't go stale when a migration is appended.

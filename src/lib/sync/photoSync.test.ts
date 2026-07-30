@@ -13,27 +13,59 @@ const mockPhotoRecords = new Map<string, { uploaded_file_mtime: number | null }>
 
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 
-jest.mock("expo-file-system/legacy", () => ({
-  documentDirectory: "file:///doc/",
-  EncodingType: { Base64: "base64" },
-  getInfoAsync: jest.fn(async (path: string) => {
-    const key = path.replace("file:///doc/gear-photos/", "");
-    if (path.endsWith("gear-photos/")) return { exists: true, isDirectory: true };
-    const file = mockFiles.get(key);
-    return file ? { exists: true, isDirectory: false, modificationTime: file.mtime } : { exists: false };
-  }),
-  makeDirectoryAsync: jest.fn(async () => {}),
-  readAsStringAsync: jest.fn(async (path: string) => {
-    const key = path.replace("file:///doc/gear-photos/", "");
-    const file = mockFiles.get(key);
-    if (!file) throw new Error("missing file");
-    return file.contents;
-  }),
-  writeAsStringAsync: jest.fn(async (path: string, contents: string) => {
-    const key = path.replace("file:///doc/gear-photos/", "");
-    mockFiles.set(key, { mtime: 5000, contents });
-  }),
-}));
+// Mirrors the modern File/Directory API: `exists`/`lastModified`/`write`/
+// `create` are synchronous, `base64()` is async. `lastModified` is in
+// milliseconds, unlike the legacy module's seconds — see migration 006.
+jest.mock("expo-file-system", () => {
+  class MockDirectory {
+    uri: string;
+    constructor(...parts: (string | { uri: string })[]) {
+      const base = typeof parts[0] === "string" ? parts[0] : parts[0].uri;
+      const rest = parts.slice(1).map((p) => (typeof p === "string" ? p : p.uri));
+      this.uri = [base.replace(/\/$/, ""), ...rest].join("/");
+    }
+    get exists() {
+      return true; // the gear-photos directory is always present in these tests
+    }
+    create() {}
+    list() {
+      return [];
+    }
+  }
+  class MockFile {
+    uri: string;
+    constructor(...parts: (string | { uri: string })[]) {
+      const base = typeof parts[0] === "string" ? parts[0] : parts[0].uri;
+      const rest = parts.slice(1).map((p) => (typeof p === "string" ? p : p.uri));
+      this.uri = [base.replace(/\/$/, ""), ...rest].join("/");
+    }
+    private get key() {
+      return this.uri.split("/").pop() as string;
+    }
+    get exists() {
+      return mockFiles.has(this.key);
+    }
+    get lastModified() {
+      return mockFiles.get(this.key)?.mtime ?? null;
+    }
+    create() {
+      if (!mockFiles.has(this.key)) mockFiles.set(this.key, { mtime: 5000, contents: "" });
+    }
+    write(contents: string) {
+      mockFiles.set(this.key, { mtime: 5000, contents });
+    }
+    async base64() {
+      const file = mockFiles.get(this.key);
+      if (!file) throw new Error("missing file");
+      return file.contents;
+    }
+  }
+  return {
+    Directory: MockDirectory,
+    File: MockFile,
+    Paths: { document: { uri: "file:///doc" }, cache: { uri: "file:///cache" } },
+  };
+});
 
 jest.mock("../../db", () => ({
   getDb: async () => ({

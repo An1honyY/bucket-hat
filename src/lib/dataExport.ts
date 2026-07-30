@@ -12,7 +12,11 @@
 // operations only work on a native build. See exportData()/importData()'s
 // Platform.OS === "web" guard.
 import { Platform } from "react-native";
-import * as FileSystem from "expo-file-system/legacy";
+// Modern File/Directory API (SDK 54+). `react-native-zip-archive` takes
+// string paths, so `.uri` is passed at those boundaries — the same
+// `file:///…` strings the legacy `documentDirectory`/`cacheDirectory`
+// constants produced, so what reaches the zip library is unchanged.
+import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import { zip, unzip } from "react-native-zip-archive";
@@ -36,9 +40,15 @@ import type {
 } from "../types";
 
 const EXPORT_SCHEMA_VERSION = 1;
-const GEAR_PHOTOS_DIR = `${FileSystem.documentDirectory}gear-photos/`;
-const EXPORT_STAGING_DIR = `${FileSystem.cacheDirectory}export-staging/`;
-const IMPORT_STAGING_DIR = `${FileSystem.cacheDirectory}import-staging/`;
+// All three are lazy accessors, never module-scope constants. On web
+// `expo-file-system` is unsupported, `Paths.document`/`Paths.cache` are
+// stubs, and `new Directory(...)` throws on construction — at module scope
+// that exception escapes the import and takes down every screen that
+// transitively imports this file (Settings does). The legacy API merely
+// returned null for those paths, so the old constants were harmless.
+const gearPhotosDir = () => new Directory(Paths.document, "gear-photos");
+const exportStagingDir = () => new Directory(Paths.cache, "export-staging");
+const importStagingDir = () => new Directory(Paths.cache, "import-staging");
 
 interface ExportBundle {
   exportedAt: string;
@@ -53,19 +63,21 @@ interface ExportBundle {
   advancedThresholds: AdvancedWarmthThresholds;
 }
 
-async function resetDir(dir: string): Promise<void> {
-  await FileSystem.deleteAsync(dir, { idempotent: true });
-  await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+function resetDir(dir: Directory): void {
+  // Directory.delete() has no `idempotent` option (unlike create()), so the
+  // exists check is required rather than defensive.
+  if (dir.exists) dir.delete();
+  dir.create({ intermediates: true, idempotent: true });
 }
 
-async function copyDirContents(fromDir: string, toDir: string): Promise<void> {
-  const info = await FileSystem.getInfoAsync(fromDir);
-  if (!info.exists) return;
-  const toInfo = await FileSystem.getInfoAsync(toDir);
-  if (!toInfo.exists) await FileSystem.makeDirectoryAsync(toDir, { intermediates: true });
-  const files = await FileSystem.readDirectoryAsync(fromDir);
-  for (const file of files) {
-    await FileSystem.copyAsync({ from: `${fromDir}${file}`, to: `${toDir}${file}` });
+async function copyDirContents(fromDir: Directory, toDir: Directory): Promise<void> {
+  if (!fromDir.exists) return;
+  if (!toDir.exists) toDir.create({ intermediates: true, idempotent: true });
+  for (const entry of fromDir.list()) {
+    // list() returns directories as well as files; gear-photos is flat, so
+    // anything that isn't a File is skipped rather than recursed into.
+    if (!(entry instanceof File)) continue;
+    await entry.copy(new File(toDir, entry.name), { overwrite: true });
   }
 }
 
@@ -89,16 +101,19 @@ export async function exportData(): Promise<void> {
     advancedThresholds: await getAdvancedThresholds(),
   };
 
-  await resetDir(EXPORT_STAGING_DIR);
-  await FileSystem.writeAsStringAsync(`${EXPORT_STAGING_DIR}data.json`, JSON.stringify(bundle, null, 2));
-  await copyDirContents(GEAR_PHOTOS_DIR, `${EXPORT_STAGING_DIR}gear-photos/`);
+  const staging = exportStagingDir();
+  resetDir(staging);
+  const dataJson = new File(staging, "data.json");
+  dataJson.create({ overwrite: true });
+  dataJson.write(JSON.stringify(bundle, null, 2));
+  await copyDirContents(gearPhotosDir(), new Directory(staging, "gear-photos"));
 
-  const zipDest = `${FileSystem.cacheDirectory}commute-weather-export-${Date.now()}.zip`;
-  await zip(EXPORT_STAGING_DIR, zipDest);
+  const zipDest = new File(Paths.cache, `commute-weather-export-${Date.now()}.zip`);
+  await zip(staging.uri, zipDest.uri);
 
   const canShare = await Sharing.isAvailableAsync();
   if (!canShare) throw new ExportUnavailableError("Sharing isn't available on this device.");
-  await Sharing.shareAsync(zipDest, { mimeType: "application/zip", dialogTitle: "Export your data" });
+  await Sharing.shareAsync(zipDest.uri, { mimeType: "application/zip", dialogTitle: "Export your data" });
 }
 
 // Re-derives each gear item's photoUri from whatever photo files actually
@@ -108,22 +123,20 @@ export async function exportData(): Promise<void> {
 // "delete app, reinstall, import" test case).
 async function relinkPhotos<T extends { id: string; photoUri?: string }>(
   items: T[],
-  unzippedPhotosDir: string
+  unzippedPhotosDir: Directory
 ): Promise<T[]> {
-  const dirInfo = await FileSystem.getInfoAsync(unzippedPhotosDir);
-  if (!dirInfo.exists) return items.map((item) => ({ ...item, photoUri: undefined }));
+  if (!unzippedPhotosDir.exists) return items.map((item) => ({ ...item, photoUri: undefined }));
 
-  const destInfo = await FileSystem.getInfoAsync(GEAR_PHOTOS_DIR);
-  if (!destInfo.exists) await FileSystem.makeDirectoryAsync(GEAR_PHOTOS_DIR, { intermediates: true });
+  const destDir = gearPhotosDir();
+  if (!destDir.exists) destDir.create({ intermediates: true, idempotent: true });
 
   return Promise.all(
     items.map(async (item) => {
-      const src = `${unzippedPhotosDir}${item.id}.jpg`;
-      const srcInfo = await FileSystem.getInfoAsync(src);
-      if (!srcInfo.exists) return { ...item, photoUri: undefined };
-      const dest = `${GEAR_PHOTOS_DIR}${item.id}.jpg`;
-      await FileSystem.copyAsync({ from: src, to: dest });
-      return { ...item, photoUri: `${dest}?t=${Date.now()}` };
+      const src = new File(unzippedPhotosDir, `${item.id}.jpg`);
+      if (!src.exists) return { ...item, photoUri: undefined };
+      const dest = new File(destDir, `${item.id}.jpg`);
+      await src.copy(dest, { overwrite: true });
+      return { ...item, photoUri: `${dest.uri}?t=${Date.now()}` };
     })
   );
 }
@@ -141,23 +154,23 @@ export async function importData(): Promise<ImportResult> {
   const picked = await DocumentPicker.getDocumentAsync({ type: "application/zip", copyToCacheDirectory: true });
   if (picked.canceled || !picked.assets[0]) return { imported: false };
 
-  await resetDir(IMPORT_STAGING_DIR);
-  await unzip(picked.assets[0].uri, IMPORT_STAGING_DIR);
+  const staging = importStagingDir();
+  resetDir(staging);
+  await unzip(picked.assets[0].uri, staging.uri);
 
-  const dataJsonPath = `${IMPORT_STAGING_DIR}data.json`;
-  const dataInfo = await FileSystem.getInfoAsync(dataJsonPath);
-  if (!dataInfo.exists) {
+  const dataJson = new File(staging, "data.json");
+  if (!dataJson.exists) {
     return { imported: false, error: "This file doesn't look like a Commute Weather Planner export." };
   }
 
   let bundle: ExportBundle;
   try {
-    bundle = JSON.parse(await FileSystem.readAsStringAsync(dataJsonPath)) as ExportBundle;
+    bundle = JSON.parse(await dataJson.text()) as ExportBundle;
   } catch {
     return { imported: false, error: "This export file is corrupted and couldn't be read." };
   }
 
-  const photosDir = `${IMPORT_STAGING_DIR}gear-photos/`;
+  const photosDir = new Directory(staging, "gear-photos");
   const clothing = await relinkPhotos(bundle.clothing ?? [], photosDir);
   const shoes = await relinkPhotos(bundle.shoes ?? [], photosDir);
   const umbrellas = await relinkPhotos(bundle.umbrellas ?? [], photosDir);

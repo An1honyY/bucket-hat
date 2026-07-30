@@ -111,6 +111,8 @@ one by date — don't edit the old entry.
 - 2026-07-29 — Dependency ceilings: jest, eslint and typescript majors are blocked by Expo's own presets [maintenance]
 - 2026-07-29 — Removed unused react-native-dotenv; babel uses worklets/plugin; audit clean [maintenance]
 - 2026-07-29 — wrangler.toml top-level keys must precede every [table] header [bug fix]
+- 2026-07-30 — Migrated off expo-file-system/legacy; File/Directory must never be constructed at module scope [maintenance, §3.3]
+- 2026-07-30 — SafeAreaView now comes from react-native-safe-area-context in all screens [bug fix, §9]
 
 ---
 
@@ -1883,5 +1885,61 @@ production database — the exact thing that setting was added to prevent.
 
 **Resolution**: treat a wrangler config warning as a failure, not noise.
 When adding a top-level Worker setting, put it at the top of the file.
+
+---
+## 2026-07-30 — Migrated off expo-file-system/legacy; File/Directory must never be constructed at module scope [maintenance, §3.3]
+
+**What**: `PhotoPicker.tsx`, `dataExport.ts` and `photoSync.ts` now use the
+modern `File`/`Directory`/`Paths` API instead of `expo-file-system/legacy`.
+Every instance is built inside a function — `photoDir()`,
+`gearPhotosDir()`, `exportStagingDir()`, `importStagingDir()` — never as a
+module-scope constant.
+
+**Why the lazy accessors are load-bearing**: on web `expo-file-system` is
+unsupported, `Paths.document`/`Paths.cache` are stubs, and
+`new Directory(...)` **throws on construction** ("this.validatePath is not a
+function"). At module scope that exception escapes the import, so every
+screen that transitively imports the file dies — the entire web bundle
+rendered blank. The legacy API was forgiving here: `documentDirectory` was
+merely `null`, which produced a useless path string rather than an
+exception. Caught by loading the web app, not by tsc, lint, or 348 tests,
+all of which passed while the app was completely broken.
+
+**Other shape differences worth knowing**: `exists`, `lastModified`,
+`create()`, `write()` and `delete()` are synchronous; only `text()`,
+`base64()`, `bytes()`, `copy()` and `move()` are async. `create()` on a file
+takes `overwrite`, on a directory `idempotent` — they are not
+interchangeable, and `Directory.delete()` has neither, so it needs an
+`exists` guard. `copy()` accepts `{ overwrite: true }`, which is why no
+delete-then-copy dance is needed for re-capture.
+
+**Unit change**: legacy `modificationTime` was **seconds**; modern
+`lastModified` is **milliseconds** (and `modificationTime` is now itself
+deprecated). Migration 006 clears `gear_photo_sync.uploaded_file_mtime`
+because the stored values are in the old unit — see that file for why one
+redundant upload per existing photo is the intended consequence.
+
+---
+
+## 2026-07-30 — SafeAreaView now comes from react-native-safe-area-context in all screens [bug fix, §9]
+
+**What**: the seven screens that imported `SafeAreaView` from `react-native`
+now import it from `react-native-safe-area-context`, matching what
+`LocationPickerMap.tsx` already did.
+
+**Why**: React Native's `SafeAreaView` is deprecated *and* iOS-only — a
+plain `View` on Android. So on Android these screens applied no inset at
+all, which is a real rendering bug on devices with a cutout, not just a
+lint concern.
+
+**Resolution**: no per-screen `edges` needed, deliberately. React Navigation
+provides each screen a safe-area context already reduced by the header and
+tab-bar heights, so the context version computes 0 top inset inside a
+header'd stack screen and the real inset inside a `headerShown: false` one.
+Hand-picking edges per screen would duplicate that arithmetic and go stale
+whenever a screen's header option changes. Verified on web (insets are 0
+there, so no visual change) and by navigating the header'd and headerless
+variants; the Android inset improvement follows from React Navigation's
+documented behaviour rather than from a device check.
 
 ---

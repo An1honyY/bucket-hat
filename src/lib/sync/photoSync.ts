@@ -12,11 +12,21 @@
 // and blocking them on a slow image upload would make sync feel broken
 // for something purely cosmetic.
 import { Platform } from "react-native";
-import * as FileSystem from "expo-file-system/legacy";
+import { Directory, File, Paths } from "expo-file-system";
 import { getDb } from "../../db";
 import type { PhotoBackend } from "./types";
 
-const PHOTO_DIR = `${FileSystem.documentDirectory}gear-photos/`;
+// The modern File/Directory API, not `expo-file-system/legacy`. Note the
+// shape difference: `exists`, `lastModified`, `write()` and `create()` are
+// synchronous properties/methods here, while `base64()` is async — the
+// legacy module was async throughout.
+//
+// Built lazily, never at module scope: on web `Paths.document` is a stub and
+// `new Directory(...)` throws on construction, which at module scope would
+// break the import and take the web bundle down. See PhotoPicker.tsx.
+function photoDir(): Directory {
+  return new Directory(Paths.document, "gear-photos");
+}
 
 // The tables whose rows can carry a photo (§3.3).
 const INVENTORY_TABLES = ["clothing_items", "shoe_items", "umbrella_items", "vehicle_items"] as const;
@@ -28,8 +38,8 @@ export interface PhotoSyncSummary {
   skippedReason?: "unsupported-platform";
 }
 
-function localPath(itemId: string): string {
-  return `${PHOTO_DIR}${itemId}.jpg`;
+function photoFile(itemId: string): File {
+  return new File(photoDir(), `${itemId}.jpg`);
 }
 
 interface LocalPhoto {
@@ -56,9 +66,13 @@ async function listLocalPhotos(): Promise<LocalPhoto[]> {
       `SELECT id FROM ${table} WHERE photo_uri IS NOT NULL`
     );
     for (const row of rows) {
-      const info = await FileSystem.getInfoAsync(localPath(row.id));
-      if (info.exists && !info.isDirectory) {
-        found.push({ itemId: row.id, mtime: info.modificationTime ?? 0 });
+      const file = photoFile(row.id);
+      // `lastModified` is milliseconds since the epoch, and is the
+      // non-deprecated spelling of the old `modificationTime`. The legacy
+      // module reported *seconds* — see migration 006, which clears the
+      // values recorded under the old unit.
+      if (file.exists) {
+        found.push({ itemId: row.id, mtime: file.lastModified ?? 0 });
       }
     }
   }
@@ -130,25 +144,29 @@ async function setPhotoUri(itemId: string, uri: string): Promise<void> {
   }
 }
 
-async function ensurePhotoDir(): Promise<void> {
-  const info = await FileSystem.getInfoAsync(PHOTO_DIR);
-  if (!info.exists) await FileSystem.makeDirectoryAsync(PHOTO_DIR, { intermediates: true });
+function ensurePhotoDir(): void {
+  // `idempotent` rather than a prior exists check: create() throws if the
+  // directory is already there, and the check-then-create pair is a race
+  // when two photos download concurrently.
+  const dir = photoDir();
+  if (!dir.exists) dir.create({ intermediates: true, idempotent: true });
 }
 
 /**
  * Reconcile local gear photos with the account's object store.
  *
- * Web is skipped outright: `expo-file-system`'s web shim reports
- * `documentDirectory` as null, so there is no local file to upload and
- * nowhere to put a download. Gear photos have always been native-only for
- * that reason (see PhotoPicker.tsx); this reports the skip rather than
- * failing, so the Account screen can say something truthful instead of
- * showing an error for a platform where the feature doesn't exist.
+ * Web is skipped outright, and the check must come before anything touches
+ * the filesystem: `expo-file-system` is unsupported there, so there is no
+ * local file to upload and nowhere to put a download. Gear photos have
+ * always been native-only for that reason (see PhotoPicker.tsx). Reported
+ * as a skip rather than a failure, so the Account screen can say something
+ * truthful instead of showing an error for a platform where the feature
+ * doesn't exist.
  */
 export async function syncPhotos(backend: PhotoBackend): Promise<PhotoSyncSummary> {
   const summary: PhotoSyncSummary = { uploaded: 0, downloaded: 0, failed: 0 };
 
-  if (Platform.OS === "web" || !FileSystem.documentDirectory) {
+  if (Platform.OS === "web") {
     summary.skippedReason = "unsupported-platform";
     return summary;
   }
@@ -175,9 +193,7 @@ export async function syncPhotos(backend: PhotoBackend): Promise<PhotoSyncSummar
     if (onServer && !changedSinceUpload) continue;
 
     try {
-      const bytes = await FileSystem.readAsStringAsync(localPath(photo.itemId), {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      const bytes = await photoFile(photo.itemId).base64();
       const result = await backend.putPhoto(photo.itemId, bytes);
       if ("error" in result) {
         summary.failed += 1;
@@ -200,16 +216,18 @@ export async function syncPhotos(backend: PhotoBackend): Promise<PhotoSyncSummar
         summary.failed += 1;
         continue;
       }
-      await ensurePhotoDir();
-      const path = localPath(entry.itemId);
-      await FileSystem.writeAsStringAsync(path, result.data, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      const info = await FileSystem.getInfoAsync(path);
-      await recordDownload(entry.itemId, info.exists ? info.modificationTime ?? 0 : 0);
+      ensurePhotoDir();
+      const file = photoFile(entry.itemId);
+      // create() first so write() has a file to write into. `overwrite` is
+      // the file-level equivalent of a directory's `idempotent` — without
+      // it, create() throws when the file already exists, which happens on
+      // any re-download.
+      file.create({ intermediates: true, overwrite: true });
+      file.write(result.data, { encoding: "base64" });
+      await recordDownload(entry.itemId, file.lastModified ?? 0);
       // Cache-buster matches PhotoPicker's convention so a re-downloaded
       // image doesn't render from a stale in-memory copy.
-      await setPhotoUri(entry.itemId, `${path}?t=${Date.now()}`);
+      await setPhotoUri(entry.itemId, `${file.uri}?t=${Date.now()}`);
       summary.downloaded += 1;
     } catch {
       summary.failed += 1;
