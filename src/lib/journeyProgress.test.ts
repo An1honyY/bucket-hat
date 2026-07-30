@@ -1,5 +1,6 @@
 import {
   ARRIVAL_DWELL_MS,
+  activeStepIndex,
   BACKTRACK_TOLERANCE_M,
   OFF_ROUTE_CONFIRM_FIXES,
   PACE_FACTOR_MAX,
@@ -332,6 +333,36 @@ describe("splitPath", () => {
 
   it("handles a route with no geometry", () => {
     expect(splitPath(indexRoute([]), 0)).toEqual({ traveled: [], remaining: [] });
+  });
+});
+
+describe("activeStepIndex", () => {
+  const steps = [{ distanceM: 100 }, { distanceM: 300 }, { distanceM: 100 }];
+
+  it("picks the step the user is partway through", () => {
+    expect(activeStepIndex(steps, 0)).toBe(0);
+    expect(activeStepIndex(steps, 0.1)).toBe(0);
+    expect(activeStepIndex(steps, 0.5)).toBe(1);
+    expect(activeStepIndex(steps, 0.95)).toBe(2);
+  });
+
+  it("stays on the last step at the end of the leg", () => {
+    expect(activeStepIndex(steps, 1)).toBe(2);
+  });
+
+  it("clamps a fraction outside 0-1 rather than indexing off the end", () => {
+    expect(activeStepIndex(steps, -1)).toBe(0);
+    expect(activeStepIndex(steps, 5)).toBe(2);
+  });
+
+  it("returns 0 for an empty or distanceless list", () => {
+    expect(activeStepIndex([], 0.5)).toBe(0);
+    expect(activeStepIndex([{ distanceM: 0 }, { distanceM: 0 }], 0.5)).toBe(0);
+  });
+
+  it("does not let a zero-distance step swallow the start of the leg", () => {
+    // A "depart" instruction with no distance of its own.
+    expect(activeStepIndex([{ distanceM: 0 }, { distanceM: 200 }], 0.1)).toBe(1);
   });
 });
 

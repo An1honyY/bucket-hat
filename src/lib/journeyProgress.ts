@@ -419,6 +419,30 @@ export function splitPath(route: IndexedRoute, distanceAlongM: number): { travel
   };
 }
 
+/**
+ * Which turn within a leg the user is currently on (Phase 22).
+ *
+ * Steps carry their own `distanceM`, and `legFraction` is already a
+ * distance fraction of the leg, so the two line up without needing to snap
+ * against each step's geometry separately. Steps with no distance (a
+ * zero-length "depart" instruction) can't own any of the leg, so they're
+ * passed through rather than allowed to swallow the first fraction.
+ *
+ * Returns 0 for an empty list so callers can index safely.
+ */
+export function activeStepIndex(steps: readonly { distanceM: number }[], legFraction: number): number {
+  const totalM = steps.reduce((sum, step) => sum + Math.max(0, step.distanceM), 0);
+  if (steps.length === 0 || totalM <= 0) return 0;
+
+  const targetM = clamp(legFraction, 0, 1) * totalM;
+  let walkedM = 0;
+  for (let i = 0; i < steps.length; i++) {
+    walkedM += Math.max(0, steps[i].distanceM);
+    if (walkedM > targetM) return i;
+  }
+  return steps.length - 1;
+}
+
 /** Whether a fix is close enough to the destination, for long enough, to call it arrived. */
 export function hasArrived(
   fix: LatLng,

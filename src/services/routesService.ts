@@ -16,6 +16,18 @@ import type { ServiceResult } from "./types";
 
 export type RouteTravelMode = "walk" | "drive" | "bus" | "train" | "cycle";
 
+// Phase 22 — a single turn within a leg ("Turn left onto Sandringham Rd").
+// Only walk/drive/cycle legs have these: Google doesn't nest steps inside a
+// TRANSIT step, and "ride the bus" has no turns to give.
+export interface RouteNavigationStep {
+  instruction: string;
+  /** Google's maneuver enum (TURN_LEFT, ROUNDABOUT_RIGHT, …), when given. */
+  maneuver?: string;
+  distanceM: number;
+  durationMin: number;
+  polyline: string;
+}
+
 export interface RouteStep {
   mode: RouteTravelMode;
   label: string;
@@ -33,6 +45,10 @@ export interface RouteStep {
   routeId?: string;
   stopId?: string;
   scheduledDepartTime?: string; // ISO
+  // Phase 22 — turn-by-turn within this leg. Absent when Google returned no
+  // instructions (and on every journey planned before Phase 22 shipped), so
+  // every consumer has to treat it as optional.
+  steps?: RouteNavigationStep[];
 }
 
 export interface RoutePoint {
@@ -94,6 +110,8 @@ interface GoogleRouteStep {
   staticDuration?: string;
   polyline?: GooglePolyline;
   transitDetails?: GoogleTransitDetails;
+  distanceMeters?: number;
+  navigationInstruction?: { maneuver?: string; instructions?: string };
 }
 interface GoogleRouteLeg {
   duration?: string;
@@ -108,6 +126,27 @@ interface GoogleComputeRoutesResponse {
   routes?: GoogleRoute[];
 }
 
+// Phase 22 — Google's per-step turn instructions, kept only where there's
+// actually something to say. A step with no instruction text is dropped
+// rather than rendered as a blank row: this codebase's consistent choice is
+// to omit rather than placeholder.
+function toNavigationSteps(steps: GoogleRouteStep[] | undefined): RouteNavigationStep[] | undefined {
+  const mapped = (steps ?? []).flatMap((step) => {
+    const instruction = step.navigationInstruction?.instructions?.trim();
+    if (!instruction) return [];
+    return [
+      {
+        instruction,
+        maneuver: step.navigationInstruction?.maneuver,
+        distanceM: step.distanceMeters ?? 0,
+        durationMin: toMinutes(parseDurationSeconds(step.staticDuration)),
+        polyline: step.polyline?.encodedPolyline ?? "",
+      },
+    ];
+  });
+  return mapped.length > 0 ? mapped : undefined;
+}
+
 // WALK/BICYCLE/DRIVE: one Google "leg" per hop between consecutive stops
 // (origin→wp1, wp1→wp2, …, wpN→destination) — maps 1:1 onto our per-hop
 // leg model, no further expansion needed.
@@ -119,6 +158,7 @@ function parseSimpleLegs(route: GoogleRoute, params: ComputeRouteParams): RouteS
     label: `${verb} to ${stops[i + 1].label}`,
     durationMin: toMinutes(parseDurationSeconds(leg.duration ?? leg.staticDuration)),
     polyline: leg.polyline?.encodedPolyline ?? "",
+    steps: toNavigationSteps(leg.steps),
   }));
 }
 
@@ -167,6 +207,10 @@ function parseTransitSteps(route: GoogleRoute, params: ComputeRouteParams): Rout
         label: walkTargetName ? `Walk to ${walkTargetName}` : "Walk to stop",
         durationMin: toMinutes(durationSeconds),
         polyline: step.polyline?.encodedPolyline ?? "",
+        // A transit response's WALK step carries its own single
+        // instruction rather than a nested list, so it becomes a one-step
+        // leg where Google gave us text for it.
+        steps: toNavigationSteps([step]),
       });
       cursorMs += durationSeconds * 1000;
       return;
@@ -257,8 +301,8 @@ export async function computeRoute(params: ComputeRouteParams): Promise<ServiceR
         "Content-Type": "application/json",
         "X-Goog-Api-Key": key,
         "X-Goog-FieldMask": isTransit
-          ? "routes.legs.steps.travelMode,routes.legs.steps.staticDuration,routes.legs.steps.polyline,routes.legs.steps.transitDetails"
-          : "routes.legs.duration,routes.legs.staticDuration,routes.legs.polyline",
+          ? "routes.legs.steps.travelMode,routes.legs.steps.staticDuration,routes.legs.steps.polyline,routes.legs.steps.transitDetails,routes.legs.steps.distanceMeters,routes.legs.steps.navigationInstruction"
+          : "routes.legs.duration,routes.legs.staticDuration,routes.legs.polyline,routes.legs.steps.staticDuration,routes.legs.steps.polyline,routes.legs.steps.distanceMeters,routes.legs.steps.navigationInstruction",
       },
       body: JSON.stringify(body),
     });

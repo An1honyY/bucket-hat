@@ -39,6 +39,7 @@ import AnnotationForm, { type AnnotationFormValues } from "../local-knowledge/An
 import { EFFECT_META, EFFECT_MARKER_EMOJI } from "../local-knowledge/effectMeta";
 import GearRecommendationCard from "./GearRecommendationCard";
 import LegRow, { type LegState } from "./LegRow";
+import StepList from "./StepList";
 import ActionIcon from "../../components/ActionIcon";
 import EffectIcon from "../../components/EffectIcon";
 import useTheme from "../../theme/useTheme";
@@ -531,6 +532,14 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
               <Text style={styles.alertChipAction}>Quiet</Text>
             </Pressable>
           </View>
+        )}
+
+        {/* Phase 22 — the turns within the leg you're on, under the alert
+            chip so a weather or gear nudge always sits above the navigation
+            detail. Absent for transit legs and for anything planned before
+            steps were requested. */}
+        {following && progress && currentLeg?.steps && currentLeg.steps.length > 0 && (
+          <StepList steps={currentLeg.steps} legFraction={progress.currentLegFraction} />
         )}
 
         {/* Off route is a real state, not a failure — the ETA above keeps

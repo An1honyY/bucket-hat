@@ -160,7 +160,25 @@ export interface JourneyLeg {
   isStationary?: boolean; // Section 3.5, 7.9 — outdoor wait ahead of a bus/train leg
   waitContext?: "transit-platform" | "transit-stop" | "pickup-queue" | "general"; // only set when isStationary
   hikeSamples?: HikeRouteSample[]; // only set when mode === "hike" (Phase 20)
+  // Phase 22 — turn-by-turn within this leg, when Google supplied it.
+  // Absent on transit legs (riding a bus has no turns), on any journey
+  // planned before Phase 22, and whenever the Routes response carried no
+  // instruction text. Stored inside the `legs` JSON column, so adding it
+  // needed no migration; consumers must render nothing when it's absent
+  // rather than a placeholder.
+  steps?: NavigationStep[];
   delayMinutes?: number; // Phase 7 — AT GTFS Realtime scheduled-vs-actual delta for a bus/train leg's specific departure, Section 5.6; only set once live data is fetched, drives the live-delay pill (Section 9.3) and the preceding wait leg's durationMin
+}
+
+// Phase 22 — one turn within a leg. Mirrors routesService's
+// RouteNavigationStep; kept as its own type here so the persisted model
+// doesn't depend on a service module's shape.
+export interface NavigationStep {
+  instruction: string;
+  maneuver?: string; // Google's maneuver enum, e.g. TURN_LEFT
+  distanceM: number;
+  durationMin: number;
+  polyline: string;
 }
 
 // Phase 20 (Section 13.8) — per-sample reading along a hike leg's route
