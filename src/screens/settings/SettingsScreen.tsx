@@ -347,7 +347,7 @@ export default function SettingsScreen() {
       <Text style={styles.sectionTitle}>About</Text>
       <View style={styles.sectionCard}>
         <Text style={styles.body}>
-          Commute Weather Planner is built for one person&apos;s wardrobe and one commute at a time.
+          Bucket Hat is built for one person&apos;s wardrobe and one commute at a time.
         </Text>
       </View>
 

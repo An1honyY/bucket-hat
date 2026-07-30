@@ -16,7 +16,7 @@ rather than leaving it as a post-download surprise.
 
 **Description:**
 
-> Commute Weather Planner doesn't tell you it's going to rain and leave the
+> Bucket Hat doesn't tell you it's going to rain and leave the
 > rest to you. It looks at your actual wardrobe — the jacket you own, the
 > shoes with actual grip, the umbrella rated for actual wind — and tells
 > you which one to grab, leg by leg, for the walk/bus/drive you're about to

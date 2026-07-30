@@ -1,4 +1,4 @@
-# Commute Weather Planner — Build Spec
+# Bucket Hat — Build Spec
 
 A React Native app that plans a journey (walking / driving / public transit), overlays
 per-leg weather conditions, and recommends specific items from the user's own
@@ -110,7 +110,7 @@ non-Auckland user discover it by trial and error:
 - **v1 fix**: on first launch, if `expo-location`'s current position (or the
   address entered for "Home" during onboarding, Section 4.1) resolves to a
   country other than New Zealand, show a one-time non-blocking notice:
-  "Commute Weather Planner is tuned for Auckland — walking/driving directions
+  "Bucket Hat is tuned for Auckland — walking/driving directions
   and weather will work anywhere, but bus/train times and seasonal gear
   advice may be off." Don't block onboarding on this, just set expectations.
 - **Store listing**: the App Store / Play Store description (Section 10.4)
@@ -131,7 +131,7 @@ explicitly out of scope for v1 and every phase in this document rather than
 something a coding agent should try to half-implement along the way.
 
 - **v1 fix**: state this plainly in the app's About/Settings copy —
-  "Commute Weather Planner is built for one person's wardrobe and one
+  "Bucket Hat is built for one person's wardrobe and one
   commute at a time" — next to the theme picker introduced in Section 9.1,
   so it's disclosed rather than discovered when a second person's jacket
   shows up in someone else's recommendation.
@@ -3894,7 +3894,7 @@ that can leave the app as an image.
   translate well to a static image — e.g. drop the refresh affordance)
   to a PNG via `captureRef`, then hands it to `expo-sharing`'s share sheet.
 - **Export-specific styling**: include a small wordmark/attribution line
-  at the bottom ("via Commute Weather Planner") — this is the one piece of
+  at the bottom ("via Bucket Hat") — this is the one piece of
   UI in the whole app whose entire purpose is being seen by someone who
   doesn't have the app yet, so it's worth the one deliberately
   non-utilitarian flourish, consistent with the "personal" half of Section

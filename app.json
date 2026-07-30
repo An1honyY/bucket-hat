@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Commute Weather Planner",
+    "name": "Bucket Hat",
     "slug": "bucket-hat",
     "version": "1.0.0",
     "scheme": "buckethat",
@@ -52,14 +52,14 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Commute Weather Planner uses your location to set your current location as a journey starting point."
+          "locationWhenInUsePermission": "Bucket Hat uses your location to set your current location as a journey starting point."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Commute Weather Planner uses your photo library so you can add a photo of a gear item.",
-          "cameraPermission": "Commute Weather Planner uses your camera so you can take a photo of a gear item.",
+          "photosPermission": "Bucket Hat uses your photo library so you can add a photo of a gear item.",
+          "cameraPermission": "Bucket Hat uses your camera so you can take a photo of a gear item.",
           "microphonePermission": false
         }
       ]

@@ -1,4 +1,4 @@
-# AGENTS.md — Commute Weather Planner
+# AGENTS.md — Bucket Hat
 
 This file is the entry point for any coding agent working on this repo. The
 full spec was originally one long document; it's now split into focused

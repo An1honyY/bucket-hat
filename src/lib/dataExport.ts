@@ -108,7 +108,7 @@ export async function exportData(): Promise<void> {
   dataJson.write(JSON.stringify(bundle, null, 2));
   await copyDirContents(gearPhotosDir(), new Directory(staging, "gear-photos"));
 
-  const zipDest = new File(Paths.cache, `commute-weather-export-${Date.now()}.zip`);
+  const zipDest = new File(Paths.cache, `bucket-hat-export-${Date.now()}.zip`);
   await zip(staging.uri, zipDest.uri);
 
   const canShare = await Sharing.isAvailableAsync();
@@ -160,7 +160,7 @@ export async function importData(): Promise<ImportResult> {
 
   const dataJson = new File(staging, "data.json");
   if (!dataJson.exists) {
-    return { imported: false, error: "This file doesn't look like a Commute Weather Planner export." };
+    return { imported: false, error: "This file doesn't look like a Bucket Hat export." };
   }
 
   let bundle: ExportBundle;

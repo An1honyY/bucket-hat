@@ -44,7 +44,7 @@ that can leave the app as an image.
   translate well to a static image — e.g. drop the refresh affordance)
   to a PNG via `captureRef`, then hands it to `expo-sharing`'s share sheet.
 - **Export-specific styling**: include a small wordmark/attribution line
-  at the bottom ("via Commute Weather Planner") — this is the one piece of
+  at the bottom ("via Bucket Hat") — this is the one piece of
   UI in the whole app whose entire purpose is being seen by someone who
   doesn't have the app yet, so it's worth the one deliberately
   non-utilitarian flourish, consistent with the "personal" half of Section

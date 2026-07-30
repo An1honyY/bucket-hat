@@ -1,10 +1,13 @@
-# Privacy Policy — Commute Weather Planner
+# Privacy Policy — Bucket Hat
 
-_Last updated: 2026-07-21_
+_Last updated: 2026-07-31_
 
-Commute Weather Planner is a single-user app: there are no accounts, no
-sign-in, and no server run by us that your data passes through. This page
-explains what the app collects, where it lives, and who else sees it.
+Bucket Hat is a single-user app, and it works entirely on your device by
+default: no account, no sign-in, and nothing sent to a server we run. You can
+optionally create an account to sync your data between your own devices, in
+which case a server we run does hold a copy — see "Where it's stored" for
+exactly what that covers. This page explains what the app collects, where it
+lives, and who else sees it.
 
 ## What we collect
 
@@ -21,8 +24,10 @@ explains what the app collects, where it lives, and who else sees it.
   used to calibrate future recommendations to how you personally run warm
   or cold.
 
-We do not collect your name, email, or any account identifier — there is no
-account.
+We never collect your name. If you don't turn on sync, we collect no email
+or account identifier either, because there is no account. If you do turn on
+sync, the only thing added is the email address you register with — see
+"Where it's stored".
 
 ## Where it's stored
 

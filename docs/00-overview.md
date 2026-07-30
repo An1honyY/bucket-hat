@@ -1,4 +1,4 @@
-# 0. Overview — Commute Weather Planner
+# 0. Overview — Bucket Hat
 
 A React Native (Expo) app that plans a journey — walking, driving, cycling,
 or public transit — overlays per-leg weather conditions, and recommends

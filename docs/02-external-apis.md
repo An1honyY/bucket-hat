@@ -89,7 +89,7 @@ non-Auckland user discover it by trial and error:
 - **v1 fix**: on first launch, if `expo-location`'s current position (or the
   address entered for "Home" during onboarding, Section 4.1) resolves to a
   country other than New Zealand, show a one-time non-blocking notice:
-  "Commute Weather Planner is tuned for Auckland — walking/driving directions
+  "Bucket Hat is tuned for Auckland — walking/driving directions
   and weather will work anywhere, but bus/train times and seasonal gear
   advice may be off." Don't block onboarding on this, just set expectations.
 - **Store listing**: the App Store / Play Store description (Section 10.4)
@@ -110,7 +110,7 @@ explicitly out of scope for v1 and every phase in this document rather than
 something a coding agent should try to half-implement along the way.
 
 - **v1 fix**: state this plainly in the app's About/Settings copy —
-  "Commute Weather Planner is built for one person's wardrobe and one
+  "Bucket Hat is built for one person's wardrobe and one
   commute at a time" — next to the theme picker introduced in Section 9.1,
   so it's disclosed rather than discovered when a second person's jacket
   shows up in someone else's recommendation.

@@ -115,6 +115,7 @@ one by date — don't edit the old entry.
 - 2026-07-30 — SafeAreaView now comes from react-native-safe-area-context in all screens [bug fix, §9]
 - 2026-07-30 — Web app is served by the sync Worker itself; COOP/COEP via public/_headers [§12, §13.7]
 - 2026-07-30 — Renamed the project to bucket-hat; new D1 and R2, old data abandoned [maintenance]
+- 2026-07-31 — Display name and all user-facing copy rebranded to Bucket Hat [maintenance]
 
 ---
 
@@ -2016,5 +2017,32 @@ restriction must be re-pointed at the new package. Secrets are per-Worker, so
 Weather Planner", in app.json, STORE_LISTING.md and the permission strings.
 "Rename the project" was read as the project's identifiers rather than its
 branding — renaming what users see is a product decision, not a refactor.
+
+---
+## 2026-07-31 — Display name and all user-facing copy rebranded to Bucket Hat [maintenance]
+
+**What**: `app.json`'s `name`, the three OS permission strings, the in-app
+single-user disclosure, the export filename (`bucket-hat-export-*.zip`), the
+import error copy, `PRIVACY_POLICY.md`, `STORE_LISTING.md` and the spec docs
+all now say "Bucket Hat". Completes the 2026-07-30 rename, which had
+deliberately stopped at identifiers.
+
+**Why it was split**: renaming identifiers is a refactor; renaming what users
+read is a product decision, so it was raised separately rather than assumed.
+
+**Fixed while in there** — the privacy policy's opening paragraph still
+claimed "there are no accounts, no sign-in, and no server run by us that your
+data passes through", which the same document then contradicted further down
+in the sync section added on 2026-07-28. That's a privacy policy, so an
+inaccurate summary is worse than an incomplete one. It now states the
+on-device default and points at the sync section for what an account changes.
+The "there is no account" line under *What we collect* had the same problem
+and is now conditional. Whenever the sync surface changes, re-read this
+document's opening two paragraphs specifically — they summarise claims made
+in detail elsewhere and will drift silently.
+
+**Not renamed**: the app icon and header logo are artwork, not copy, so they
+still show the old umbrella mark. The `nz.co.buckethat.app` identifiers and
+`bucket-hat` resource names are unchanged from yesterday.
 
 ---
