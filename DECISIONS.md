@@ -112,6 +112,9 @@ one by date — don't edit the old entry.
 - 2026-07-29 — Removed unused react-native-dotenv; babel uses worklets/plugin; audit clean [maintenance]
 - 2026-07-29 — wrangler.toml top-level keys must precede every [table] header [bug fix]
 - 2026-07-30 — Migrated off expo-file-system/legacy; File/Directory must never be constructed at module scope [maintenance, §3.3]
+- 2026-07-30 — Journey Mode: live follow-along is navigation UX, not the live tracking §13.8 rules out (Phase 22)
+- 2026-07-30 — Journey Mode tracks foreground-only, with keep-awake and a resume re-snap (Phase 22)
+- 2026-07-30 — Local-knowledge alerts default to a pre-departure briefing, not live nudges (§4.5, Phase 22)
 - 2026-07-30 — SafeAreaView now comes from react-native-safe-area-context in all screens [bug fix, §9]
 - 2026-07-30 — Web app is served by the sync Worker itself; COOP/COEP via public/_headers [§12, §13.7]
 - 2026-07-30 — Renamed the project to bucket-hat; new D1 and R2, old data abandoned [maintenance]
@@ -2075,5 +2078,68 @@ deployed file still has zero alpha in all four corners.
 "a flat, geometric amber umbrella silhouette", the pre-2026-07-21 concept.
 `docs/10-production-readiness.md` had the bucket hat right and now carries
 both sizing rules as well.
+
+---
+
+## 2026-07-30 — Journey Mode: live follow-along is navigation UX, not the live tracking §13.8 rules out (Phase 22)
+
+**What**: Journey Detail gained an active "following" state — a
+transport-mode-shaped location puck, a follow camera, traveled-route
+dimming, collapsing completed legs, a live ETA, off-route detection,
+turn-by-turn steps, and in-journey weather/gear alerts.
+
+**Why**: `docs/13-extended-features.md` §13.8 says "GPS breadcrumb
+recording, and any kind of live tracking or safety check-in feature" is out
+of scope, which reads at first glance as forbidding this outright. That
+clause sits inside hike mode's scope list and is about *safety* features —
+the app "is not a hiking safety app" — whereas this is navigation UX on the
+existing commute flow, and it was explicitly requested.
+
+**Resolution**: built as a new Phase 22, with §13.8's actual line intact: no
+background location, no persisted breadcrumbs (position is never written to
+SQLite), no check-in, and no safety framing in any copy. A future
+contributor wanting any of those still needs the separate scoped phase
+§13.8 asks for — this entry does not open that door.
+
+---
+
+## 2026-07-30 — Journey Mode tracks foreground-only, with keep-awake and a resume re-snap (Phase 22)
+
+**What**: `watchPosition()` in `approximateLocation.ts` runs only while
+Journey Detail is focused and journey mode is on; it stops on blur, unmount
+and arrival. No `ACCESS_BACKGROUND_LOCATION`, no `expo-task-manager`, no iOS
+`UIBackgroundModes`.
+
+**Why**: every function this feature was asked for — puck, follow camera,
+collapsing legs — is visual and only has value while someone is looking at
+the screen, so background tracking buys nothing for them. It would only
+matter for alerting, and leave-by notifications (Phase 8) already schedule
+those from a timeline known at plan time.
+
+**Resolution**: foreground-only, with `expo-keep-awake` while following so
+the screen staying on is the normal case, and a one-shot re-snap on
+`AppState` → active so returning to a backgrounded app never shows stale
+progress. Adding background later means changing `watchPosition()` alone —
+don't add a second subscription site, same rule the 2026-07-29 GPS entry set
+for one-shot lookups.
+
+---
+
+## 2026-07-30 — Local-knowledge alerts default to a pre-departure briefing, not live nudges (§4.5, Phase 22)
+
+**What**: a new `annotation_alert_mode` setting (`off` / `briefing` /
+`live`) controls how saved `EnvironmentAnnotation` spots reach the user,
+defaulting to `briefing` — a card listing the spots on this route, shown
+before departure. Journey Detail also has a per-trip "Quiet" button.
+
+**Why**: firing a nudge at every marked windy corner is the kind of thing
+that makes someone disable a feature outright, so which of the three
+behaviours should be the default was a real call rather than an obvious one.
+
+**Resolution**: `briefing` wins by default because it's non-intrusive and
+works with the phone in a pocket, where live alerts by definition don't;
+`live` is opt-in. The per-trip mute is session-only and deliberately does
+**not** write the setting — one tap while walking must not silently change a
+global preference. Keep that split if either control is extended.
 
 ---

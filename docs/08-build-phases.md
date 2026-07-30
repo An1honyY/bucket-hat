@@ -156,5 +156,20 @@ companion — are fully specified as their own build phases in Section 13,
 sequenced to run after Phase 12 rather than left undefined as "someday"
 ideas.
 
+22. **Journey Mode** — following a journey as it happens on Journey
+    Detail's map: a transport-mode-shaped location puck, a follow camera
+    with free-pan and re-centre, the traveled stretch dimmed, completed legs
+    collapsed, a live pace-adjusted ETA, off-route detection, turn-by-turn
+    steps within the current leg, and the in-journey weather/gear alerts
+    that are the reason to build it at all. Foreground-only, with the
+    saved-spot alerts behind a user preference. Not sequenced after Phase 21
+    — it extends the Phase 4/5 core rather than depending on any of Phases
+    13–21, and was built ahead of them. Key files: `src/lib/
+    journeyProgress.ts` (pure progress model), `src/lib/journeyAlerts.ts`
+    (pure alert derivation), `src/lib/useJourneyProgress.ts` (subscription
+    lifecycle), plus new props on both `JourneyMap` implementations. See
+    `DECISIONS.md` (2026-07-30) for why this doesn't cross §13.8's
+    live-tracking line, and for the foreground-only reasoning.
+
 ---
 

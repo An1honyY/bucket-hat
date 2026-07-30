@@ -52,7 +52,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Bucket Hat uses your location to set your current location as a journey starting point."
+          "locationWhenInUsePermission": "Bucket Hat uses your location to set your current location as a journey starting point, and to follow along your route while you travel."
         }
       ],
       [
