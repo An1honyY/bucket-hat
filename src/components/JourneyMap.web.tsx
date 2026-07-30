@@ -3,10 +3,10 @@ import { StyleSheet, Text, View } from "react-native";
 import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap, useMapEvents } from "react-leaflet";
 import type { LeafletMouseEvent } from "leaflet";
 import useLeafletCss from "./useLeafletCss";
-import { pinDivIcon, flagDivIcon, stopDivIcon, conditionDivIcon, annotationDivIcon } from "./leafletIcons";
+import { pinDivIcon, flagDivIcon, stopDivIcon, conditionDivIcon, annotationDivIcon, userPuckDivIcon } from "./leafletIcons";
 import { basemapFor } from "./leafletBasemap";
 import { boundsKey, hexToRgba, usableCoordinates } from "../lib/mapGeometry";
-import type { ConditionMarker, MapAnnotation, MapCircle, MapStop } from "./JourneyMap";
+import type { ConditionMarker, MapAnnotation, MapCircle, MapFollowMode, MapStop, MapUserPuck } from "./JourneyMap";
 import useTheme from "../theme/useTheme";
 import { darkTheme } from "../theme/tokens";
 
@@ -33,6 +33,13 @@ interface Props {
   conditionMarkers?: ConditionMarker[];
   annotations?: MapAnnotation[];
   previewColor?: string;
+  // Phase 22 — see JourneyMap.tsx's Props for the full rationale. Omitting
+  // all of these renders exactly as before.
+  traveledPath?: MapStop[];
+  remainingPath?: MapStop[];
+  userPuck?: MapUserPuck | null;
+  followMode?: MapFollowMode;
+  onUserPan?: () => void;
 }
 
 const ROUTE_STROKE_WEIGHT = 5;
@@ -41,6 +48,46 @@ const FIT_PADDING: [number, number] = [28, 28];
 // A journey with a single usable point has no extent to fit — street level is
 // as much as can be said about it.
 const SINGLE_STOP_ZOOM = 15;
+// Phase 22 — mirrors the native map's constants; see JourneyMap.tsx.
+const TRAVELED_STROKE_ALPHA = 0.3;
+const FOLLOW_ZOOM_WALKING = 17;
+const FOLLOW_ZOOM_VEHICLE = 16;
+const ACCURACY_HALO_MIN_M = 25;
+
+function followZoomFor(mode: MapUserPuck["mode"]): number {
+  return mode === "drive" || mode === "bus" || mode === "train" ? FOLLOW_ZOOM_VEHICLE : FOLLOW_ZOOM_WALKING;
+}
+
+// Phase 22 — the follow camera, and the gesture that breaks out of it.
+// Leaflet's `dragstart` fires only for real user drags, so a programmatic
+// setView below can't knock the map out of follow by itself.
+function FollowCamera({
+  puck,
+  followMode,
+  onUserPan,
+}: {
+  puck?: MapUserPuck | null;
+  followMode: MapFollowMode;
+  onUserPan?: () => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!onUserPan) return;
+    const handler = () => onUserPan();
+    map.on("dragstart", handler);
+    return () => {
+      map.off("dragstart", handler);
+    };
+  }, [map, onUserPan]);
+
+  useEffect(() => {
+    if (followMode !== "follow" || !puck) return;
+    map.setView([puck.lat, puck.lng], followZoomFor(puck.mode), { animate: true });
+  }, [map, followMode, puck]);
+
+  return null;
+}
 
 function ContextMenuToAnnotate({ onTrigger }: { onTrigger?: (coords: { lat: number; lng: number }) => void }) {
   useMapEvents({
@@ -58,7 +105,7 @@ function ContextMenuToAnnotate({ onTrigger }: { onTrigger?: (coords: { lat: numb
 // routinely thousands of points, and re-serializing all of them on every
 // render (the original dependency) is work done to detect a change that
 // only the bounding box can express.
-function FitBounds({ positions }: { positions: [number, number][] }) {
+function FitBounds({ positions, followMode }: { positions: [number, number][]; followMode: MapFollowMode }) {
   const map = useMap();
   const key = useMemo(() => boundsKey(positions.map(([lat, lng]) => ({ lat, lng }))), [positions]);
   // MapContainer's center/zoom props only set the very first frame. Fitting
@@ -69,7 +116,10 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
   // a newly saved spot) are a change worth animating.
   const hasFittedRef = useRef(false);
 
+  // Skipped while following (Phase 22): framing the whole route and
+  // centring on the puck are two cameras fighting over one map.
   useEffect(() => {
+    if (followMode === "follow") return;
     if (positions.length === 0) return;
     const animate = hasFittedRef.current;
     hasFittedRef.current = true;
@@ -79,7 +129,7 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
       map.fitBounds(positions, { padding: FIT_PADDING, animate });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, followMode]);
 
   // Leaflet measures its container once at mount and renders grey gutters if
   // that size later changes — which it does on any window resize, and on the
@@ -95,17 +145,35 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       map.invalidateSize();
+      // The container still has to be re-measured while following — only the
+      // re-framing is suppressed, or the follow camera would be yanked back
+      // to the whole route on every resize.
+      if (followMode === "follow") return;
       if (positions.length > 1) map.fitBounds(positions, { padding: FIT_PADDING, animate: false });
     });
     observer.observe(map.getContainer());
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, key]);
+  }, [map, key, followMode]);
 
   return null;
 }
 
-export default function JourneyMap({ stops, routePath, accentColor, onLongPress, previewCircle, conditionMarkers, annotations, previewColor }: Props) {
+export default function JourneyMap({
+  stops,
+  routePath,
+  accentColor,
+  onLongPress,
+  previewCircle,
+  conditionMarkers,
+  annotations,
+  previewColor,
+  traveledPath,
+  remainingPath,
+  userPuck,
+  followMode = "off",
+  onUserPan,
+}: Props) {
   // The native JourneyMap reads theme for its own basemap chrome too (dark
   // map styling) — same narrow use here: tile choice (CARTO's light/dark
   // sets) and the hint chip, not general theme dependency creep.
@@ -121,6 +189,16 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
     const path = usableCoordinates(routePath);
     return path.length > 0 ? path.map((p) => [p.lat, p.lng] as [number, number]) : positions;
   }, [routePath, positions]);
+  const traveledPositions: [number, number][] = useMemo(
+    () => usableCoordinates(traveledPath).map((p) => [p.lat, p.lng] as [number, number]),
+    [traveledPath]
+  );
+  // The accent stroke covers only what's left when a journey is in progress,
+  // and the whole route otherwise.
+  const accentPositions: [number, number][] = useMemo(() => {
+    const remaining = usableCoordinates(remainingPath);
+    return remaining.length > 1 ? remaining.map((p) => [p.lat, p.lng] as [number, number]) : linePositions;
+  }, [remainingPath, linePositions]);
   // Frame the route plus any saved spot sitting off it, matching native.
   const fitPositions: [number, number][] = useMemo(
     () => [...linePositions, ...usableCoordinates(annotations).map((a) => [a.lat, a.lng] as [number, number])],
@@ -144,7 +222,8 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
         scrollWheelZoom={false}
       >
         <TileLayer url={basemap.url} attribution={basemap.attribution} detectRetina />
-        <FitBounds positions={fitPositions} />
+        <FitBounds positions={fitPositions} followMode={followMode} />
+        <FollowCamera puck={userPuck} followMode={followMode} onUserPan={onUserPan} />
         {/* Casing under the route stroke, so the line stays legible where it
             crosses similarly-colored roads or park fill (mirrors native). */}
         <Polyline
@@ -157,8 +236,22 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
             lineJoin: "round",
           }}
         />
+        {/* Phase 22 — the stretch behind the user, between the casing and
+            the accent stroke so its alpha blends against the basemap rather
+            than over a full-strength line. */}
+        {traveledPositions.length > 1 && (
+          <Polyline
+            positions={traveledPositions}
+            pathOptions={{
+              color: hexToRgba(accentColor, TRAVELED_STROKE_ALPHA),
+              weight: ROUTE_STROKE_WEIGHT,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
+        )}
         <Polyline
-          positions={linePositions}
+          positions={accentPositions}
           pathOptions={{ color: accentColor, weight: ROUTE_STROKE_WEIGHT, lineCap: "round", lineJoin: "round" }}
         />
         {positions.map((position, i) => {
@@ -214,6 +307,24 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
             center={[previewCircle.lat, previewCircle.lng]}
             radius={previewCircle.radiusM}
             pathOptions={{ color: previewColor ?? accentColor, fillColor: previewColor ?? accentColor, fillOpacity: 0.15, weight: 2 }}
+          />
+        )}
+        {/* Phase 22 — the GPS accuracy halo, only when the fix is genuinely
+            vague, then the puck itself on top of every other marker. */}
+        {userPuck && (userPuck.accuracyM ?? 0) > ACCURACY_HALO_MIN_M && (
+          <Circle
+            center={[userPuck.lat, userPuck.lng]}
+            radius={userPuck.accuracyM!}
+            pathOptions={{ color: userPuck.color, fillColor: userPuck.color, fillOpacity: 0.1, weight: 1, opacity: 0.35 }}
+          />
+        )}
+        {userPuck && (
+          <Marker
+            position={[userPuck.lat, userPuck.lng]}
+            icon={userPuckDivIcon(userPuck.color, userPuck.mode, userPuck.bearingDeg)}
+            title={userPuck.label}
+            alt={userPuck.label}
+            zIndexOffset={1000}
           />
         )}
         <ContextMenuToAnnotate onTrigger={onLongPress} />

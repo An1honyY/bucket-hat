@@ -4,6 +4,8 @@ import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { boundsKey, hexToRgba, regionForCoordinates, usableCoordinates } from "../lib/mapGeometry";
 import { DARK_MAP_STYLE } from "./mapDarkStyle";
 import ActionIcon from "./ActionIcon";
+import ModeIcon from "./ModeIcon";
+import type { ModeIconKind } from "./modeIconPaths";
 import useTheme from "../theme/useTheme";
 import { darkTheme } from "../theme/tokens";
 
@@ -53,6 +55,25 @@ export interface MapAnnotation {
   color: string;
 }
 
+// Phase 22 (Journey Mode) — where the user actually is, drawn as a disc
+// carrying the current leg's transport glyph rather than the generic blue
+// dot every maps app shares. Same dumb-renderer split as the markers above:
+// the caller resolves which mode is current and which accent it takes, so
+// native and web can't disagree about it.
+export interface MapUserPuck {
+  lat: number;
+  lng: number;
+  mode: ModeIconKind;
+  /** Degrees clockwise from north; rotates the nose, not the glyph. */
+  bearingDeg?: number;
+  /** Reported GPS accuracy — drawn as a halo only when it's poor enough to matter. */
+  accuracyM?: number;
+  color: string;
+  label: string; // accessibilityLabel, §9.6 — never a bare dot
+}
+
+export type MapFollowMode = "off" | "follow" | "free";
+
 interface Props {
   stops: MapStop[];
   // Decoded, concatenated polyline geometry from the real routed journey
@@ -74,6 +95,16 @@ interface Props {
   // accent, since it isn't a mode color. Falls back to accentColor so
   // existing callers/tests that don't pass it keep working.
   previewColor?: string;
+  // Phase 22 — the stretch already walked/ridden, drawn dimmed so the route
+  // ahead is the one that reads. `routePath` stays the *whole* journey (it's
+  // what the map frames against); these two only affect stroke color, and
+  // omitting them renders exactly as before.
+  traveledPath?: MapStop[];
+  remainingPath?: MapStop[];
+  userPuck?: MapUserPuck | null;
+  followMode?: MapFollowMode;
+  /** Fired when the user pans the map themselves, so the caller can drop out of follow. */
+  onUserPan?: () => void;
 }
 
 // The route line reads as a single stroke rather than a hairline over busy
@@ -83,7 +114,39 @@ const ROUTE_STROKE_WIDTH = 5;
 const ROUTE_CASING_WIDTH = 8;
 const FIT_EDGE_PADDING = { top: 56, right: 40, bottom: 56, left: 40 };
 
-export default function JourneyMap({ stops, routePath, accentColor, onLongPress, previewCircle, conditionMarkers, annotations, previewColor }: Props) {
+// Phase 22 — the route behind you stays visible (it's context for where you
+// came from) but must not compete with the stretch ahead for attention.
+const TRAVELED_STROKE_ALPHA = 0.3;
+
+// How tight the follow camera sits. A driving or transit leg covers ground
+// far faster than a walk, so it needs more of the road ahead in frame to be
+// useful rather than just closer detail.
+const FOLLOW_ZOOM_WALKING = 17;
+const FOLLOW_ZOOM_VEHICLE = 16;
+const FOLLOW_ANIMATE_MS = 600;
+// Below this, the GPS halo is smaller than the puck itself and reads as
+// visual noise rather than as uncertainty.
+const ACCURACY_HALO_MIN_M = 25;
+
+function followZoomFor(mode: ModeIconKind): number {
+  return mode === "drive" || mode === "bus" || mode === "train" ? FOLLOW_ZOOM_VEHICLE : FOLLOW_ZOOM_WALKING;
+}
+
+export default function JourneyMap({
+  stops,
+  routePath,
+  accentColor,
+  onLongPress,
+  previewCircle,
+  conditionMarkers,
+  annotations,
+  previewColor,
+  traveledPath,
+  remainingPath,
+  userPuck,
+  followMode = "off",
+  onUserPan,
+}: Props) {
   const theme = useTheme();
   const isDark = theme === darkTheme;
   const mapRef = useRef<MapView>(null);
@@ -102,12 +165,30 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
   // the set changes (a re-planned route, a newly saved local-knowledge spot),
   // since a marker that mounts with tracking already off is the classic
   // react-native-maps trap that freezes it as a blank circle on iOS.
-  const markerSignature = `${coordinates.length}:${conditionMarkers?.length ?? 0}:${annotations?.length ?? 0}`;
+  //
+  // The Journey Mode puck contributes only its *mode*, never its position.
+  // Its coordinate changes on every GPS fix, but moving a marker repositions
+  // the bitmap that was already rasterized rather than redrawing it — only
+  // the glyph inside changes when the current leg switches from walk to bus.
+  // Feeding position in here would re-rasterize several times a minute and
+  // reintroduce exactly the stutter this mechanism exists to prevent.
+  const markerSignature = `${coordinates.length}:${conditionMarkers?.length ?? 0}:${annotations?.length ?? 0}:${userPuck?.mode ?? "none"}`;
   const tracksViewChanges = settledSignature !== markerSignature;
   const lineCoordinates = useMemo(() => {
     const path = usableCoordinates(routePath);
     return path.length > 0 ? path.map((p) => ({ latitude: p.lat, longitude: p.lng })) : coordinates;
   }, [routePath, coordinates]);
+
+  const traveledCoordinates = useMemo(
+    () => usableCoordinates(traveledPath).map((p) => ({ latitude: p.lat, longitude: p.lng })),
+    [traveledPath]
+  );
+  // The accent stroke covers only what's left when a journey is in progress,
+  // and the whole route otherwise.
+  const accentCoordinates = useMemo(() => {
+    const remaining = usableCoordinates(remainingPath);
+    return remaining.length > 1 ? remaining.map((p) => ({ latitude: p.lat, longitude: p.lng })) : lineCoordinates;
+  }, [remainingPath, lineCoordinates]);
 
   // What the map should frame: the drawn route plus anything sitting off it
   // (a saved annotation near, but not on, the path).
@@ -139,7 +220,12 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
   // The first fit is instant: animating it would visibly slide the map on
   // every open, for no information the user asked for. Only a genuine change
   // to an already-framed route animates, where the movement is the point.
+  //
+  // Skipped entirely while following (Phase 22): re-framing the whole route
+  // and centring on the puck are two cameras fighting for the same map, and
+  // the fight would restart on every fix.
   useEffect(() => {
+    if (followMode === "follow") return;
     if (fitPoints.length < 2) return;
     const animated = hasFittedRef.current;
     hasFittedRef.current = true;
@@ -148,7 +234,19 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
       { edgePadding: FIT_EDGE_PADDING, animated }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitKey]);
+  }, [fitKey, followMode]);
+
+  // Phase 22 — the follow camera. Deliberately north-up: heading-up needs
+  // rotation enabled, which changes the gesture surface for every other use
+  // of this map, in exchange for a bearing that's noisy at walking pace. The
+  // puck's nose already carries direction.
+  useEffect(() => {
+    if (followMode !== "follow" || !userPuck) return;
+    mapRef.current?.animateCamera(
+      { center: { latitude: userPuck.lat, longitude: userPuck.lng }, zoom: followZoomFor(userPuck.mode) },
+      { duration: FOLLOW_ANIMATE_MS }
+    );
+  }, [followMode, userPuck]);
 
   if (coordinates.length === 0 || !initialRegion) return <View style={[styles.container, { backgroundColor: theme.surface }]} />;
 
@@ -180,7 +278,11 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
         // The effect above may have run before the native map existed to
         // receive the call (mapRef still null) — this is the one that
         // actually lands on first open.
+        // Fires for user gestures only — a programmatic animateCamera can't
+        // trigger it, so the follow camera can't pan itself out of follow.
+        onPanDrag={onUserPan}
         onMapReady={() => {
+          if (followMode === "follow") return;
           if (fitPoints.length < 2) return;
           hasFittedRef.current = true;
           mapRef.current?.fitToCoordinates(
@@ -200,8 +302,22 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
           lineCap="round"
           lineJoin="round"
         />
+        {/* Phase 22 — the stretch behind the user, drawn between the casing
+            and the accent stroke so the alpha blends against the basemap
+            rather than over a full-strength line. When no journey is in
+            progress `traveledPath` is absent and the accent below covers the
+            whole route exactly as before. */}
+        {traveledCoordinates.length > 1 && (
+          <Polyline
+            coordinates={traveledCoordinates}
+            strokeColor={hexToRgba(accentColor, TRAVELED_STROKE_ALPHA)}
+            strokeWidth={ROUTE_STROKE_WIDTH}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
         <Polyline
-          coordinates={lineCoordinates}
+          coordinates={accentCoordinates}
           strokeColor={accentColor}
           strokeWidth={ROUTE_STROKE_WIDTH}
           lineCap="round"
@@ -303,6 +419,45 @@ export default function JourneyMap({ stops, routePath, accentColor, onLongPress,
             strokeWidth={2}
           />
         )}
+        {/* Phase 22 — the GPS accuracy halo, drawn only when the fix is
+            genuinely vague. Flat pass rather than nested in the puck marker
+            below, for the same Fabric reason as the annotation circles. */}
+        {userPuck && (userPuck.accuracyM ?? 0) > ACCURACY_HALO_MIN_M && (
+          <Circle
+            center={{ latitude: userPuck.lat, longitude: userPuck.lng }}
+            radius={userPuck.accuracyM!}
+            strokeColor={hexToRgba(userPuck.color, 0.35)}
+            fillColor={hexToRgba(userPuck.color, 0.1)}
+            strokeWidth={1}
+          />
+        )}
+        {userPuck && (
+          <Marker
+            coordinate={{ latitude: userPuck.lat, longitude: userPuck.lng }}
+            title={userPuck.label}
+            accessibilityLabel={userPuck.label}
+            tracksViewChanges={tracksViewChanges}
+            anchor={{ x: 0.5, y: 0.5 }}
+            // Keeps the puck lying on the map rather than standing up like a
+            // pin, and stops it being sorted under the stop markers.
+            flat
+            zIndex={10}
+          >
+            <View style={styles.puckWrapper}>
+              {/* Only the nose rotates. A rotated bus or pedestrian glyph
+                  reads as a vehicle on its side; direction belongs on a
+                  shape that has no upright of its own. */}
+              {userPuck.bearingDeg !== undefined && (
+                <View style={[styles.puckNoseOrbit, { transform: [{ rotate: `${userPuck.bearingDeg}deg` }] }]}>
+                  <View style={[styles.puckNose, { borderBottomColor: userPuck.color }]} />
+                </View>
+              )}
+              <View style={[styles.puck, { backgroundColor: userPuck.color }]}>
+                <ModeIcon kind={userPuck.mode} size={18} color="#FFFFFF" />
+              </View>
+            </View>
+          </Marker>
+        )}
       </MapView>
       {/* §4.5's long-press capture had no affordance anywhere on this
           screen — a gesture nobody is told about is a feature nobody finds.
@@ -323,8 +478,44 @@ function stopTitle(index: number, total: number): string {
   return `Stop ${index}`;
 }
 
+// Phase 22 puck geometry. The wrapper is deliberately larger than the disc
+// so the rotating nose has room to swing without being clipped by the
+// marker's bounds — a marker view is sized to its content, and an
+// overflowing child is cut off on Android.
+const PUCK_SIZE = 34;
+const PUCK_NOSE_WIDTH = 9;
+const PUCK_NOSE_HEIGHT = 7;
+const PUCK_ORBIT = PUCK_SIZE + PUCK_NOSE_HEIGHT * 2 + 4;
+
 const styles = StyleSheet.create({
   container: { width: "100%", height: "100%" },
+  puckWrapper: { width: PUCK_ORBIT, height: PUCK_ORBIT, alignItems: "center", justifyContent: "center" },
+  puck: {
+    width: PUCK_SIZE,
+    height: PUCK_SIZE,
+    borderRadius: PUCK_SIZE / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2.5,
+    borderColor: "#FFFFFF",
+    shadowColor: "#000000",
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 5,
+  },
+  // Rotating a full-size box around the puck's centre puts the nose on the
+  // circle's edge at any bearing, without per-angle trigonometry.
+  puckNoseOrbit: { position: "absolute", width: PUCK_ORBIT, height: PUCK_ORBIT, alignItems: "center" },
+  puckNose: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: PUCK_NOSE_WIDTH / 2,
+    borderRightWidth: PUCK_NOSE_WIDTH / 2,
+    borderBottomWidth: PUCK_NOSE_HEIGHT,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+  },
   conditionMarker: {
     width: 24,
     height: 24,
