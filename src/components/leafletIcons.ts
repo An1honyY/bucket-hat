@@ -1,4 +1,5 @@
 import L from "leaflet";
+import { MODE_ICON_PATHS, type ModeIconKind } from "./modeIconPaths";
 
 // Shared inline-SVG marker icons for both web maps (LocationPickerMap.web.tsx,
 // JourneyMap.web.tsx) — no external marker-image assets, matching the
@@ -71,5 +72,34 @@ export function annotationDivIcon(color: string, icon: string): L.DivIcon {
     html: `<div style="width:26px;height:26px;border-radius:13px;background:${color};border:2px solid #FFFFFF;display:flex;align-items:center;justify-content:center;font-size:13px;box-sizing:border-box;">${icon}</div>`,
     iconSize: [26, 26],
     iconAnchor: [13, 13],
+  });
+}
+
+// Phase 22 (Journey Mode) — the user's own position, mirroring
+// JourneyMap.tsx's native puck: a 34px disc in the current leg's mode accent
+// holding that mode's glyph, with a separately-rotated nose carrying bearing.
+//
+// The glyph paths come from modeIconPaths.ts, the same source ModeIcon.tsx
+// renders with react-native-svg, so the two platforms can't end up drawing
+// different vehicles for the same leg.
+export function userPuckDivIcon(color: string, mode: ModeIconKind, bearingDeg?: number): L.DivIcon {
+  const size = 34;
+  const orbit = size + 18;
+  const centre = orbit / 2;
+  const paths = MODE_ICON_PATHS[mode]
+    .map((d) => `<path d="${d}" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`)
+    .join("");
+
+  // Only the nose rotates — a rotated bus glyph reads as a crashed bus.
+  const nose =
+    bearingDeg === undefined
+      ? ""
+      : `<div style="position:absolute;inset:0;transform:rotate(${bearingDeg}deg);"><div style="position:absolute;top:0;left:50%;margin-left:-4.5px;width:0;height:0;border-left:4.5px solid transparent;border-right:4.5px solid transparent;border-bottom:7px solid ${color};"></div></div>`;
+
+  return L.divIcon({
+    className: "cwp-user-puck",
+    html: `<div style="position:relative;width:${orbit}px;height:${orbit}px;">${nose}<div style="position:absolute;top:9px;left:9px;width:${size}px;height:${size}px;border-radius:${size / 2}px;background:${color};border:2.5px solid #FFFFFF;box-sizing:border-box;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.4);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none">${paths}</svg></div></div>`,
+    iconSize: [orbit, orbit],
+    iconAnchor: [centre, centre],
   });
 }

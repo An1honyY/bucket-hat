@@ -45,6 +45,81 @@ describe("routesService.computeRoute", () => {
     expect(result.data).toEqual([{ mode: "walk", label: "Walk to Work", durationMin: 10, polyline: "abc123" }]);
   });
 
+  it("walk: carries Google's turn instructions through as steps", async () => {
+    process.env.EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY = "test-key";
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        routes: [
+          {
+            legs: [
+              {
+                duration: "600s",
+                polyline: { encodedPolyline: "abc123" },
+                steps: [
+                  {
+                    staticDuration: "120s",
+                    distanceMeters: 180,
+                    polyline: { encodedPolyline: "s1" },
+                    navigationInstruction: { maneuver: "TURN_LEFT", instructions: "Turn left onto Sandringham Rd" },
+                  },
+                  // No instruction text — dropped rather than rendered blank.
+                  { staticDuration: "60s", distanceMeters: 90, polyline: { encodedPolyline: "s2" } },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await computeRoute({ origin: HOME, destination: WORK, mode: "walk", departTime: "2026-07-20T08:00:00.000Z" });
+
+    expect("data" in result).toBe(true);
+    if (!("data" in result)) return;
+    expect(result.data[0].steps).toEqual([
+      {
+        instruction: "Turn left onto Sandringham Rd",
+        maneuver: "TURN_LEFT",
+        distanceM: 180,
+        durationMin: 2,
+        polyline: "s1",
+      },
+    ]);
+  });
+
+  it("leaves steps undefined when Google returned no instructions at all", async () => {
+    process.env.EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY = "test-key";
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        routes: [{ legs: [{ duration: "600s", polyline: { encodedPolyline: "abc123" }, steps: [] }] }],
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await computeRoute({ origin: HOME, destination: WORK, mode: "walk", departTime: "2026-07-20T08:00:00.000Z" });
+
+    expect("data" in result).toBe(true);
+    if (!("data" in result)) return;
+    // Undefined, not an empty array — the UI keys off absence to render nothing.
+    expect(result.data[0].steps).toBeUndefined();
+  });
+
+  it("requests the step-level navigation fields in the field mask", async () => {
+    process.env.EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY = "test-key";
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ routes: [{ legs: [{ duration: "600s" }] }] }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await computeRoute({ origin: HOME, destination: WORK, mode: "walk", departTime: "2026-07-20T08:00:00.000Z" });
+
+    const fieldMask = fetchMock.mock.calls[0][1].headers["X-Goog-FieldMask"];
+    expect(fieldMask).toContain("routes.legs.steps.navigationInstruction");
+    expect(fieldMask).toContain("routes.legs.steps.distanceMeters");
+  });
+
   it("waypoints: one leg per hop, labeled against each stop in order", async () => {
     process.env.EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY = "test-key";
     const CAFE = { lat: -36.855, lng: 174.765, label: "Cafe" };

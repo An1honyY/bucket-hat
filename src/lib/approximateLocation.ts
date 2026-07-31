@@ -83,6 +83,88 @@ export async function getPositionWithinTimeout(
   }
 }
 
+// Journey Mode (Phase 22) — how often, and how precisely, to sample while
+// actively following a journey.
+//
+// `Balanced` is right for the "roughly where am I" callers above and wrong
+// here: snapping to a footpath needs metre-scale precision, and a
+// city-block-scale fix would report the wrong side of the road (and so the
+// wrong leg) constantly. The cost is real, which is why journey mode is an
+// explicit, foreground-only, user-started state rather than something the
+// app does on its own.
+//
+// Sampling is distance-first: 10m gives smooth puck movement at walking pace
+// without a fix every second while standing at a crossing. The time interval
+// is a floor, not a target — it stops a fast-moving transit leg from firing
+// continuously.
+export const JOURNEY_DISTANCE_INTERVAL_M = 10;
+export const JOURNEY_TIME_INTERVAL_MS = 3000;
+
+export interface PositionFix {
+  lat: number;
+  lng: number;
+  /** Device heading, when the platform provides one. Often absent on web. */
+  headingDeg?: number;
+  accuracyM?: number;
+  speedMps?: number;
+  timestampMs: number;
+}
+
+export interface PositionWatcher {
+  remove: () => void;
+}
+
+/**
+ * Watch position continuously until the returned watcher is removed.
+ *
+ * Never prompts — callers that should prompt do so themselves first, same
+ * contract as getPositionWithinTimeout above. Returns null when the
+ * subscription can't be established at all (permission not granted, location
+ * services off), so the caller can degrade to the static view rather than
+ * waiting for fixes that will never arrive.
+ *
+ * This is deliberately the one place a continuous subscription is created —
+ * the same reasoning that consolidated every one-shot lookup into
+ * getPositionWithinTimeout. Adding background tracking later means changing
+ * this function, not finding every call site.
+ *
+ * Works unmodified on web: expo-location delegates to
+ * navigator.geolocation.watchPosition there.
+ */
+export async function watchPosition(onFix: (fix: PositionFix) => void): Promise<PositionWatcher | null> {
+  try {
+    const permission = await Location.getForegroundPermissionsAsync();
+    if (!permission.granted) return null;
+
+    return await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: JOURNEY_DISTANCE_INTERVAL_M,
+        timeInterval: JOURNEY_TIME_INTERVAL_MS,
+      },
+      (position) => {
+        const { latitude: lat, longitude: lng, heading, accuracy, speed } = position.coords;
+        if (isNullIsland(lat, lng)) return;
+        onFix({
+          lat,
+          lng,
+          // Both platforms report -1 for "no heading available" rather than
+          // omitting it, and a stationary device's heading is meaningless
+          // noise regardless — the caller prefers a route-derived bearing.
+          headingDeg: typeof heading === "number" && heading >= 0 ? heading : undefined,
+          accuracyM: typeof accuracy === "number" && accuracy >= 0 ? accuracy : undefined,
+          speedMps: typeof speed === "number" && speed >= 0 ? speed : undefined,
+          timestampMs: position.timestamp,
+        });
+      }
+    );
+  } catch {
+    // Location services unavailable/revoked mid-flow — the caller degrades
+    // to the static journey view.
+    return null;
+  }
+}
+
 export async function resolveApproximateLocation(): Promise<ApproximateLocation> {
   try {
     const permission = await Location.getForegroundPermissionsAsync();

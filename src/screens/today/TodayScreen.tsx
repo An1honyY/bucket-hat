@@ -5,6 +5,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { materializeTodaysJourneys } from "../../lib/materializeToday";
 import { useRightNow } from "../../lib/useRightNow";
+import { cancelLeaveByNotification } from "../../lib/notifications";
 import type { RootStackParamList } from "../../navigation/types";
 import type { Journey } from "../../types";
 import RightNowCard from "./RightNowCard";
@@ -40,6 +41,18 @@ export default function TodayScreen() {
 
   function openJourney(id: string) {
     navigation.navigate("JourneyDetail", { journeyId: id });
+  }
+
+  // §4.2 — "Leaving now" does two jobs: cancel the scheduled leave-by
+  // notification (redundant the moment you're actually leaving) and open
+  // Journey Detail. Phase 22 adds the third: open it already following, so
+  // the tap goes straight from "I'm heading out" to a live map.
+  function startJourney(id: string) {
+    cancelLeaveByNotification(id).catch(() => {
+      // Nothing scheduled, or notifications unavailable — the navigation
+      // below is the part that matters.
+    });
+    navigation.navigate("JourneyDetail", { journeyId: id, journeyMode: true });
   }
 
   // §4.2 — the nearest *upcoming* departure gets the "Leaving now" action,
@@ -91,10 +104,7 @@ export default function TodayScreen() {
               isNextUp={journey.id === nextUpId}
               theme={weatherTheme}
               onPress={() => openJourney(journey.id)}
-              // §4.2 — cancelling the scheduled leave-by notification here
-              // is Phase 8 (notifications don't exist yet); this already
-              // does the tap's other job, opening Journey Detail directly.
-              onLeavingNow={() => openJourney(journey.id)}
+              onLeavingNow={() => startJourney(journey.id)}
             />
           ))
         )}

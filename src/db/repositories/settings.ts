@@ -59,6 +59,25 @@ export async function setThemePreference(preference: ThemePreference): Promise<v
   await setSetting("theme_preference", preference);
 }
 
+// Phase 22 — how the saved local-knowledge spots on a route should reach
+// the user while travelling.
+//
+// Defaults to "briefing", not "live", deliberately: a nudge every time you
+// pass a windy corner is exactly the kind of thing that makes someone turn a
+// feature off entirely, and the briefing works with the phone in a pocket
+// (it's shown before departure) where live alerts by definition don't.
+// "live" is there for people who want it, opt-in.
+export type AnnotationAlertMode = "off" | "briefing" | "live";
+
+export async function getAnnotationAlertMode(): Promise<AnnotationAlertMode> {
+  const value = await getSetting("annotation_alert_mode");
+  return value === "off" || value === "live" ? value : "briefing";
+}
+
+export async function setAnnotationAlertMode(mode: AnnotationAlertMode): Promise<void> {
+  await setSetting("annotation_alert_mode", mode);
+}
+
 // Defaults to "12h" (am/pm) — 24h is opt-in, not the other way round.
 export async function getTimeFormatPreference(): Promise<TimeFormatPreference> {
   const value = await getSetting("time_format_preference");

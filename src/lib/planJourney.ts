@@ -100,6 +100,7 @@ interface AssembledLeg {
   isStationary?: boolean;
   waitContext?: JourneyLeg["waitContext"];
   polyline?: string;
+  steps?: JourneyLeg["steps"]; // Phase 22 — turn-by-turn, carried straight through
   hopIndex?: number; // index into the ordered stop sequence this leg travels *from* — undefined when unknown (transit, cached-structure reuse)
   // Phase 7 (§5.6) — best-effort AT GTFS Realtime lookup keys carried from
   // routesService's transit step, only set on the transit step itself.
@@ -216,6 +217,7 @@ function stepsToAssembledLegs(steps: RouteStep[], input: PlanJourneyInput): Asse
       isStationary: step.isStationary,
       waitContext: step.waitContext,
       polyline: step.polyline,
+      steps: step.steps,
       hopIndex: knownHopBoundaries ? hopIndex : undefined,
       routeId: step.routeId,
       stopId: step.stopId,
@@ -254,6 +256,7 @@ async function assembleJourney(
       outdoor: step.outdoor,
       climate: step.climate,
       polyline: step.polyline,
+      steps: step.steps,
       isStationary: step.isStationary,
       waitContext: step.waitContext,
       delayMinutes: step.delayMinutes,
