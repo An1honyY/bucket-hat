@@ -27,7 +27,12 @@ export type AuthError =
   | "invalid-credentials"
   | "email-taken"
   | "weak-password"
-  | "not-configured";
+  | "not-configured"
+  // Password reset (2026-08-02): the emailed token was expired, already
+  // spent, or mistyped; and the deployment this app is pointed at has no
+  // email provider configured, so reset can't be offered at all.
+  | "invalid-token"
+  | "reset-unavailable";
 
 export type AuthResult<T> = { data: T } | { error: AuthError };
 
@@ -53,6 +58,11 @@ function mapError(status: number, body: BetterAuthErrorBody | undefined): AuthEr
   const code = body?.code?.toUpperCase() ?? "";
   if (code.includes("USER_ALREADY_EXISTS") || status === 409) return "email-taken";
   if (code.includes("PASSWORD_TOO_SHORT") || code.includes("WEAK")) return "weak-password";
+  // Checked ahead of the generic INVALID branch below, which would
+  // otherwise swallow INVALID_TOKEN into "wrong email or password" — the
+  // one message that tells a user to do the exact wrong thing when what
+  // actually happened is an expired reset link.
+  if (code.includes("TOKEN")) return "invalid-token";
   if (status === 401 || status === 403 || code.includes("INVALID")) return "invalid-credentials";
   return "unreachable";
 }
@@ -134,6 +144,65 @@ export async function signOut(token: string): Promise<ServiceResult<true>> {
   // until it expires.
   if ("error" in result) return { error: "network" };
   return { data: true };
+}
+
+/**
+ * Starts the reset flow: the server mails a link, and says nothing about
+ * whether the address had an account (Better Auth answers 200 either way,
+ * and this app doesn't second-guess that — a reset form that reveals which
+ * emails are registered is an account-enumeration oracle).
+ *
+ * `redirectTo` is where the emailed link lands once the server has checked
+ * the token — see src/lib/auth/resetLink.ts.
+ */
+export async function requestPasswordReset(email: string, redirectTo?: string): Promise<AuthResult<true>> {
+  // `/request-password-reset` is the current path; Better Auth renamed it
+  // from `/forget-password` and kept the old one as a deprecated alias.
+  const result = await post<unknown>("/request-password-reset", { email, redirectTo });
+  if ("error" in result) {
+    // A server with no `sendResetPassword` configured rejects this route
+    // outright rather than silently accepting a request it can't act on
+    // (worker/src/auth.ts). Told apart from a genuine outage so the screen
+    // can say "this server can't do that" instead of "try again later"
+    // forever.
+    return { error: result.error === "unreachable" ? "reset-unavailable" : result.error };
+  }
+  return { data: true };
+}
+
+/** Finishes the reset flow with the token from the email and a new password. */
+export async function resetPassword(token: string, newPassword: string): Promise<AuthResult<true>> {
+  const result = await post<unknown>("/reset-password", { token, newPassword });
+  if ("error" in result) return result;
+  return { data: true };
+}
+
+export interface ServerCapabilities {
+  /** Whether the deployment can actually send a reset email. */
+  passwordReset: boolean;
+}
+
+/**
+ * What the server this build points at can do, so the UI can offer only
+ * what will work. Failure is not an error state anywhere — callers fall
+ * back to offering everything and let the request itself report the truth,
+ * which is the same outcome as before this endpoint existed.
+ */
+export async function getServerCapabilities(): Promise<AuthResult<ServerCapabilities>> {
+  const url = baseUrl();
+  if (url === undefined) return { error: "not-configured" };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${url}/api/config`, { signal: controller.signal });
+    if (!response.ok) return { error: "unreachable" };
+    const body = (await response.json()) as Partial<ServerCapabilities> | null;
+    return { data: { passwordReset: body?.passwordReset === true } };
+  } catch {
+    return { error: "network" };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Verifies a stored token is still valid, e.g. on app start. */

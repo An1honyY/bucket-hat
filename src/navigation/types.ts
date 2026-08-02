@@ -42,6 +42,16 @@ export type RootStackParamList = {
   // Always registered: the screen itself explains when sync isn't
   // configured, rather than the row silently vanishing from Settings.
   Account: undefined;
+  // The auth flow (§13.7, and §4.1 for the onboarding entry point).
+  // `context` only decides the way out — "Not now, keep going without an
+  // account" when onboarding sent us here, the header's back arrow when
+  // Settings did. `mode` picks which tab of the form opens first.
+  Auth: { context?: "onboarding" | "settings"; mode?: "sign-in" | "sign-up" } | undefined;
+  ForgotPassword: undefined;
+  // `token` arrives either from the emailed link (web — RootNavigator
+  // reads it off the URL) or empty, when the user came to type the code in
+  // by hand. `expired` is the server's redirect saying the link was stale.
+  ResetPassword: { token?: string; expired?: boolean } | undefined;
   // docs/04-screens-navigation.md §4.1 (2026-07-21 minimal-onboarding
   // rework) — reached from the Today tab's SetupChecklist, not forced
   // onboarding steps.

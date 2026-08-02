@@ -108,6 +108,46 @@ uploads whatever is already on that device; signing in on a second device
 merges rather than overwrites, with per-row last-write-wins settling any
 overlap.
 
+### 7. Password reset (optional, but do it)
+
+Skippable — everything above works without it — but skipping it means a
+forgotten password is an account nobody can ever open again. That has
+already happened twice on this project (`DECISIONS.md`, 2026-07-30).
+
+Reset needs somewhere to send email. The Worker uses
+[Resend](https://resend.com)'s HTTP API (free tier: 100 emails/day, which
+is roughly a hundred times what one person's forgotten passwords need):
+
+1. Create a Resend account and verify a domain you can send from.
+2. Put the sender address in `wrangler.toml` under `[vars]`:
+
+   ```toml
+   RESET_EMAIL_FROM = "Bucket Hat <no-reply@yourdomain>"
+   ```
+
+3. Store the API key as a secret and redeploy:
+
+   ```bash
+   npx wrangler secret put RESEND_API_KEY
+   npx wrangler deploy
+   ```
+
+Check it took with:
+
+```bash
+curl -s https://<your-worker>/api/config
+```
+
+`{"passwordReset":true}` means the app will offer "Forgot your password?".
+`false` means it hides the flow and warns on the sign-in screen that a
+lost password can't be recovered — deliberately, rather than showing a
+button that mails nothing.
+
+The emailed link points at `/reset-password` on this same Worker (it
+serves the web build), which opens the app's reset screen with the token
+filled in. The email carries the raw code too, so someone reading it on a
+laptop can type it into the phone app instead.
+
 ---
 
 ## Local development

@@ -16,4 +16,18 @@ export interface Env {
   BETTER_AUTH_URL: string;
   /** Comma-separated origins allowed to call the API (the Expo web dev server, etc). */
   TRUSTED_ORIGINS?: string;
+  /**
+   * Resend API key, for the password-reset email (src/email.ts). Optional:
+   * with it unset the Worker runs exactly as before and `/api/config`
+   * reports password reset as unavailable, so the app hides the flow
+   * rather than offering something that can't work. Set via
+   * `wrangler secret put RESEND_API_KEY`.
+   */
+  RESEND_API_KEY?: string;
+  /**
+   * The verified sender the reset email comes from, e.g.
+   * `Bucket Hat <no-reply@yourdomain>`. Plain config, not a secret, so it
+   * lives in wrangler.toml's [vars].
+   */
+  RESET_EMAIL_FROM?: string;
 }

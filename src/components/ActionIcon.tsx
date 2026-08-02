@@ -4,7 +4,18 @@ import Svg, { Path } from "react-native-svg";
 // 📍) with real icons in the same 24x24/stroke-1.8 convention as the app's
 // other icon sets. Simple enough shapes to hand-draw reliably, unlike the
 // clothing set — no external source needed.
-export type ActionIconKind = "check" | "close" | "star" | "warning" | "repeat" | "swap" | "pin" | "bookmark" | "crosshair" | "flag";
+export type ActionIconKind =
+  | "check"
+  | "close"
+  | "star"
+  | "warning"
+  | "repeat"
+  | "swap"
+  | "pin"
+  | "bookmark"
+  | "crosshair"
+  | "flag"
+  | "search";
 
 const PATHS: Record<ActionIconKind, string[]> = {
   check: ["M5,13l4,4l10,-10"],
@@ -15,6 +26,10 @@ const PATHS: Record<ActionIconKind, string[]> = {
   swap: ["M4,9h13l-3,-3", "M20,15h-13l3,3"],
   pin: ["M12,21c-4,-4.5,-7,-8.2,-7,-11.5a7,7,0,0,1,14,0c0,3.3,-3,7,-7,11.5", "M12,12.5a2.5,2.5,0,1,0,0,-5a2.5,2.5,0,0,0,0,5"],
   bookmark: ["M17,3a2,2,0,0,1,2,2v16l-7,-4l-7,4v-16a2,2,0,0,1,2,-2z"],
+  // "Type a place instead", for onboarding's location options. A plain
+  // magnifier: the address field it opens is a search, and `pin` already
+  // means "a spot on a map" one row below it.
+  search: ["M10.5,4a6.5,6.5,0,1,1,0,13a6.5,6.5,0,0,1,0,-13", "M15.3,15.3l4.7,4.7"],
   // "Where the route starts", for PlanScreen's route rail and the journey
   // maps' first marker. A flag rather than another circle: the rail's other
   // two markers are already a circle (each stop) and a teardrop (the

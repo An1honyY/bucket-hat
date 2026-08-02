@@ -120,6 +120,8 @@ one by date — don't edit the old entry.
 - 2026-07-30 — Renamed the project to bucket-hat; new D1 and R2, old data abandoned [maintenance]
 - 2026-07-31 — Display name and all user-facing copy rebranded to Bucket Hat [maintenance]
 - 2026-07-31 — Icon padding fixed for Android's safe zone; favicon made transparent [bug fix, §10.4]
+- 2026-08-02 — Onboarding gains a welcome screen; the auth form moves out of Settings (§4.1, §13.7) [design]
+- 2026-08-02 — Password reset built, reversing §13.7's "no reset flow" call (§13.7)
 
 ---
 
@@ -2141,5 +2143,49 @@ works with the phone in a pocket, where live alerts by definition don't;
 `live` is opt-in. The per-trip mute is session-only and deliberately does
 **not** write the setting — one tap while walking must not silently change a
 global preference. Keep that split if either control is extended.
+
+---
+
+## 2026-08-02 — Onboarding gains a welcome screen; the auth form moves out of Settings (§4.1, §13.7)
+
+**What**: a welcome screen (mark, name, tagline, three what-it-does lines)
+now sits in front of §4.1's "where are you?" step, which was restyled but
+not otherwise changed. Signing in is offered there and from Settings, both
+routing to a new `src/screens/auth/` flow rather than the form that used to
+live inside AccountScreen.
+
+**Why**: §4.1's rework cut onboarding to one step, which left the app
+opening on a request for the user's location with nothing having named the
+app or said what it does. Adding a screen to a flow that was deliberately
+shortened needed justifying rather than assuming.
+
+**Resolution**: the welcome screen asks for nothing and adds no required
+step — onboarding is still one forced step, with an introduction in front
+of it. It is not a re-opening of the wizard question: anything that wants
+data from the user belongs on Today's SetupChecklist, as before. Signing in
+returns to the location step rather than skipping it, since `app_settings`
+(and so `default_location`) is excluded from sync.
+
+---
+
+## 2026-08-02 — Password reset built, reversing §13.7's "no reset flow" call (§13.7)
+
+**What**: `sendResetPassword` is now wired to Resend's HTTP API, with
+request/reset screens on the client, and a public `/api/config` endpoint
+reporting whether a given deployment can actually send email. The emailed
+link lands on the web build's `/reset-password`, and carries the raw token
+too so it can be typed into a phone.
+
+**Why**: §13.7 chose email+password specifically to avoid depending on an
+email provider, accepting "make a new account" as the recovery path. That
+cost this project its stored data twice (2026-07-30), which that entry
+already flagged as needing revisiting before anyone else was affected.
+
+**Resolution**: the dependency is optional, not assumed — with
+`RESEND_API_KEY`/`RESET_EMAIL_FROM` unset the Worker behaves exactly as it
+did before, `/api/config` reports `passwordReset: false`, and the app hides
+the flow and says plainly that a lost password can't be recovered. Don't
+make the provider mandatory; extend the capability flag instead if a second
+optional server feature ever appears.
 
 ---
