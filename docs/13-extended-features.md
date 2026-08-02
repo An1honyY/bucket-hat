@@ -169,6 +169,13 @@ UI feature layered on existing local logic. Sequenced last deliberately.
 - **Auth**: email/passwordless magic-link (avoids a password-reset flow to
   build/maintain) or Sign in with Apple/Google, matching whichever the
   chosen BaaS supports with the least custom code.
+  > **Superseded** — built as email + password on Better Auth
+  > (DECISIONS.md, 2026-07-28), and the reset flow this bullet hoped to
+  > dodge was built after all on 2026-08-02: request a link, receive an
+  > emailed token, set a new password. It's optional at the deployment
+  > level — with no email provider configured, `/api/config` reports
+  > `passwordReset: false` and the app hides the flow. See DECISIONS.md
+  > (2026-08-02) and worker/SETUP.md.
 - **Sync model**: last-write-wins per row, keyed on the UUIDs Section 10.3
   already committed to for exactly this reason. Push local changes on
   write (already-optimistic per Section 5.4, so this just adds a network

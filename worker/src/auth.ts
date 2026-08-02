@@ -8,11 +8,18 @@
 //    needs an outbound email provider (Resend/Postmark/SES) — a second
 //    vendor, a second API key, and a domain to verify. Email+password
 //    needs none of that and keeps the whole backend to one Cloudflare
-//    account. The password-reset flow §13.7 wanted to dodge is simply not
-//    built: `sendResetPassword` is unset, so reset is unavailable, which
-//    for a single-user app means re-registering. Swapping to magic link
-//    later is a plugin change here plus a screen change on the client —
-//    the sync layer is unaffected either way. See DECISIONS.md.
+//    account. Swapping to magic link later is a plugin change here plus a
+//    screen change on the client — the sync layer is unaffected either
+//    way. See DECISIONS.md.
+//
+//    The reset flow §13.7 wanted to dodge is now built (2026-08-02),
+//    reversing the original "`sendResetPassword` is unset" call: losing a
+//    password had already cost this project its stored data twice
+//    (DECISIONS.md, 2026-07-30), and "make a new account" is not a
+//    recovery path for anyone but its author. It stays optional — with no
+//    email provider configured the Worker behaves exactly as it did
+//    before, and /api/config tells the app to hide the flow rather than
+//    offer something that can't work.
 //
 // 2. The `bearer` plugin, so the client authenticates with an explicit
 //    token rather than a cookie. React Native has no cookie jar, and the
@@ -27,6 +34,7 @@ import { bearer } from "better-auth/plugins";
 import { kyselyAdapter } from "@better-auth/kysely-adapter";
 import { Kysely } from "kysely";
 import { D1Dialect } from "kysely-d1";
+import { isEmailConfigured, resetPasswordMessage, sendEmail } from "./email";
 import type { Env } from "./env";
 
 // Better Auth must be constructed per-request, not once at module scope:
@@ -47,9 +55,23 @@ export function createAuth(env: Env) {
     baseURL: env.BETTER_AUTH_URL,
     emailAndPassword: {
       enabled: true,
-      // No reset flow — see the note above. Left explicit rather than
-      // omitted so it reads as a decision, not an oversight.
+      // Left explicit rather than omitted so it reads as a decision, not
+      // an oversight: there's no second factor and no verification step
+      // between signing up and syncing, because the account exists to
+      // identify one person's devices to each other, not to gate access to
+      // anything shared.
       requireEmailVerification: false,
+      // Better Auth's own default, stated here because the email copy
+      // (email.ts) promises exactly this hour and the two must not drift.
+      resetPasswordTokenExpiresIn: 3600,
+      // Undefined when no provider is configured, which is what makes
+      // Better Auth reject /request-password-reset outright instead of
+      // accepting a request that would send nothing.
+      sendResetPassword: isEmailConfigured(env)
+        ? async ({ user, url, token }) => {
+            await sendEmail(env, resetPasswordMessage(user.email, url, token));
+          }
+        : undefined,
     },
     // The app is single-user by design (docs/02-external-apis.md §2.2);
     // an account exists to identify a person's own devices to each other,

@@ -111,6 +111,10 @@ Plus stack screens reached from Today or Plan:
 - **Local knowledge** — list/manage screen for `EnvironmentAnnotation`s
   (Section 4.5).
 - **Onboarding** (first-run only, see 4.1).
+- **Auth** — sign in / create account, plus **Forgot password** and
+  **Reset password** (Section 13.7). Reached from onboarding's welcome
+  screen and from Settings → Sync & account; never forced, and every one
+  of them offers a way past it (4.1).
 
 ### 4.1 Onboarding & empty states (2026-07-21 minimal-onboarding rework)
 
@@ -120,6 +124,19 @@ wear today" weather app with almost no setup, and only ask for more when
 the user chooses to. See DECISIONS.md for the reasoning behind replacing
 the original 5-step forced wizard with the design below.
 
+- **Welcome** (2026-08-02) — one screen in front of the location step,
+  which asks for nothing: the app's mark and name, a one-line statement of
+  what it's for ("Know what to wear before you head out"), three lines
+  on what it does (plan your trip / weather leg by leg / your own gear), a
+  "Get started" CTA into the step below, and an "I already have an
+  account" side door into the auth flow. The reassurance line
+  ("No account needed — sign in only to sync another device") is not
+  decoration: signing in is offered here, and this is what keeps that
+  offer from reading as a wall. Copy is kept to a phrase per line —
+  §9.0.1's "one clause beats two", applied harder here than anywhere else
+  because nobody reads an intro screen twice. Signing in returns to the location step
+  rather than skipping it — an account restores gear and places (13.7)
+  but not `default_location`, which is device-local.
 - **First launch** (no `app_settings.onboarding_completed` flag set yet —
   Section 4.1's original "no Inventory/no SavedLocation rows" definition
   was already superseded by an explicit flag; see DECISIONS.md's

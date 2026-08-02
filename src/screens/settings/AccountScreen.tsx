@@ -8,31 +8,24 @@
 // stamp because a spinner on data that's already on-screen from SQLite
 // would imply the app was waiting on the network, which it never is.
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   clearSyncState,
   getLastSyncedAt,
   getStoredSession,
-  storeSession,
   type StoredSession,
 } from "../../db/repositories/syncState";
-import { isAuthConfigured, signIn, signOut, signUp, type AuthError } from "../../services/authService";
+import { isAuthConfigured, signOut } from "../../services/authService";
 import { syncNow } from "../../lib/sync/runSyncNow";
 import { clearRemotePhotoCache } from "../../lib/sync/remotePhotoCache";
 import { showAlert } from "../../lib/crossPlatformAlert";
+import { AUTH_ERROR_COPY } from "../../lib/auth/errorCopy";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle } from "../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
-
-const AUTH_ERROR_COPY: Record<AuthError, string> = {
-  network: "Couldn't reach the sync service. Your data is safe on this device — try again when you're back online.",
-  unreachable: "The sync service didn't respond as expected. Try again in a moment.",
-  "invalid-credentials": "That email and password don't match an account.",
-  "email-taken": "There's already an account with that email. Try signing in instead.",
-  "weak-password": "Pick a longer password — at least 8 characters.",
-  "not-configured": "Sync isn't set up in this build. See worker/SETUP.md.",
-};
+import type { RootStackParamList } from "../../navigation/types";
 
 function formatLastSynced(iso: string | undefined): string {
   if (!iso) return "Not synced yet";
@@ -48,14 +41,11 @@ function formatLastSynced(iso: string | undefined): string {
 export default function AccountScreen() {
   const theme = useTheme();
   const styles = getStyles(theme);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [session, setSession] = useState<StoredSession | undefined>(undefined);
   const [lastSynced, setLastSynced] = useState<string | undefined>(undefined);
-  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | undefined>(undefined);
 
   const refresh = useCallback(() => {
     let active = true;
@@ -71,38 +61,6 @@ export default function AccountScreen() {
   }, []);
 
   useFocusEffect(refresh);
-
-  async function handleSubmit() {
-    setBusy(true);
-    setError(undefined);
-    const result = mode === "sign-up" ? await signUp(email.trim(), password) : await signIn(email.trim(), password);
-
-    if ("error" in result) {
-      setError(AUTH_ERROR_COPY[result.error]);
-      setBusy(false);
-      return;
-    }
-
-    // §13.7's "migration for existing users": whatever is already on this
-    // device gets pushed on the first sync, because the watermarks start
-    // empty and collectLocalChanges() therefore offers up every row. It's
-    // a merge rather than a blind upload if the account already holds
-    // data from another device — last-write-wins settles any overlap.
-    await storeSession({
-      token: result.data.token,
-      accountId: result.data.account.id,
-      email: result.data.account.email,
-    });
-    setPassword("");
-
-    const outcome = await syncNow();
-    setBusy(false);
-    refresh();
-
-    if (outcome.status === "failed") {
-      showAlert("Signed in", "Signed in, but the first sync didn't finish. It'll retry automatically.");
-    }
-  }
 
   async function handleSyncNow() {
     setBusy(true);
@@ -159,7 +117,7 @@ export default function AccountScreen() {
               accessibilityRole="button"
               onPress={handleSyncNow}
               disabled={busy}
-              style={[styles.button, busy && styles.buttonDisabled]}
+              style={[styles.button, styles.rowButton, busy && styles.buttonDisabled]}
             >
               {busy ? <ActivityIndicator /> : <Text style={styles.buttonLabel}>Sync now</Text>}
             </Pressable>
@@ -167,7 +125,7 @@ export default function AccountScreen() {
               accessibilityRole="button"
               onPress={handleSignOut}
               disabled={busy}
-              style={[styles.button, busy && styles.buttonDisabled]}
+              style={[styles.button, styles.rowButton, busy && styles.buttonDisabled]}
             >
               <Text style={styles.buttonLabel}>Sign out</Text>
             </Pressable>
@@ -178,6 +136,10 @@ export default function AccountScreen() {
     );
   }
 
+  // The form itself lives in src/screens/auth/ (2026-08-02) — onboarding
+  // offers signing in too, and two copies of the same fields is how the
+  // two drift apart. What's left here is the part that's specific to
+  // Settings: what an account is for, and the way in.
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.sectionTitle}>Sync across devices</Text>
@@ -187,67 +149,24 @@ export default function AccountScreen() {
           working on this device either way.
         </Text>
 
-        <View style={styles.segmentRow}>
-          {(["sign-in", "sign-up"] as const).map((option) => (
-            <Pressable
-              key={option}
-              accessibilityRole="button"
-              onPress={() => {
-                setMode(option);
-                setError(undefined);
-              }}
-              style={[styles.segment, mode === option && styles.segmentActive]}
-            >
-              <Text style={[styles.segmentLabel, mode === option && styles.segmentLabelActive]}>
-                {option === "sign-in" ? "Sign in" : "Create account"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          placeholder="you@example.com"
-          placeholderTextColor={theme.textSecondary}
-        />
-
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          textContentType={mode === "sign-up" ? "newPassword" : "password"}
-          placeholder="At least 8 characters"
-          placeholderTextColor={theme.textSecondary}
-        />
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
         <Pressable
           accessibilityRole="button"
-          onPress={handleSubmit}
-          disabled={busy || !email.trim() || !password}
-          style={[styles.button, styles.primaryButton, (busy || !email.trim() || !password) && styles.buttonDisabled]}
+          onPress={() => navigation.navigate("Auth", { context: "settings", mode: "sign-in" })}
+          style={[styles.button, styles.primaryButton]}
         >
-          {busy ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.primaryButtonLabel}>{mode === "sign-up" ? "Create account" : "Sign in"}</Text>
-          )}
+          <Text style={styles.primaryButtonLabel}>Sign in</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("Auth", { context: "settings", mode: "sign-up" })}
+          style={styles.button}
+        >
+          <Text style={styles.buttonLabel}>Create an account</Text>
         </Pressable>
 
         <Text style={styles.hint}>
-          There&apos;s no password reset — if you lose it, create a new account and your existing data on this device
-          uploads to it.
+          Signing in merges what&apos;s on this device with whatever the account already holds — nothing here is
+          overwritten or uploaded until you do.
         </Text>
       </View>
     </ScrollView>
@@ -268,33 +187,8 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     email: { ...TYPE.subtitle, fontSize: 16, color: theme.textPrimary },
     body: { ...TYPE.caption, color: theme.textSecondary },
     hint: { ...TYPE.micro, fontSize: 12, color: theme.textSecondary },
-    error: { ...TYPE.caption, color: theme.danger },
-    label: { fontSize: 13, fontWeight: "600", marginTop: SPACING.md, color: theme.textPrimary },
-    input: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: RADIUS.pill,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontSize: 15,
-      color: theme.textPrimary,
-      backgroundColor: theme.bg,
-    },
-    segmentRow: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm },
-    segment: {
-      flex: 1,
-      paddingVertical: 10,
-      borderRadius: RADIUS.pill,
-      borderWidth: 1,
-      borderColor: theme.border,
-      alignItems: "center",
-    },
-    segmentActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
-    segmentLabel: { fontSize: 13, color: theme.textPrimary },
-    segmentLabelActive: { color: "#FFFFFF", fontWeight: "600" },
     buttonRow: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm },
     button: {
-      flex: 1,
       minHeight: 44,
       paddingVertical: 10,
       borderRadius: RADIUS.pill,
@@ -303,6 +197,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       alignItems: "center",
       justifyContent: "center",
     },
+    // Only the paired Sync now / Sign out controls share a row; the
+    // signed-out buttons stack, and inheriting `flex: 1` there made each
+    // one try to claim half the card's height.
+    rowButton: { flex: 1 },
     primaryButton: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk, marginTop: SPACING.md },
     primaryButtonLabel: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
     buttonDisabled: { opacity: 0.5 },

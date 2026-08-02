@@ -57,6 +57,10 @@ When sync is on:
   display them by loading them from the server while you're signed in.
 - **Device preferences are not uploaded** — your theme, 12h/24h choice and
   crash-reporting setting stay local to each device.
+- If you ask to reset your password, your **email address is passed to
+  Resend**, the service that delivers that one email. It receives nothing
+  else — no gear, no journeys — and it's only involved when you ask for a
+  reset.
 - Your device keeps working normally offline; changes sync when you're back
   online.
 
@@ -96,6 +100,10 @@ services below, and to no one else:
   Unlike the three services above, this one does receive your gear
   inventory, gear photos, and journey history, because storing them for
   your other devices is its entire purpose.
+
+- **Resend** — *only if you ask to reset your password.* Receives your
+  email address and the reset message, so it can deliver it. Nothing else
+  is sent, and it is not contacted at any other time.
 
 The first three receive only the coordinates and timestamps needed to
 answer that specific request — never your gear inventory, journey history,

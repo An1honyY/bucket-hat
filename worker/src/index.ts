@@ -11,6 +11,7 @@ import { cors } from "hono/cors";
 import { createAuth } from "./auth";
 import { pullChanges, pushChanges, type ChangeSet } from "./sync";
 import { deletePhoto, deletePhotosForTombstones, getPhoto, isValidItemId, listPhotos, putPhoto } from "./photos";
+import { isEmailConfigured } from "./email";
 import type { Env } from "./env";
 
 type AppEnv = { Bindings: Env; Variables: { userId: string } };
@@ -121,6 +122,11 @@ app.delete("/photos/:itemId", async (c) => {
   await deletePhoto(c.env.PHOTOS, c.get("userId"), itemId);
   return c.json({ ok: true });
 });
+
+// What this deployment can do, so the app offers only what will actually
+// work. Public on purpose (it's read before anyone is signed in) and
+// deliberately narrow: capability flags, never configuration values.
+app.get("/api/config", (c) => c.json({ passwordReset: isEmailConfigured(c.env) }));
 
 // Cheap liveness check — also handy as the target for an uptime monitor.
 app.get("/health", (c) => c.json({ ok: true }));

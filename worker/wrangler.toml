@@ -41,7 +41,7 @@ preview_urls = false
 [assets]
 directory = "./public"
 not_found_handling = "single-page-application"
-run_worker_first = ["/health", "/sync/*", "/photos", "/photos/*", "/api/auth/*"]
+run_worker_first = ["/health", "/api/config", "/sync/*", "/photos", "/photos/*", "/api/auth/*"]
 
 [[d1_databases]]
 binding = "DB"
@@ -68,5 +68,14 @@ BETTER_AUTH_URL = "https://bucket-hat.anthonyy.workers.dev"
 # .claude/launch.json); add any deployed web origin here too.
 TRUSTED_ORIGINS = "http://localhost:8081,http://localhost:8787,https://bucket-hat.anthonyy.workers.dev"
 
+# The sender for the password-reset email (src/email.ts). Uncomment and
+# point it at a domain verified with Resend to turn the reset flow on;
+# left unset, /api/config reports password reset as unavailable and the app
+# hides it. The address must be one Resend will send as, or every reset
+# email is rejected at the API.
+# RESET_EMAIL_FROM = "Bucket Hat <no-reply@example.com>"
+
 # BETTER_AUTH_SECRET is a secret, not a var — never commit it.
 # Set it with:  wrangler secret put BETTER_AUTH_SECRET
+# RESEND_API_KEY is the other half of the reset flow, and also a secret:
+#                wrangler secret put RESEND_API_KEY

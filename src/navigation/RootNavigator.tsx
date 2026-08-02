@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainTabs from "./MainTabs";
@@ -7,6 +8,10 @@ import HistoryScreen from "../screens/history/HistoryScreen";
 import LocalKnowledgeScreen from "../screens/local-knowledge/LocalKnowledgeScreen";
 import SettingsScreen from "../screens/settings/SettingsScreen";
 import AccountScreen from "../screens/settings/AccountScreen";
+import AuthScreen from "../screens/auth/AuthScreen";
+import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
+import ResetPasswordScreen from "../screens/auth/ResetPasswordScreen";
+import { readResetLink } from "../lib/auth/resetLink";
 import GearBasicsSetup from "../screens/setup/GearBasicsSetup";
 import NotificationsSetup from "../screens/setup/NotificationsSetup";
 import DevMenuScreen from "../screens/dev/DevMenuScreen";
@@ -42,6 +47,15 @@ interface Props {
 export default function RootNavigator({ needsOnboarding = false }: Props) {
   const theme = useTheme();
   const isDark = theme === darkTheme;
+  // The password-reset email links at the web build (src/lib/auth/
+  // resetLink.ts). Read once, at mount: this is the only deep link the app
+  // handles, and a full React Navigation `linking` config for one route
+  // would mean declaring paths for every other screen too. Takes
+  // precedence over the onboarding gate — someone recovering an account on
+  // a fresh install still needs to land on the reset screen, and it sends
+  // them on to onboarding afterwards.
+  const resetLink = useMemo(() => readResetLink(), []);
+  const openingReset = Boolean(resetLink.token || resetLink.expired);
   // §9.1 — resolved token object already reflects system/light/dark, so
   // React Navigation's own chrome (headers, tab bar) just needs its colors
   // mapped from the same source rather than tracking theme separately.
@@ -60,7 +74,7 @@ export default function RootNavigator({ needsOnboarding = false }: Props) {
   return (
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
-        initialRouteName={needsOnboarding ? "Onboarding" : "Main"}
+        initialRouteName={openingReset ? "ResetPassword" : needsOnboarding ? "Onboarding" : "Main"}
         screenOptions={({ navigation }) => ({
           // §9.1 — themed header chrome + a custom accent back control
           // (HeaderBackButton) in place of the bare OS-native arrow, giving
@@ -87,6 +101,18 @@ export default function RootNavigator({ needsOnboarding = false }: Props) {
         <Stack.Screen name="LocalKnowledge" component={LocalKnowledgeScreen} options={{ title: "Local knowledge" }} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Sync & account" }} />
+        {/* The auth screens carry their own headings (authUi.tsx's
+            AuthLayout), so the header is here purely for the back control —
+            a duplicated title above a title is the one thing it must not
+            add. */}
+        <Stack.Screen name="Auth" component={AuthScreen} options={{ title: "" }} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: "" }} />
+        <Stack.Screen
+          name="ResetPassword"
+          component={ResetPasswordScreen}
+          initialParams={openingReset ? { token: resetLink.token, expired: resetLink.expired } : undefined}
+          options={{ title: "" }}
+        />
         <Stack.Screen name="SetupGearBasics" component={SetupGearBasicsScreen} options={{ title: "Add gear basics" }} />
         <Stack.Screen name="SetupNotifications" component={SetupNotificationsScreen} options={{ title: "Notifications" }} />
         {/* docs/12-dev-workflow-ci.md §12.2 — only registered in dev/preview
