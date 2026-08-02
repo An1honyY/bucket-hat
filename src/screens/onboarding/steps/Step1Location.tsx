@@ -52,7 +52,7 @@ export default function Step1Location({ onDone, onBack }: Props) {
         // Previously a bare `return`, which left the screen looking like
         // the button had done nothing at all — the deny happens in an OS
         // dialog the app never sees the outcome of otherwise.
-        setLocationNote("Location is off for Bucket Hat. Type a suburb instead, or turn it on in Settings.");
+        setLocationNote("Location's off. Type a suburb instead, or turn it on in Settings.");
         return;
       }
       // Bounded, so onboarding can't stall indefinitely on a device that
@@ -61,7 +61,7 @@ export default function Step1Location({ onDone, onBack }: Props) {
       // as the request having failed, rather than saved as this user's spot.
       const position = await getPositionWithinTimeout();
       if (!position) {
-        setLocationNote("Couldn't get a fix just now. Type a suburb instead, or try again.");
+        setLocationNote("Couldn't find you just now. Try again, or type a suburb.");
         return;
       }
       const { lat, lng } = position;
@@ -71,7 +71,7 @@ export default function Step1Location({ onDone, onBack }: Props) {
       const result = await reverseGeocode(lat, lng);
       onDone({ lat, lng, label: "data" in result ? result.data.formattedAddress : "Current location" });
     } catch {
-      setLocationNote("Couldn't get a fix just now. Type a suburb instead, or try again.");
+      setLocationNote("Couldn't find you just now. Try again, or type a suburb.");
     } finally {
       setRequesting(false);
     }
@@ -114,10 +114,12 @@ export default function Step1Location({ onDone, onBack }: Props) {
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Where are you?</Text>
-        <Text style={styles.body}>
-          So Bucket Hat can show today&apos;s conditions and suggest what to wear. Home, Work and your own gear come
-          later — this is just enough to get started.
-        </Text>
+        {/* §4.1's "explain why before the OS permission dialog", in one
+            line. The old version also promised that places and gear come
+            later; the welcome screen has already said as much, and this is
+            the screen where every extra clause is one more thing between
+            someone and a working app. */}
+        <Text style={styles.body}>So we can show today&apos;s weather and what to wear.</Text>
 
         {resolvingPin ? (
           <ActivityIndicator style={styles.resolvingSpinner} color={theme.accentWalk} />
@@ -131,29 +133,29 @@ export default function Step1Location({ onDone, onBack }: Props) {
               placeholder="Suburb or address"
             />
             <Pressable accessibilityRole="button" onPress={() => setTypingAddress(false)} style={styles.textButton}>
-              <Text style={styles.textButtonLabel}>Other ways to set it</Text>
+              <Text style={styles.textButtonLabel}>Other ways</Text>
             </Pressable>
           </View>
         ) : (
           <View style={styles.options}>
             <OptionRow
               icon="crosshair"
-              title="Use my current location"
-              body="Quickest — your device asks first."
+              title="Use my location"
+              body="Your device will ask first."
               onPress={useCurrentLocation}
               busy={requesting}
               primary
             />
             <OptionRow
               icon="search"
-              title="Type a suburb or address"
-              body="No location permission needed."
+              title="Type a suburb"
+              body="No permission needed."
               onPress={() => setTypingAddress(true)}
             />
             <OptionRow
               icon="pin"
-              title="Pick a spot on a map"
-              body="Drop a pin roughly where you are."
+              title="Pick it on a map"
+              body="Roughly is fine."
               onPress={() => setMapPickerOpen(true)}
             />
           </View>
@@ -175,7 +177,7 @@ export default function Step1Location({ onDone, onBack }: Props) {
               approximateLocation.ts falls through device GPS to the
               Auckland centre-point. Not "set it later in Settings" —
               there's no Settings control for this. */}
-          <Text style={styles.skipNote}>Bucket Hat will use your device&apos;s location, or central Auckland.</Text>
+          <Text style={styles.skipNote}>We&apos;ll use your device&apos;s location, or central Auckland.</Text>
         </View>
       </ScrollView>
     </View>

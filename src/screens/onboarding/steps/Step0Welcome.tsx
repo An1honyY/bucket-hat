@@ -26,21 +26,9 @@ interface Props {
 }
 
 const POINTS: { icon: NavIconKind; title: string; body: string }[] = [
-  {
-    icon: "plan",
-    title: "Plan the trip",
-    body: "Walking, driving, bus, train or bike — door to door, stops and all.",
-  },
-  {
-    icon: "today",
-    title: "Weather leg by leg",
-    body: "What it's like on each stretch, including the heated and air-conditioned ones.",
-  },
-  {
-    icon: "gear",
-    title: "Your own wardrobe",
-    body: "It names the jacket and shoes you actually own, not a generic layer.",
-  },
+  { icon: "plan", title: "Plan your trip", body: "Walk, drive, bus, train or bike." },
+  { icon: "today", title: "Weather leg by leg", body: "Including the indoor stretches." },
+  { icon: "gear", title: "Your own gear", body: "Your jacket, your shoes — by name." },
 ];
 
 export default function Step0Welcome({ onGetStarted, onSignIn }: Props) {
@@ -52,7 +40,7 @@ export default function Step0Welcome({ onGetStarted, onSignIn }: Props) {
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
           <BrandMark size={72} />
-          <Text style={styles.tagline}>Dress for the trip you&apos;re actually taking.</Text>
+          <Text style={styles.tagline}>Know what to wear before you head out.</Text>
         </View>
 
         <View style={styles.card}>
@@ -76,9 +64,7 @@ export default function Step0Welcome({ onGetStarted, onSignIn }: Props) {
           <Pressable accessibilityRole="button" onPress={onSignIn} style={styles.secondaryButton}>
             <Text style={styles.secondaryLabel}>I already have an account</Text>
           </Pressable>
-          <Text style={styles.reassurance}>
-            No account needed. Everything works on this device — signing in only keeps a second device in step.
-          </Text>
+          <Text style={styles.reassurance}>No account needed — sign in only to sync another device.</Text>
         </View>
       </ScrollView>
     </View>
