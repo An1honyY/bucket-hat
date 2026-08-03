@@ -73,7 +73,7 @@ TRUSTED_ORIGINS = "http://localhost:8081,http://localhost:8787,https://bucket-ha
 # left unset, /api/config reports password reset as unavailable and the app
 # hides it. The address must be one Resend will send as, or every reset
 # email is rejected at the API.
-# RESET_EMAIL_FROM = "Bucket Hat <no-reply@example.com>"
+RESET_EMAIL_FROM = "Bucket Hat <no-reply@bucket-hat.tech>"
 
 # BETTER_AUTH_SECRET is a secret, not a var — never commit it.
 # Set it with:  wrangler secret put BETTER_AUTH_SECRET
