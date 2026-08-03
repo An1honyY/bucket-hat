@@ -32,19 +32,21 @@ interface DayGroup {
   key: string;
   label: string;
   readings: HourlyReading[];
+  /** Index of this group's first reading in the flat list. */
+  offset: number;
 }
 
 function groupByDay(readings: HourlyReading[], nowIso?: string): DayGroup[] {
   const groups: DayGroup[] = [];
-  for (const reading of readings) {
+  readings.forEach((reading, i) => {
     const key = localDayKey(reading.time);
     const last = groups[groups.length - 1];
     if (!last || last.key !== key) {
-      groups.push({ key, label: dayLabelFor(reading.time, nowIso), readings: [reading] });
+      groups.push({ key, label: dayLabelFor(reading.time, nowIso), readings: [reading], offset: i });
     } else {
       last.readings.push(reading);
     }
-  }
+  });
   return groups;
 }
 
@@ -64,11 +66,27 @@ export default function HourlyForecastRow({ readings, nowIso }: Props) {
             {group.label}
           </Text>
           <View style={styles.hours}>
-            {group.readings.map((reading) => {
+            {group.readings.map((reading, i) => {
               const kind = iconKindFor(reading);
+              // Night runs are computed against the *flat* list, not the day
+              // group: a night starts before midnight and ends after it, so
+              // grouping by day would break every night block in two at
+              // exactly the point it's meant to read as continuous.
+              const index = group.offset + i;
+              const isNight = !reading.isDaylight;
+              // A run is a stretch of hours on the same side of sunrise or
+              // sunset — day runs get rounded ends too, so the strip reads
+              // as alternating blocks rather than one tinted band with gaps
+              // punched in it.
+              const runStart = index === 0 || readings[index - 1].isDaylight === isNight;
+              const runEnd = index === readings.length - 1 || readings[index + 1].isDaylight === isNight;
               return (
                 <RainGauge
                   key={reading.time}
+                  padded
+                  isNight={isNight}
+                  runStart={runStart}
+                  runEnd={runEnd}
                   hour={formatHourLabel(reading.time, hour12)}
                   rainIntensity={reading.rainIntensity}
                   tempC={reading.tempC}
@@ -102,7 +120,11 @@ function getStyles(theme: ThemeTokens) {
       letterSpacing: 0.4,
       paddingLeft: 2,
     },
-    hours: { flexDirection: "row", gap: 12, paddingRight: 12 },
+    // No gap between columns: each RainGauge carries its own horizontal
+    // padding instead, so consecutive night hours tint as one continuous
+    // block rather than a row of separate chips. Same pitch as before
+    // (36px column + 2×6px padding = the old 36 + 12 gap).
+    hours: { flexDirection: "row", paddingRight: 12 },
     dayDivider: {
       position: "absolute",
       right: 4,

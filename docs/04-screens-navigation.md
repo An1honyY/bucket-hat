@@ -110,6 +110,13 @@ Plus stack screens reached from Today or Plan:
 - **History** — reverse-chronological list of past `Journey`s (Section 4.4).
 - **Local knowledge** — list/manage screen for `EnvironmentAnnotation`s
   (Section 4.5).
+- **Saved journeys** — list/manage screen for `SavedRoute`s (Section 4.3),
+  reached from the Plan tab's header. Favourites pinned, rename/forget, and
+  three ways to reuse one (leave now / pick a time / set up repeats), each
+  of which pre-fills the Plan screen rather than planning directly. Plan
+  itself now opens on a saved-or-new chooser whenever at least one exists,
+  in place of the chip row described in 4.3. Added 2026-08-03 — see
+  DECISIONS.md for why a saved journey still stores no date.
 - **Onboarding** (first-run only, see 4.1).
 - **Auth** — sign in / create account, plus **Forgot password** and
   **Reset password** (Section 13.7). Reached from onboarding's welcome

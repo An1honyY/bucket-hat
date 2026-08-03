@@ -8,6 +8,7 @@ import ScreenPattern from "../../../components/ScreenPattern";
 import { reverseGeocode } from "../../../services/placesService";
 import { getPositionWithinTimeout } from "../../../lib/approximateLocation";
 import useTheme from "../../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../../theme/commonStyles";
 import { cardElevationStyle } from "../../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../../theme/typography";
 
@@ -223,7 +224,16 @@ function OptionRow({ icon, title, body, onPress, busy = false, primary = false }
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.bg },
-    scroll: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.xl, justifyContent: "center", gap: SPACING.sm },
+    scroll: {
+      flexGrow: 1,
+      paddingHorizontal: SPACING.xl,
+      paddingBottom: SPACING.xl,
+      justifyContent: "center",
+      gap: SPACING.sm,
+      width: "100%",
+      maxWidth: CONTENT_MAX_WIDTH,
+      alignSelf: "center",
+    },
     header: {
       flexDirection: "row",
       alignItems: "center",

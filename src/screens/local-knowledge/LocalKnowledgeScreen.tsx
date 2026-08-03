@@ -13,6 +13,8 @@ import { EFFECT_META } from "./effectMeta";
 import EffectIcon from "../../components/EffectIcon";
 import ActionIcon from "../../components/ActionIcon";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 
 // EnvironmentAnnotation manage/list screen — docs/04-screens-navigation.md
 // §4.5. Review/prune what's accumulated over time; *adding* happens in
@@ -111,18 +113,18 @@ export default function LocalKnowledgeScreen() {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 32 },
-    title: { fontSize: 20, fontWeight: "600", color: theme.textPrimary },
-    empty: { color: theme.textSecondary, textAlign: "center" },
-    listContent: { padding: 20 },
+    emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: SPACING.sm, paddingHorizontal: SPACING.xxl },
+    title: { ...TYPE.title, color: theme.textPrimary },
+    empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center", lineHeight: 21 },
+    listContent: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     row: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
-      padding: 12,
-      borderRadius: 12,
+      gap: SPACING.md,
+      padding: SPACING.md,
+      borderRadius: RADIUS.card,
       backgroundColor: theme.surface,
-      marginBottom: 8,
+      marginBottom: SPACING.sm,
     },
     // §9.1 annotationPin token — one consistent color across all six effect
     // types, distinguished from each other by the icon glyph (§4.5), not hue.
@@ -135,9 +137,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       backgroundColor: theme.annotationPin,
     },
     rowText: { flex: 1 },
-    rowLabel: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    rowMeta: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
-    rowNotes: { fontSize: 12, color: theme.textSecondary, marginTop: 2, fontStyle: "italic" },
+    rowLabel: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    rowMeta: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2 },
+    rowNotes: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2, fontStyle: "italic" },
     deleteButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   });
 }

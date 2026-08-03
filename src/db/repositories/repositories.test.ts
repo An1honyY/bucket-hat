@@ -33,7 +33,14 @@ import {
 } from "./settings";
 import { getAdvancedThresholds, saveAdvancedThresholds } from "./advancedThresholds";
 import { getWarmthCalibration, saveWarmthCalibration, seedWarmthCalibration, setWindSensitivityOffset } from "./calibration";
-import { createSavedRoute, deleteSavedRoute, listSavedRoutes, touchSavedRoute } from "./savedRoutes";
+import {
+  createSavedRoute,
+  deleteSavedRoute,
+  getSavedRoute,
+  listSavedRoutes,
+  touchSavedRoute,
+  updateSavedRoute,
+} from "./savedRoutes";
 import {
   createJourney,
   deleteJourney,
@@ -260,6 +267,39 @@ describe("repository round-trips", () => {
     await deleteSavedRoute(work.id);
     all = await listSavedRoutes();
     expect(all.map((r) => r.id)).toEqual([gym.id]);
+  });
+
+  it("saved routes: round-trips stops/recurrence/favourite, and pins favourites above recency", async () => {
+    const errands = await createSavedRoute({
+      label: "Errands",
+      originId: "home",
+      destinationId: "home",
+      preferredMode: "walk",
+      waypointIds: ["bank", "pharmacy"],
+      recurrence: { daysOfWeek: [6], departTimeOfDay: "10:00", active: true },
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const commute = await createSavedRoute({ label: "Commute", originId: "home", destinationId: "work" });
+
+    // Newest first while neither is a favourite.
+    expect((await listSavedRoutes()).map((r) => r.id)).toEqual([commute.id, errands.id]);
+
+    const stored = await getSavedRoute(errands.id);
+    expect(stored?.waypointIds).toEqual(["bank", "pharmacy"]);
+    expect(stored?.recurrence).toEqual({ daysOfWeek: [6], departTimeOfDay: "10:00", active: true });
+    expect(stored?.isFavorite).toBeUndefined();
+
+    // A favourite outranks a more recent non-favourite.
+    await updateSavedRoute({ ...stored!, isFavorite: true });
+    expect((await listSavedRoutes()).map((r) => r.id)).toEqual([errands.id, commute.id]);
+
+    // Un-favouriting drops it back to recency order, and clearing the
+    // optional fields writes NULL rather than leaving the old JSON behind.
+    await updateSavedRoute({ ...stored!, isFavorite: undefined, waypointIds: [], recurrence: undefined });
+    expect((await listSavedRoutes()).map((r) => r.id)).toEqual([commute.id, errands.id]);
+    const cleared = await getSavedRoute(errands.id);
+    expect(cleared?.waypointIds).toBeUndefined();
+    expect(cleared?.recurrence).toBeUndefined();
   });
 
   it("journeys: create/get round-trips legs and waypoints, update persists new legs, findRecentJourneyBetween matches by id pair and recency", async () => {

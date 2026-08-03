@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../../navigation/types";
+import type { MainTabParamList, PlanIntent, RootStackParamList } from "../../navigation/types";
 import { listLocations } from "../../db/repositories/locations";
 import { createSavedRoute, listSavedRoutes, touchSavedRoute } from "../../db/repositories/savedRoutes";
 import { updateJourney } from "../../db/repositories/journeys";
@@ -18,8 +18,12 @@ import HourlyOutlook from "../../components/HourlyOutlook";
 import FormRow from "../../components/FormRow";
 import FormSection from "../../components/FormSection";
 import ActionIcon from "../../components/ActionIcon";
+import ModeIcon from "../../components/ModeIcon";
+import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
-import { SPACING } from "../../theme/typography";
+import { cardElevationStyle } from "../../theme/tokens";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { CarryPreference, SavedLocation, SavedRoute, TravelMode } from "../../types";
 
 // Journey planner — docs/04-screens-navigation.md §4.3/§4.3.1, wired to the
@@ -118,6 +122,7 @@ export default function PlanScreen() {
   const theme = useTheme();
   const styles = getStyles(theme);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<MainTabParamList, "Plan">>();
 
   const [locations, setLocations] = useState<SavedLocation[]>([]);
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
@@ -145,6 +150,13 @@ export default function PlanScreen() {
   const [returnRainWindow, setReturnRainWindow] = useState<{ startIso: string; endIso: string } | null>(null);
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
   const [saveThisRoute, setSaveThisRoute] = useState(false);
+  const [saveLabel, setSaveLabel] = useState("");
+  const [saveAsFavorite, setSaveAsFavorite] = useState(false);
+  // §4.3 — Plan opens by asking which of the two things you're doing:
+  // reusing a trip you take often, or building a new one. "auto" means the
+  // question hasn't been answered yet this visit; it's only ever *asked*
+  // when there's at least one saved journey to answer it with.
+  const [chooser, setChooser] = useState<"auto" | "dismissed">("auto");
   const [formal, setFormal] = useState(false);
   const [carryPreference, setCarryPreference] = useState<CarryPreference>("no-preference");
   const [planning, setPlanning] = useState(false);
@@ -169,13 +181,63 @@ export default function PlanScreen() {
     }, [])
   );
 
-  function applySavedRoute(route: SavedRoute) {
-    const routeOrigin = locations.find((l) => l.id === route.originId);
-    const routeDestination = locations.find((l) => l.id === route.destinationId);
+  // Coming back to an untouched Plan screen asks again; coming back to one
+  // you'd already started filling in leaves your work alone.
+  useFocusEffect(
+    useCallback(() => {
+      setChooser((current) => (destination === undefined ? "auto" : current));
+    }, [destination])
+  );
+
+  // Reusing a saved journey restores its whole shape — stops included — and
+  // then points it at a time, which is the one thing a SavedRoute has never
+  // stored (§4.3). `intent` decides which time: right now, one you pick, or
+  // a repeating pattern.
+  function applySavedRoute(saved: SavedRoute, intent: PlanIntent = "now") {
+    const routeOrigin = locations.find((l) => l.id === saved.originId);
+    const routeDestination = locations.find((l) => l.id === saved.destinationId);
     if (routeOrigin) setOrigin(routeOrigin);
     if (routeDestination) setDestination(routeDestination);
-    if (route.preferredMode) setMode(route.preferredMode);
-    touchSavedRoute(route.id);
+    if (saved.preferredMode) setMode(saved.preferredMode);
+    setWaypoints((saved.waypointIds ?? []).map((id) => locations.find((l) => l.id === id)));
+
+    if (intent === "now") {
+      setTimeMode("leave-now");
+      setRepeatsEnabled(false);
+    } else {
+      setTimeMode("leave-by");
+      setDateStr(nowDateStr());
+      setTimeStr(saved.recurrence?.departTimeOfDay ?? nowTimeStr());
+      // A saved repeat pattern is a starting point, not a schedule: it only
+      // becomes real when this journey is actually planned with Repeats on.
+      const repeating = intent === "repeat";
+      setRepeatsEnabled(repeating);
+      setSelectedDays(repeating ? (saved.recurrence?.daysOfWeek ?? []) : []);
+    }
+
+    setChooser("dismissed");
+  }
+
+  // Arriving from the Saved journeys screen. Applied during render rather
+  // than from an effect — this is React's "adjust state when a prop
+  // changes" pattern, the same one GearScreen uses for its openAdd param,
+  // and it keeps the pre-filled form on the very first paint instead of
+  // flashing an empty one. It waits for `locations`, since a saved journey
+  // stores ids and resolving them to real places is what makes the pickers
+  // show anything at all.
+  //
+  // Keyed on id *and* intent, so "Leave now" and "Pick a time" on the same
+  // saved journey are two different requests; re-focusing this tab is not.
+  const requestKey = route.params?.savedRouteId
+    ? `${route.params.savedRouteId}:${route.params.intent ?? "now"}`
+    : undefined;
+  const [consumedRequestKey, setConsumedRequestKey] = useState<string | undefined>(undefined);
+  if (requestKey && requestKey !== consumedRequestKey && locations.length > 0) {
+    const saved = savedRoutes.find((r) => r.id === route.params?.savedRouteId);
+    if (saved) {
+      setConsumedRequestKey(requestKey);
+      applySavedRoute(saved, route.params?.intent ?? "now");
+    }
   }
 
   function addStop() {
@@ -280,7 +342,18 @@ export default function PlanScreen() {
       }
 
       if (saveThisRoute) {
-        await createSavedRoute({ label: `${origin.label} → ${destination.label}`, originId: origin.id, destinationId: destination.id, preferredMode: mode });
+        await createSavedRoute({
+          label: saveLabel.trim() || `${origin.label} → ${destination.label}`,
+          originId: origin.id,
+          destinationId: destination.id,
+          preferredMode: mode,
+          waypointIds: filledWaypoints.map((w) => w.id),
+          // Stored as the journey's *preferred* pattern so reusing it later
+          // starts from the same days, not because anything repeats on its
+          // own — the Journey created above owns the real recurrence.
+          recurrence,
+          isFavorite: saveAsFavorite || undefined,
+        });
       }
 
       navigation.navigate("JourneyDetail", {
@@ -360,18 +433,68 @@ export default function PlanScreen() {
     };
   }, [planReturnTrip, destination, returnDepartTimeIso]);
 
+  // §4.3 — the question this screen opens on. Only asked when there's
+  // something to answer it with: a first-time user with no saved journeys
+  // goes straight to the form, exactly as before.
+  if (savedRoutes.length > 0 && chooser === "auto") {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.chooserCard}>
+          <Text style={styles.chooserTitle}>Take a saved journey</Text>
+          <Text style={styles.chooserHint}>Reuse one of your usual trips — pick the time on the next screen.</Text>
+          {savedRoutes.map((saved) => {
+            const from = locations.find((l) => l.id === saved.originId)?.label;
+            const to = locations.find((l) => l.id === saved.destinationId)?.label;
+            const stops = saved.waypointIds?.length ?? 0;
+            return (
+              <Pressable
+                key={saved.id}
+                onPress={() => {
+                  touchSavedRoute(saved.id);
+                  applySavedRoute(saved, "now");
+                }}
+                style={styles.chooserRow}
+                accessibilityRole="button"
+                accessibilityLabel={`Take the saved journey ${saved.label}`}
+              >
+                <View style={styles.chooserRowIcon}>
+                  <ModeIcon kind={saved.preferredMode ?? "walk"} size={16} color={theme.accentWalk} />
+                </View>
+                <View style={styles.chooserRowText}>
+                  <Text style={styles.chooserRowLabel} numberOfLines={1}>
+                    {saved.label}
+                  </Text>
+                  {/* The default label *is* "origin → destination", so
+                      repeating it underneath would print the same line
+                      twice; a renamed journey still gets its route shown. */}
+                  {from && to && (saved.label !== `${from} → ${to}` || stops > 0) && (
+                    <Text style={styles.chooserRowMeta} numberOfLines={1}>
+                      {from} → {to}
+                      {stops > 0 ? ` · ${stops} stop${stops === 1 ? "" : "s"}` : ""}
+                    </Text>
+                  )}
+                </View>
+                {saved.isFavorite && <ActionIcon kind="star" size={14} color={theme.favoriteStar} filled />}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.chooserActions}>
+          <AppButton label="Plan a new journey" variant="secondary" onPress={() => setChooser("dismissed")} />
+          <AppButton
+            label="Manage saved journeys"
+            variant="ghost"
+            size="sm"
+            onPress={() => navigation.navigate("SavedJourneys")}
+          />
+        </View>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {savedRoutes.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          {savedRoutes.map((route) => (
-            <Pressable key={route.id} onPress={() => applySavedRoute(route)} style={styles.routeChip}>
-              <Text style={styles.routeChipLabel}>{route.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
-
       <FormSection title="Route">
         <View style={styles.timelineRow}>
           <View style={styles.timelineRail}>
@@ -380,7 +503,12 @@ export default function PlanScreen() {
                 baseline every other marker sits on. */}
             <View style={styles.timelineLeadSpacer} />
             <View style={styles.timelineMarker}>
-              <ActionIcon kind="pin" size={18} color={theme.accentWalk} />
+              {/* The mode you've picked, matching the journey map's origin
+                  marker (JourneyMap's `originMode`) — the rail and the map
+                  have to say the same thing, and "a place" was the one
+                  thing this marker didn't need to say: both the field
+                  beside it and every other marker on the rail are places. */}
+              <ModeIcon kind={mode} size={18} color={theme.accentWalk} />
             </View>
             <View style={styles.timelineConnector} />
           </View>
@@ -442,7 +570,7 @@ export default function PlanScreen() {
           </View>
         </View>
 
-        <Pressable onPress={addStop} accessibilityRole="button" accessibilityLabel="Add a stop">
+        <Pressable onPress={addStop} style={styles.addStop} accessibilityRole="button" accessibilityLabel="Add a stop">
           <Text style={styles.addStopLabel}>+ Add a stop</Text>
         </Pressable>
       </FormSection>
@@ -454,7 +582,16 @@ export default function PlanScreen() {
       <FormSection title="Mode">
         <View style={styles.row}>
           {MODES.map((m) => (
-            <Pressable key={m} onPress={() => setMode(m)} style={[styles.modeChip, mode === m && styles.modeChipActive]}>
+            <Pressable
+              key={m}
+              onPress={() => setMode(m)}
+              style={[styles.modeChip, mode === m && styles.modeChipActive]}
+              accessibilityRole="button"
+              // Selected state in the label, matching the dress-code
+              // segments below — react-native-web drops accessibilityState
+              // for role="button" entirely.
+              accessibilityLabel={`Travel by ${MODE_LABEL[m].toLowerCase()}${mode === m ? ", selected" : ""}`}
+            >
               <Text style={[styles.modeChipLabel, mode === m && styles.modeChipLabelActive]}>{MODE_LABEL[m]}</Text>
             </Pressable>
           ))}
@@ -464,7 +601,13 @@ export default function PlanScreen() {
       <FormSection title="When">
         <View style={styles.row}>
           {TIME_MODES.map((tm) => (
-            <Pressable key={tm} onPress={() => setTimeMode(tm)} style={[styles.modeChip, timeMode === tm && styles.modeChipActive]}>
+            <Pressable
+              key={tm}
+              onPress={() => setTimeMode(tm)}
+              style={[styles.modeChip, timeMode === tm && styles.modeChipActive]}
+              accessibilityRole="button"
+              accessibilityLabel={`${TIME_MODE_LABEL[tm]}${timeMode === tm ? ", selected" : ""}`}
+            >
               <Text style={[styles.modeChipLabel, timeMode === tm && styles.modeChipLabelActive]}>{TIME_MODE_LABEL[tm]}</Text>
             </Pressable>
           ))}
@@ -509,6 +652,8 @@ export default function PlanScreen() {
                 key={day}
                 onPress={() => toggleDay(day)}
                 style={[styles.dayChip, selectedDays.includes(day) && styles.dayChipActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`${dayLabel}${selectedDays.includes(day) ? ", selected" : ""}`}
               >
                 <Text style={[styles.dayChipLabel, selectedDays.includes(day) && styles.dayChipLabelActive]}>{dayLabel}</Text>
               </Pressable>
@@ -620,35 +765,109 @@ export default function PlanScreen() {
       </View>
 
       {/* Last thing before the button that acts on it — saving is a decision
-          about this route as a whole, so it only really makes sense once the
-          route above it is settled. */}
-      <Pressable
-        onPress={() => setSaveThisRoute((v) => !v)}
-        style={styles.saveRouteRow}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: saveThisRoute }}
-        // State repeated in the label because react-native-web emits neither
-        // aria-checked nor aria-pressed here (verified in the DOM), so without
-        // it the only signal that this is on is the bookmark's fill colour.
-        accessibilityLabel={saveThisRoute ? "Save this route, on" : "Save this route, off"}
-      >
-        <ActionIcon kind="bookmark" size={20} color={saveThisRoute ? theme.accentWalk : theme.textSecondary} filled={saveThisRoute} />
-        <Text style={styles.label}>Save this route</Text>
-      </Pressable>
+          about this journey as a whole, so it only really makes sense once
+          the route above it is settled. Turning it on reveals what's about
+          to be saved (a name, and whether it's a favourite) rather than
+          silently filing "Home → Work" away under a generated label. */}
+      <View style={styles.saveCard}>
+        <Pressable
+          onPress={() => setSaveThisRoute((v) => !v)}
+          style={styles.saveRouteRow}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: saveThisRoute }}
+          // State repeated in the label because react-native-web emits neither
+          // aria-checked nor aria-pressed here (verified in the DOM), so without
+          // it the only signal that this is on is the bookmark's fill colour.
+          accessibilityLabel={saveThisRoute ? "Save this journey, on" : "Save this journey, off"}
+        >
+          <ActionIcon kind="bookmark" size={20} color={saveThisRoute ? theme.accentWalk : theme.textSecondary} filled={saveThisRoute} />
+          <Text style={styles.label}>Save this journey to reuse</Text>
+        </Pressable>
+        {saveThisRoute && (
+          <View style={styles.saveBody}>
+            <TextInput
+              style={styles.input}
+              value={saveLabel}
+              onChangeText={setSaveLabel}
+              placeholder={origin && destination ? `${origin.label} → ${destination.label}` : "Morning commute"}
+              placeholderTextColor={theme.textSecondary}
+            />
+            <Pressable
+              onPress={() => setSaveAsFavorite((v) => !v)}
+              style={styles.saveRouteRow}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: saveAsFavorite }}
+              accessibilityLabel={saveAsFavorite ? "Favourite, on" : "Favourite, off"}
+            >
+              <ActionIcon kind="star" size={20} color={saveAsFavorite ? theme.favoriteStar : theme.textSecondary} filled={saveAsFavorite} />
+              <Text style={styles.label}>Favourite — keep it at the top</Text>
+            </Pressable>
+            <Text style={styles.hint}>
+              Saved journeys keep the route, stops and mode — never a date, so you can take them again whenever.
+            </Text>
+          </View>
+        )}
+      </View>
 
-      <Pressable onPress={handlePlanJourney} disabled={planning} style={[styles.planButton, planning && styles.planButtonDisabled]}>
-        {planning ? <ActivityIndicator color={theme.bg} /> : <Text style={styles.planButtonLabel}>Plan journey</Text>}
-      </Pressable>
+      <View style={styles.planAction}>
+        {planning ? (
+          <View style={styles.planningIndicator}>
+            <ActivityIndicator color={theme.accentWalk} />
+            <Text style={styles.planningLabel}>Planning your journey…</Text>
+          </View>
+        ) : (
+          <AppButton label="Plan journey" onPress={handlePlanJourney} />
+        )}
+      </View>
     </ScrollView>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: 20, gap: 4, backgroundColor: theme.bg },
-    chipRow: { marginBottom: 8 },
-    routeChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.surface, marginRight: 8 },
-    routeChipLabel: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
+    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    // §4.3 — the saved-or-new question this screen opens on. Replaces the
+    // horizontal chip row that used to sit above the pickers: a chip strip
+    // is a shortcut you have to notice, and it competed with the form
+    // underneath it rather than asking anything.
+    chooserCard: {
+      backgroundColor: theme.surface,
+      borderRadius: RADIUS.card,
+      padding: SPACING.lg,
+      gap: SPACING.sm,
+      ...cardElevationStyle(theme),
+    },
+    chooserTitle: { ...TYPE.subtitle, color: theme.textPrimary },
+    chooserHint: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18, marginBottom: SPACING.xs },
+    chooserRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.md,
+      minHeight: 56,
+      paddingVertical: SPACING.sm,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    chooserRowIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: RADIUS.circle,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.bg,
+    },
+    chooserRowText: { flex: 1, gap: 2 },
+    chooserRowLabel: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    chooserRowMeta: { ...TYPE.caption, color: theme.textSecondary },
+    chooserActions: { marginTop: SPACING.xl, gap: SPACING.xs },
+    saveCard: {
+      marginTop: SPACING.lg,
+      padding: SPACING.lg,
+      borderRadius: RADIUS.card,
+      backgroundColor: theme.surface,
+      ...cardElevationStyle(theme),
+    },
+    saveBody: { gap: SPACING.sm, marginTop: SPACING.sm },
     // Route timeline — a small rail to the left of each origin/stop/
     // destination field: a pin for the origin, an outlined dot for each stop,
     // a flag for the destination, connected by a dashed line so the row of
@@ -701,21 +920,25 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     waypointRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     waypointPicker: { flex: 1 },
     removeStop: { width: 32, height: 44, alignItems: "center", justifyContent: "center" },
-    addStopLabel: { color: theme.textSecondary, fontSize: 13, marginTop: 8, marginBottom: 4 },
+    addStop: { minHeight: 44, justifyContent: "center" },
+    addStopLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
     saveRouteRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44 },
-    label: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
-    row: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+    label: { ...TYPE.caption, color: theme.textSecondary, marginBottom: SPACING.xs },
+    row: { flexDirection: "row", gap: SPACING.sm, flexWrap: "wrap" },
     flex1: { flex: 1 },
-    input: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
-    modeChip: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.border },
+    input: { borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44, ...TYPE.body, color: theme.textPrimary },
+    // §9.6 — chips are tap targets, so they carry the 44pt minimum rather
+    // than sizing themselves off their label.
+    modeChip: { minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.md, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border },
     modeChipActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
-    modeChipLabel: { fontSize: 13, color: theme.textPrimary },
+    modeChipLabel: { ...TYPE.caption, color: theme.textPrimary },
     modeChipLabelActive: { color: "#FFFFFF", fontWeight: "600" },
     returnCard: {
-      marginTop: 16,
-      padding: 12,
-      borderRadius: 12,
+      marginTop: SPACING.lg,
+      padding: SPACING.lg,
+      borderRadius: RADIUS.card,
       backgroundColor: theme.surface,
+      ...cardElevationStyle(theme),
     },
     returnCardBody: { marginTop: 4 },
     returnCardDivider: { height: 1, backgroundColor: theme.border, marginTop: 12, marginBottom: 4 },
@@ -726,19 +949,19 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderRadius: 8,
       backgroundColor: theme.conditionRain,
     },
-    rainSuggestionText: { flex: 1, fontSize: 12, fontWeight: "600", color: "#FFFFFF" },
-    hint: { fontSize: 12, color: theme.textSecondary, marginBottom: 8 },
-    segmentRow: { flexDirection: "row", gap: 8 },
-    segment: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.border, alignItems: "center" },
+    rainSuggestionText: { flex: 1, ...TYPE.caption, fontWeight: "600", color: "#FFFFFF", lineHeight: 18 },
+    hint: { ...TYPE.caption, color: theme.textSecondary, marginBottom: SPACING.sm, lineHeight: 18 },
+    segmentRow: { flexDirection: "row", gap: SPACING.sm },
+    segment: { flex: 1, minHeight: 44, justifyContent: "center", borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center" },
     segmentActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
-    segmentLabel: { fontSize: 13, color: theme.textPrimary },
+    segmentLabel: { ...TYPE.caption, color: theme.textPrimary },
     segmentLabelActive: { color: "#FFFFFF", fontWeight: "600" },
-    dayChip: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.border },
+    dayChip: { width: 44, height: 44, borderRadius: RADIUS.circle, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.border },
     dayChipActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
-    dayChipLabel: { fontSize: 11, color: theme.textPrimary },
+    dayChipLabel: { ...TYPE.micro, color: theme.textPrimary },
     dayChipLabelActive: { color: "#FFFFFF", fontWeight: "600" },
-    planButton: { marginTop: 24, marginBottom: 40, paddingVertical: 14, alignItems: "center", borderRadius: 8, backgroundColor: theme.accentWalk },
-    planButtonDisabled: { opacity: 0.6 },
-    planButtonLabel: { color: "#FFFFFF", fontWeight: "600", fontSize: 15 },
+    planAction: { marginTop: SPACING.xxl },
+    planningIndicator: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm, minHeight: 48 },
+    planningLabel: { ...TYPE.caption, color: theme.textSecondary },
   });
 }

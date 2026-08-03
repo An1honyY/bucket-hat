@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import BrandMark from "../../components/BrandMark";
 import ScreenPattern from "../../components/ScreenPattern";
 import useTheme from "../../theme/useTheme";
+import { ACTION_MAX_WIDTH, CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { cardElevationStyle, type ThemeTokens } from "../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 
@@ -191,7 +192,15 @@ export function LocalFirstNote({ children }: { children: string }) {
 export function getStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.bg },
-    scroll: { padding: SPACING.xl, paddingTop: SPACING.xxl, gap: SPACING.sm, flexGrow: 1 },
+    scroll: {
+      padding: SPACING.xl,
+      paddingTop: SPACING.xxl,
+      gap: SPACING.sm,
+      flexGrow: 1,
+      width: "100%",
+      maxWidth: CONTENT_MAX_WIDTH,
+      alignSelf: "center",
+    },
     brand: { alignItems: "center", marginBottom: SPACING.lg },
     title: { ...TYPE.title, color: theme.textPrimary, textAlign: "center" },
     subtitle: { ...TYPE.body, color: theme.textSecondary, textAlign: "center", lineHeight: 21, marginBottom: SPACING.md },
@@ -217,7 +226,7 @@ export function getStyles(theme: ThemeTokens) {
     // Listed after the focus style so a field with a problem keeps saying
     // so while it's being corrected.
     inputWrapProblem: { borderColor: theme.danger },
-    input: { flex: 1, paddingHorizontal: 12, paddingVertical: 12, fontSize: 15, color: theme.textPrimary, minHeight: 44 },
+    input: { flex: 1, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, ...TYPE.body, color: theme.textPrimary, minHeight: 44 },
     reveal: { paddingHorizontal: SPACING.sm, paddingVertical: SPACING.sm, minHeight: 44, justifyContent: "center" },
     revealLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
     problem: { ...TYPE.caption, color: theme.danger },
@@ -225,12 +234,17 @@ export function getStyles(theme: ThemeTokens) {
     primaryButton: {
       marginTop: SPACING.md,
       minHeight: 48,
+      // §9.2 — an action stops reading as a button once it is wider than a
+      // thumb's reach; see AppButton for the same cap everywhere else.
+      width: "100%",
+      maxWidth: ACTION_MAX_WIDTH,
+      alignSelf: "center",
       borderRadius: RADIUS.pill,
       backgroundColor: theme.accentWalk,
       alignItems: "center",
       justifyContent: "center",
     },
-    primaryLabel: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
+    primaryLabel: { ...TYPE.body, fontWeight: "700", color: "#FFFFFF" },
     buttonDisabled: { opacity: 0.5 },
     linkButton: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingVertical: SPACING.sm },
     linkLeft: { alignItems: "flex-start" },

@@ -84,6 +84,14 @@ interface Props {
   // data), which is a real degradation, not the normal case.
   routePath?: MapStop[];
   accentColor: string;
+  // How this journey is travelled, drawn as the glyph inside the origin
+  // marker: the start of a route is where you are now, so it says what
+  // you'll be on rather than repeating the generic "a place" teardrop that
+  // every saved location already uses. Same glyph set as the Journey Mode
+  // puck (modeIconPaths.ts), so the marker you set off from and the puck
+  // that replaces it once you're moving are the same vehicle. Omitted →
+  // the origin falls back to the platform pin.
+  originMode?: ModeIconKind;
   onLongPress?: (coordinate: { lat: number; lng: number }) => void;
   previewCircle?: MapCircle | null;
   conditionMarkers?: ConditionMarker[];
@@ -136,6 +144,7 @@ export default function JourneyMap({
   stops,
   routePath,
   accentColor,
+  originMode,
   onLongPress,
   previewCircle,
   conditionMarkers,
@@ -172,7 +181,7 @@ export default function JourneyMap({
   // the glyph inside changes when the current leg switches from walk to bus.
   // Feeding position in here would re-rasterize several times a minute and
   // reintroduce exactly the stutter this mechanism exists to prevent.
-  const markerSignature = `${coordinates.length}:${conditionMarkers?.length ?? 0}:${annotations?.length ?? 0}:${userPuck?.mode ?? "none"}`;
+  const markerSignature = `${coordinates.length}:${conditionMarkers?.length ?? 0}:${annotations?.length ?? 0}:${userPuck?.mode ?? "none"}:${originMode ?? "pin"}`;
   const tracksViewChanges = settledSignature !== markerSignature;
   const lineCoordinates = useMemo(() => {
     const path = usableCoordinates(routePath);
@@ -325,25 +334,41 @@ export default function JourneyMap({
         />
         {/* Start, intermediate stops and the destination used to be the same
             pinColor marker, so a multi-stop journey was a row of identical
-            pins with no way to tell which end was which. These reuse
-            PlanScreen's route-rail vocabulary — pin / outlined numbered dot /
-            flag — so the rail the journey was built on and the map it's read
-            back from say the same thing. Only the origin keeps the platform
-            pin: a teardrop already means "a place", and the finish flag is
-            the marker that has to be unmistakable. */}
+            pins with no way to tell which end was which. Three distinct
+            markers: the mode you're travelling by at the origin, an outlined
+            numbered dot per stop, a flag at the destination — the two ends
+            are the ones that must be unmistakable, and the origin doubles as
+            "where you are now," so it carries the vehicle rather than a
+            second generic place-pin. */}
         {coordinates.map((coordinate, i) => {
           const title = stopTitle(i, coordinates.length);
           // Also the single-coordinate case, where origin and destination are
           // the same point and "where does this end" isn't a question.
           if (i === 0) {
+            if (!originMode) {
+              return (
+                <Marker
+                  key={`stop-${i}`}
+                  coordinate={coordinate}
+                  pinColor={accentColor}
+                  title={title}
+                  accessibilityLabel={title}
+                />
+              );
+            }
             return (
               <Marker
                 key={`stop-${i}`}
                 coordinate={coordinate}
-                pinColor={accentColor}
                 title={title}
                 accessibilityLabel={title}
-              />
+                tracksViewChanges={tracksViewChanges}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <View style={[styles.originMarker, { backgroundColor: accentColor }]}>
+                  <ModeIcon kind={originMode} size={16} color="#FFFFFF" />
+                </View>
+              </Marker>
             );
           }
           return (
@@ -530,6 +555,17 @@ const styles = StyleSheet.create({
   // they're the same marker on two platforms. The destination holds a white
   // flag glyph in a filled disc: see flagDivIcon's comment for how the route's
   // two ends ended up with these shapes.
+  // A touch larger than the destination flag: it holds a vehicle glyph
+  // rather than a single shape, and it's the marker the eye starts from.
+  originMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   destinationMarker: {
     width: 24,
     height: 24,

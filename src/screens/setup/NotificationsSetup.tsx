@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { LEAVE_BY_LEAD_MINUTES, requestNotificationPermission } from "../../lib/notifications";
+import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { SPACING, TYPE } from "../../theme/typography";
 
 // docs/07-recommendation-engine.md §7.3 — "request notification permission
 // from the onboarding flow... not silently on app launch." Originally a
@@ -35,24 +38,28 @@ export default function NotificationsSetup({ onDone }: Props) {
         We&apos;ll send a reminder about {LEAVE_BY_LEAD_MINUTES} minutes before you need to leave, with a quick
         reminder of what to grab.
       </Text>
-      <Pressable onPress={allow} disabled={requesting} style={styles.primaryButton}>
-        <Text style={styles.primaryLabel}>{requesting ? "Requesting…" : "Allow notifications"}</Text>
-      </Pressable>
-      <Pressable onPress={onDone} style={styles.skipButton}>
-        <Text style={styles.skipLabel}>Not now</Text>
-      </Pressable>
+      <View style={styles.actions}>
+        <AppButton label={requesting ? "Requesting…" : "Allow notifications"} onPress={allow} disabled={requesting} />
+        <AppButton label="Not now" variant="ghost" size="sm" onPress={onDone} />
+      </View>
     </View>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, justifyContent: "center", padding: 24, gap: 12, backgroundColor: theme.bg },
-    title: { fontSize: 22, fontWeight: "700", color: theme.textPrimary },
-    body: { fontSize: 15, color: theme.textSecondary, lineHeight: 22 },
-    primaryButton: { marginTop: 24, paddingVertical: 14, alignItems: "center", borderRadius: 8, backgroundColor: theme.accentWalk },
-    primaryLabel: { color: theme.bg, fontWeight: "600", fontSize: 15 },
-    skipButton: { marginTop: 12, alignItems: "center", paddingVertical: 10 },
-    skipLabel: { color: theme.textSecondary },
+    container: {
+      flex: 1,
+      justifyContent: "center",
+      padding: SPACING.xxl,
+      gap: SPACING.md,
+      backgroundColor: theme.bg,
+      width: "100%",
+      maxWidth: CONTENT_MAX_WIDTH,
+      alignSelf: "center",
+    },
+    title: { ...TYPE.title, color: theme.textPrimary },
+    body: { ...TYPE.body, color: theme.textSecondary, lineHeight: 22 },
+    actions: { marginTop: SPACING.xxl, gap: SPACING.xs },
   });
 }

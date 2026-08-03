@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import WarmthSlider from "../../components/WarmthSlider";
 import PhotoPicker from "../../components/PhotoPicker";
 import ActionIcon from "../../components/ActionIcon";
+import AppButton from "../../components/AppButton";
 import { seedWarmthCalibration } from "../../db/repositories/calibration";
 import { createClothing } from "../../db/repositories/clothing";
 import { createShoe } from "../../db/repositories/shoes";
@@ -10,6 +11,8 @@ import { createUmbrella } from "../../db/repositories/umbrellas";
 import { newId } from "../../db/rowMapping";
 import { withTimeout } from "../../lib/withTimeout";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { ClothingType } from "../../types";
 
 // docs/04-screens-navigation.md §4.1 (2026-07-21 minimal-onboarding
@@ -89,7 +92,8 @@ function WarmthEntry({
         substitutesForMidlayer={substitutesForMidlayer}
         onToggleSubstitutes={setSubstitutesForMidlayer}
       />
-      <Pressable
+      <AppButton
+        label="Save"
         disabled={!name.trim()}
         onPress={async () => {
           await withTimeout(
@@ -109,13 +113,8 @@ function WarmthEntry({
           setState("done");
           onSaved();
         }}
-        style={[styles.entrySaveButton, !name.trim() && styles.entrySaveButtonDisabled]}
-      >
-        <Text style={styles.entrySaveLabel}>Save</Text>
-      </Pressable>
-      <Pressable onPress={() => setState("skipped")}>
-        <Text style={styles.entrySkipLabel}>Skip this one</Text>
-      </Pressable>
+      />
+      <AppButton label="Skip this one" variant="ghost" size="sm" onPress={() => setState("skipped")} />
     </View>
   );
 }
@@ -171,7 +170,8 @@ function SimpleEntry({
     <View style={styles.expandedEntry}>
       <PhotoPicker itemId={id} photoUri={photoUri} onChange={setPhotoUri} />
       <TextInput style={styles.input} placeholderTextColor={theme.textSecondary} value={name} onChangeText={setName} placeholder={`${title} name`} />
-      <Pressable
+      <AppButton
+        label="Save"
         disabled={!name.trim()}
         onPress={async () => {
           if (kind === "shoes") {
@@ -188,13 +188,8 @@ function SimpleEntry({
           setState("done");
           onSaved();
         }}
-        style={[styles.entrySaveButton, !name.trim() && styles.entrySaveButtonDisabled]}
-      >
-        <Text style={styles.entrySaveLabel}>Save</Text>
-      </Pressable>
-      <Pressable onPress={() => setState("skipped")}>
-        <Text style={styles.entrySkipLabel}>Skip this one</Text>
-      </Pressable>
+      />
+      <AppButton label="Skip this one" variant="ghost" size="sm" onPress={() => setState("skipped")} />
     </View>
   );
 }
@@ -243,9 +238,9 @@ export default function GearBasicsSetup({ onDone }: Props) {
           <Text style={styles.optionalLabel}>Optional</Text>
           <WarmthEntry title="Bottoms/trousers" clothingType="bottoms" showSubstitutesToggle={false} onSaved={() => {}} />
 
-          <Pressable onPress={onDone} style={styles.primaryButton}>
-            <Text style={styles.primaryLabel}>Done</Text>
-          </Pressable>
+          <View style={styles.doneAction}>
+            <AppButton label="Done" onPress={onDone} />
+          </View>
         </>
       )}
     </ScrollView>
@@ -254,30 +249,26 @@ export default function GearBasicsSetup({ onDone }: Props) {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: 24, gap: 4, backgroundColor: theme.bg },
-    title: { fontSize: 22, fontWeight: "700", marginBottom: 16, color: theme.textPrimary },
-    selfReport: { gap: 12 },
-    question: { fontSize: 17, fontWeight: "600", color: theme.textPrimary },
-    body: { fontSize: 13, color: theme.textSecondary },
-    selfReportButtons: { flexDirection: "row", gap: 8, marginTop: 8 },
-    selfReportButton: { flex: 1, paddingVertical: 14, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-    selfReportLabel: { fontWeight: "600", color: theme.textPrimary },
-    entryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.border },
-    entryTitle: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    entryDoneRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-    entryDone: { fontSize: 15, color: theme.feedbackPositive },
-    entrySkipped: { fontSize: 15, color: theme.textSecondary },
-    entryButtons: { flexDirection: "row", alignItems: "center", gap: 16 },
-    entrySkipLabel: { color: theme.textSecondary },
-    entryAddButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.accentWalk },
-    entryAddLabel: { color: theme.bg, fontWeight: "600" },
-    expandedEntry: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: theme.border, gap: 12 },
-    input: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
-    entrySaveButton: { paddingVertical: 12, alignItems: "center", borderRadius: 8, backgroundColor: theme.accentWalk },
-    entrySaveButtonDisabled: { opacity: 0.4 },
-    entrySaveLabel: { color: theme.bg, fontWeight: "600" },
-    optionalLabel: { fontSize: 12, color: theme.textSecondary, marginTop: 16, marginBottom: 4, textTransform: "uppercase" },
-    primaryButton: { marginTop: 24, paddingVertical: 14, alignItems: "center", borderRadius: 8, backgroundColor: theme.accentWalk },
-    primaryLabel: { color: theme.bg, fontWeight: "600", fontSize: 15 },
+    container: { padding: SPACING.xxl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    title: { ...TYPE.title, marginBottom: SPACING.lg, color: theme.textPrimary },
+    selfReport: { gap: SPACING.md },
+    question: { ...TYPE.subtitle, color: theme.textPrimary },
+    body: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18 },
+    selfReportButtons: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm },
+    selfReportButton: { flex: 1, minHeight: 48, justifyContent: "center", alignItems: "center", borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border },
+    selfReportLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
+    entryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: theme.border },
+    entryTitle: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    entryDoneRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+    entryDone: { ...TYPE.body, color: theme.feedbackPositive },
+    entrySkipped: { ...TYPE.body, color: theme.textSecondary },
+    entryButtons: { flexDirection: "row", alignItems: "center", gap: SPACING.lg },
+    entrySkipLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary, minHeight: 44, textAlignVertical: "center" },
+    entryAddButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.lg, borderRadius: RADIUS.pill, backgroundColor: theme.accentWalk },
+    entryAddLabel: { ...TYPE.caption, color: "#FFFFFF", fontWeight: "700" },
+    expandedEntry: { paddingVertical: SPACING.lg, borderBottomWidth: 1, borderBottomColor: theme.border, gap: SPACING.md },
+    input: { borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44, ...TYPE.body, color: theme.textPrimary },
+    optionalLabel: { ...TYPE.micro, color: theme.textSecondary, marginTop: SPACING.lg, marginBottom: SPACING.xs, textTransform: "uppercase" },
+    doneAction: { marginTop: SPACING.xxl },
   });
 }

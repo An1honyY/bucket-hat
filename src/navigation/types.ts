@@ -13,9 +13,16 @@ export type GearAddTarget =
   | { kind: "shoe" }
   | { kind: "umbrella" };
 
+// §4.3 — how the Plan screen was entered. Set when a saved journey is
+// reused from the Saved journeys screen: `savedRouteId` says which one to
+// pre-fill, `intent` which time mode to land in — leave now, pick a future
+// time, or set it repeating. Absent means a plain "Plan" tab tap, which
+// starts on the saved-or-new chooser instead.
+export type PlanIntent = "now" | "schedule" | "repeat";
+
 export type MainTabParamList = {
   Today: undefined;
-  Plan: undefined;
+  Plan: { savedRouteId?: string; intent?: PlanIntent } | undefined;
   Locations: undefined;
   Gear: { openAdd?: GearAddTarget } | undefined;
 };
@@ -37,6 +44,11 @@ export type RootStackParamList = {
   JourneyDetail: { journeyId: string; cachedFromDate?: string; readOnly?: boolean; journeyMode?: boolean };
   History: undefined;
   LocalKnowledge: undefined;
+  // §4.3 — the manage-your-saved-journeys list, reached from the Plan
+  // screen's header. A stack screen rather than a fifth tab: the tab bar is
+  // fixed at four (§4), and this is where you go to tidy up, not somewhere
+  // you plan from.
+  SavedJourneys: undefined;
   Settings: undefined;
   // docs/13-extended-features.md §13.7 — cloud sync account management.
   // Always registered: the screen itself explains when sync isn't

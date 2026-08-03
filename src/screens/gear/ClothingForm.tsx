@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ScrollView, Switch, Text, TextInput, View } from "react-native";
 import WarmthSlider from "../../components/WarmthSlider";
 import TagChips, { ACCESSORY_TAG_OPTIONS, BASE_TAG_OPTIONS, BOTTOMS_TAG_OPTIONS, LAYER_TAG_OPTIONS } from "../../components/TagChips";
 import SingleSelect from "../../components/SingleSelect";
 import PhotoPicker from "../../components/PhotoPicker";
 import FormRow from "../../components/FormRow";
 import FormSection from "../../components/FormSection";
+import FormActions from "../../components/FormActions";
 import { newId } from "../../db/rowMapping";
 import useTheme from "../../theme/useTheme";
+import useCommonStyles from "../../theme/commonStyles";
 import type { ClothingItem, ClothingType } from "../../types";
 
 const TYPE_OPTIONS: ClothingType[] = ["jacket", "midlayer", "base", "bottoms", "accessory"];
@@ -34,7 +36,7 @@ interface Props {
 
 export default function ClothingForm({ initial, initialType, onSubmit, onCancel, onDelete, onMarkUnavailable }: Props) {
   const theme = useTheme();
-  const styles = getStyles(theme);
+  const styles = useCommonStyles();
   const [id] = useState(() => initial?.id ?? newId());
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<ClothingType>(initial?.type ?? initialType ?? "jacket");
@@ -66,11 +68,11 @@ export default function ClothingForm({ initial, initialType, onSubmit, onCancel,
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.scrollContent}>
       <FormSection title="Basics">
         <PhotoPicker itemId={id} photoUri={photoUri} onChange={setPhotoUri} />
         <View>
-          <Text style={styles.label}>Name</Text>
+          <Text style={styles.fieldLabel}>Name</Text>
           <TextInput
             style={styles.input}
             placeholderTextColor={theme.textSecondary}
@@ -83,11 +85,11 @@ export default function ClothingForm({ initial, initialType, onSubmit, onCancel,
 
       <FormSection title="Type & warmth">
         <View>
-          <Text style={styles.label}>Type</Text>
+          <Text style={styles.fieldLabel}>Type</Text>
           <SingleSelect options={TYPE_OPTIONS} value={type} onChange={setType} />
         </View>
         <View>
-          <Text style={styles.label}>Warmth</Text>
+          <Text style={styles.fieldLabel}>Warmth</Text>
           <WarmthSlider
             value={warmth}
             onChange={setWarmth}
@@ -110,48 +112,19 @@ export default function ClothingForm({ initial, initialType, onSubmit, onCancel,
         </FormRow>
         {tagOptions.length > 0 && (
           <View>
-            <Text style={styles.label}>Tags</Text>
+            <Text style={styles.fieldLabel}>Tags</Text>
             <TagChips options={tagOptions} selected={tags} onChange={setTags} />
           </View>
         )}
       </FormSection>
 
-      <View style={styles.actions}>
-        <Pressable onPress={onCancel} style={styles.cancelButton}>
-          <Text>Cancel</Text>
-        </Pressable>
-        <Pressable disabled={!canSubmit} onPress={handleSubmit} style={[styles.saveButton, !canSubmit && styles.saveButtonDisabled]}>
-          <Text style={styles.saveLabel}>Save</Text>
-        </Pressable>
-      </View>
-
-      {onMarkUnavailable && (
-        <Pressable onPress={onMarkUnavailable} style={styles.secondaryButton}>
-          <Text style={styles.secondaryLabel}>Mark unavailable until…</Text>
-        </Pressable>
-      )}
-      {onDelete && (
-        <Pressable onPress={onDelete} style={styles.deleteButton}>
-          <Text style={styles.deleteLabel}>Delete item</Text>
-        </Pressable>
-      )}
+      <FormActions
+        onCancel={onCancel}
+        onSubmit={handleSubmit}
+        canSubmit={canSubmit}
+        secondary={onMarkUnavailable ? { label: "Mark unavailable until…", onPress: onMarkUnavailable } : undefined}
+        destructive={onDelete ? { label: "Delete item", onPress: onDelete } : undefined}
+      />
     </ScrollView>
   );
-}
-
-function getStyles(theme: ReturnType<typeof useTheme>) {
-  return StyleSheet.create({
-    container: { padding: 20, alignItems: "stretch" },
-    label: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
-    input: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
-    actions: { flexDirection: "row", gap: 12, marginTop: 24 },
-    cancelButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-    saveButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 8, backgroundColor: theme.accentWalk },
-    saveButtonDisabled: { opacity: 0.4 },
-    saveLabel: { color: theme.bg, fontWeight: "600" },
-    secondaryButton: { marginTop: 16, alignItems: "center", paddingVertical: 10 },
-    secondaryLabel: { color: theme.textPrimary, fontWeight: "600" },
-    deleteButton: { marginTop: 8, alignItems: "center", paddingVertical: 10 },
-    deleteLabel: { color: theme.danger },
-  });
 }

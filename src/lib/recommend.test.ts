@@ -1,4 +1,4 @@
-import { recommendGear, type Inventory } from "./recommend";
+import { GENERIC_PICKS_NOTE, recommendGear, type Inventory } from "./recommend";
 import type { ClothingItem, Journey, JourneyLeg, ShoeItem, UmbrellaItem, WarmthCalibration, WeatherSnapshot } from "../types";
 
 // docs/11-testing-strategy.md §11.1 — recommendGear() is "the highest-value
@@ -170,11 +170,11 @@ describe("recommendGear — advanced threshold overrides (§3.6, §7, §11.1)", 
       { departTime: "2026-01-15T08:00:00.000Z" } // summer
     );
     const defaultResult = recommendGear(journey, fullInventory, NO_CALIBRATION, "no-preference");
-    expect(defaultResult.notes.some((n) => n.includes("AC on the bus/train will feel cold"))).toBe(false);
+    expect(defaultResult.notes.some((n) => n.includes("AC will feel cold"))).toBe(false);
 
     // Lowering warmOutdoorC to 15 makes 16°C count as warm enough to trigger it.
     const overriddenResult = recommendGear(journey, fullInventory, NO_CALIBRATION, "no-preference", { warmOutdoorC: 15 });
-    expect(overriddenResult.notes.some((n) => n.includes("AC on the bus/train will feel cold"))).toBe(true);
+    expect(overriddenResult.notes.some((n) => n.includes("AC will feel cold"))).toBe(true);
   });
 });
 
@@ -222,7 +222,7 @@ describe("recommendGear — AC contrast (§6.1)", () => {
   it("summer + warm outdoor + AC leg: requires a packable layer and notes it", () => {
     const journey = journeyWithLegs([warmWalkLeg, busLeg], { departTime: "2026-01-15T08:00:00.000Z" }); // summer
     const result = recommendGear(journey, inventory({ clothing: [packableJacket, nonPackableJacket, midlayer] }), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.includes("AC on the bus/train will feel cold"))).toBe(true);
+    expect(result.notes.some((n) => n.includes("AC will feel cold"))).toBe(true);
     // requirePackable forces the midlayer-only plan (layerPlanForWarmthLevel level>=2 + requirePackable -> ["midlayer"])
     expect(result.layers).toHaveLength(1);
     expect(result.layers[0]).toMatchObject({ id: midlayer.id });
@@ -231,7 +231,7 @@ describe("recommendGear — AC contrast (§6.1)", () => {
   it("winter + AC leg: no contrast adjustment", () => {
     const journey = journeyWithLegs([warmWalkLeg, busLeg], { departTime: "2026-07-15T08:00:00.000Z" }); // winter
     const result = recommendGear(journey, inventory({ clothing: [packableJacket, nonPackableJacket, midlayer] }), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.includes("AC on the bus/train"))).toBe(false);
+    expect(result.notes.some((n) => n.includes("AC will feel cold"))).toBe(false);
   });
 });
 
@@ -253,13 +253,13 @@ describe("recommendGear — apparent-temperature divergence note (§6.2)", () =>
   it("gap >= 2°C: note present", () => {
     const journey = journeyWithLegs([walkLeg({ weather: weather({ tempC: 14, apparentTempC: 12 }) })]);
     const result = recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.includes("Feels noticeably colder"))).toBe(true);
+    expect(result.notes.some((n) => n.startsWith("Feels like"))).toBe(true);
   });
 
   it("gap < 2°C: no note", () => {
     const journey = journeyWithLegs([walkLeg({ weather: weather({ tempC: 14, apparentTempC: 13 }) })]);
     const result = recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.includes("Feels noticeably colder"))).toBe(false);
+    expect(result.notes.some((n) => n.startsWith("Feels like"))).toBe(false);
   });
 });
 
@@ -322,19 +322,19 @@ describe("recommendGear — cycling-vs-walking warmup split (§7.9)", () => {
   it("15+ min walking at a cool temp earns the warmup discount", () => {
     const journey = journeyWithLegs([walkLeg({ durationMin: 20, weather: weather({ apparentTempC: 10 }) })]); // level 2, discount -> level 1
     const result = recommendGear(journey, inventory({ clothing: [jacket, clothingItem({ type: "midlayer" })] }), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.includes("min of walking"))).toBe(true);
+    expect(result.notes.some((n) => n.startsWith("Walking will warm you up"))).toBe(true);
   });
 
   it("8+ min cycling at the same temp also earns the discount (lower threshold than walking)", () => {
     const journey = journeyWithLegs([walkLeg({ mode: "cycle", durationMin: 9, weather: weather({ apparentTempC: 10 }) })]);
     const result = recommendGear(journey, inventory({ clothing: [jacket, clothingItem({ type: "midlayer" })] }), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.includes("min of cycling"))).toBe(true);
+    expect(result.notes.some((n) => n.startsWith("Cycling will warm you up"))).toBe(true);
   });
 
   it("a short walk under both thresholds gets no discount", () => {
     const journey = journeyWithLegs([walkLeg({ durationMin: 5, weather: weather({ apparentTempC: 10 }) })]);
     const result = recommendGear(journey, inventory({ clothing: [jacket] }), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.includes("min of walking"))).toBe(false);
+    expect(result.notes.some((n) => n.startsWith("Walking will warm you up"))).toBe(false);
   });
 
   it("a stationary leg's minutes never count toward the warmup discount even if mode is walk", () => {
@@ -342,7 +342,7 @@ describe("recommendGear — cycling-vs-walking warmup split (§7.9)", () => {
       walkLeg({ durationMin: 20, isStationary: true, weather: weather({ apparentTempC: 10, windKph: 5 }) }),
     ]);
     const result = recommendGear(journey, inventory({ clothing: [jacket] }), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.includes("min of walking"))).toBe(false);
+    expect(result.notes.some((n) => n.startsWith("Walking will warm you up"))).toBe(false);
   });
 });
 
@@ -353,7 +353,7 @@ describe("recommendGear — formal-occasion mode (§7.10)", () => {
     const journey = journeyWithLegs([walkLeg({ weather: weather({ weatherCode: 61, precipMm: 2 }) })], { formal: true }); // rain -> needsWaterproof
     const result = recommendGear(journey, inventory({ shoes: [formalShoe, grippyShoe] }), NO_CALIBRATION, "no-preference");
     expect(result.shoes).toMatchObject({ id: "formal-1" });
-    expect(result.notes.some((n) => n.includes("Dress shoes picked"))).toBe(true);
+    expect(result.notes.some((n) => n.startsWith("Dress shoes for the occasion"))).toBe(true);
   });
 
   it("falls back to the normal sort when no formal shoe is available", () => {
@@ -400,14 +400,14 @@ describe("recommendGear — bottoms (§7.13)", () => {
     // Bottoms is always attempted now (§7.13 expansion, see DECISIONS.md) —
     // the item is still picked, it's the wet+windy-specific note that's gated.
     expect(result.bottoms).toMatchObject({ id: bottomsItem.id });
-    expect(result.notes).not.toContain("Wet and windy enough to warrant rain trousers, not just a jacket");
+    expect(result.notes).not.toContain("Wet and windy enough for rain trousers, not just a jacket");
   });
 
   it("waterproof trigger: wet alone (low gust) doesn't add the rain-trousers note", () => {
     const journey = journeyWithLegs([walkLeg({ weather: weather({ windGustKph: 10, weatherCode: 61, precipMm: 2 }) })]);
     const result = recommendGear(journey, inventory({ clothing: [bottomsItem] }), NO_CALIBRATION, "no-preference");
     expect(result.bottoms).toMatchObject({ id: bottomsItem.id });
-    expect(result.notes).not.toContain("Wet and windy enough to warrant rain trousers, not just a jacket");
+    expect(result.notes).not.toContain("Wet and windy enough for rain trousers, not just a jacket");
   });
 
   it("waterproof trigger: wet AND high gust together fire it", () => {
@@ -691,7 +691,7 @@ describe("recommendGear — puddle risk & rain cover (§7.8, Phase 6)", () => {
       "no-preference"
     );
     expect(result.shoes).toMatchObject({ id: "boots" });
-    expect(result.notes.some((n) => n.startsWith("Rain earlier today"))).toBe(true);
+    expect(result.notes.some((n) => n.startsWith("Rain earlier"))).toBe(true);
     expect(result.umbrella).toBeUndefined(); // footwear only — never umbrella/jacket (§7.8)
   });
 
@@ -704,7 +704,7 @@ describe("recommendGear — puddle risk & rain cover (§7.8, Phase 6)", () => {
   it("below the 6h threshold nothing changes", () => {
     const journey = journeyWithLegs([walkLeg({ weather: weather({ recentPrecipMm6h: 3 }) })]);
     const result = recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference");
-    expect(result.notes.some((n) => n.startsWith("Rain earlier today"))).toBe(false);
+    expect(result.notes.some((n) => n.startsWith("Rain earlier"))).toBe(false);
   });
 
   it("a rain-covered stretch adds the informational note without changing the umbrella pick", () => {
@@ -722,7 +722,7 @@ describe("recommendGear — never-set-up vs. genuinely-unavailable gear copy", (
     const result = recommendGear(cold, inventory({ clothing: [], shoes: [], umbrellas: [] }), NO_CALIBRATION, "no-preference");
     const midlayerPick = result.layers.find((l) => "layerType" in l && l.layerType === "midlayer");
     expect(midlayerPick).toMatchObject({ fallbackText: "Midlayer", isGenericAssumption: true });
-    expect(result.notes).toContain("These are generic picks — add your gear in the Gear tab for suggestions tailored to what you own.");
+    expect(result.notes).toContain(GENERIC_PICKS_NOTE);
   });
 
   // The generic copy is warmth-aware, and the hot branch in particular is

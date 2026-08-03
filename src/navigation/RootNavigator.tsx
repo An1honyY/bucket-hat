@@ -6,6 +6,7 @@ import OnboardingScreen from "../screens/onboarding/OnboardingScreen";
 import JourneyDetailScreen from "../screens/journey-detail/JourneyDetailScreen";
 import HistoryScreen from "../screens/history/HistoryScreen";
 import LocalKnowledgeScreen from "../screens/local-knowledge/LocalKnowledgeScreen";
+import SavedJourneysScreen from "../screens/saved-journeys/SavedJourneysScreen";
 import SettingsScreen from "../screens/settings/SettingsScreen";
 import AccountScreen from "../screens/settings/AccountScreen";
 import AuthScreen from "../screens/auth/AuthScreen";
@@ -99,6 +100,7 @@ export default function RootNavigator({ needsOnboarding = false }: Props) {
         <Stack.Screen name="JourneyDetail" component={JourneyDetailScreen} options={{ title: "Journey" }} />
         <Stack.Screen name="History" component={HistoryScreen} />
         <Stack.Screen name="LocalKnowledge" component={LocalKnowledgeScreen} options={{ title: "Local knowledge" }} />
+        <Stack.Screen name="SavedJourneys" component={SavedJourneysScreen} options={{ title: "Saved journeys" }} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Sync & account" }} />
         {/* The auth screens carry their own headings (authUi.tsx's

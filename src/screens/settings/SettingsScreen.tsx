@@ -28,6 +28,7 @@ import { initCrashReportingIfEnabled } from "../../lib/crashReporting";
 import { useThemeStore } from "../../theme/useThemeStore";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { cardElevationStyle } from "../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import FormRow from "../../components/FormRow";
@@ -463,8 +464,8 @@ export default function SettingsScreen() {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: SPACING.xl, gap: 4, backgroundColor: theme.bg },
-    sectionTitle: { ...TYPE.subtitle, fontSize: 15, marginTop: SPACING.xl, marginBottom: SPACING.sm, color: theme.textPrimary },
+    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    sectionTitle: { ...TYPE.subtitle, fontSize: 16, marginTop: SPACING.xxl, marginBottom: SPACING.sm, color: theme.textPrimary },
     sectionCard: {
       backgroundColor: theme.surface,
       borderRadius: RADIUS.card,
@@ -474,9 +475,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     },
     body: { ...TYPE.caption, color: theme.textSecondary },
     segmentRow: { flexDirection: "row", gap: SPACING.sm },
-    segment: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center" },
+    segment: { flex: 1, minHeight: 44, justifyContent: "center", borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center" },
     segmentActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
-    segmentLabel: { fontSize: 13, color: theme.textPrimary },
+    segmentLabel: { ...TYPE.caption, color: theme.textPrimary },
     // Unified with LocationForm.tsx's equivalent segmented control — both
     // used to disagree (white vs theme.bg for the active label) with no
     // reason to diverge; white reads correctly against accentWalk in both
@@ -485,13 +486,13 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     dataButtonRow: { flexDirection: "row", gap: SPACING.sm },
     dataButton: { flex: 1, minHeight: 44, paddingVertical: 10, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center", justifyContent: "center" },
     dataButtonDisabled: { opacity: 0.5 },
-    dataButtonLabel: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
-    advancedHeader: { marginTop: SPACING.xl },
+    dataButtonLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
+    advancedHeader: { marginTop: SPACING.xl, minHeight: 44, justifyContent: "center" },
     advancedBody: { marginTop: SPACING.md, gap: 4 },
-    label: { fontSize: 13, fontWeight: "600", marginTop: SPACING.md, color: theme.textPrimary },
+    label: { ...TYPE.caption, fontWeight: "600", marginTop: SPACING.md, color: theme.textPrimary },
     windSensitivityLabel: { marginTop: SPACING.md },
-    hint: { ...TYPE.micro, fontSize: 12, color: theme.textSecondary, marginBottom: 4 },
-    input: { borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary, backgroundColor: theme.bg },
-    resetLabel: { color: theme.accentWalk, marginTop: SPACING.md, fontSize: 13 },
+    hint: { ...TYPE.caption, color: theme.textSecondary, marginBottom: SPACING.xs, lineHeight: 18 },
+    input: { borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44, ...TYPE.body, color: theme.textPrimary, backgroundColor: theme.bg },
+    resetLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk, marginTop: SPACING.md, minHeight: 44, textAlignVertical: "center" },
   });
 }

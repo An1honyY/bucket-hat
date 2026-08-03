@@ -21,11 +21,23 @@ export function classifyWeather(code: number, mm: number, windKph: number): Weat
 export type RainIntensity = "none" | "low" | "med" | "high";
 
 // §6, §9.5 — the hourly rain-intensity gauge's bucket, distinct from
-// classifyWeather()'s severity: gated on precipProbability first (a 90%
-// chance of a light shower reads differently from a 10% chance of the
-// same amount), then precipMm within that.
-export function rainIntensityBucket(precipMm: number, precipProbabilityPct: number): RainIntensity {
-  if (precipProbabilityPct < 20) return "none";
+// classifyWeather()'s severity. Purely a function of the millimetres.
+//
+// §6 originally gated this on precipProbability first — "a 90% chance of a
+// light shower reads differently from a 10% chance of the same amount" —
+// which put two different facts in one column: an hour at 20% probability
+// bucketed to "low" even with 0.0mm forecast (a part-filled droplet with no
+// amount to print under it), and an hour with a real 0.1mm at 15% bucketed
+// to "none" (an amount printed under an empty one). Both read as the strip
+// contradicting itself, because they were.
+//
+// So the whole column now derives from the one number the user is actually
+// shown: droplet fill, the millimetres beneath it and the glyph above it
+// (outlookDisplay.ts's iconKindFor) all switch on together. Probability is
+// displayed nowhere in this app — §9.0.1 bans "60% chance" phrasing outright
+// — so it has no business silently deciding what the gauge shows.
+export function rainIntensityBucket(precipMm: number): RainIntensity {
+  if (precipMm <= 0) return "none";
   if (precipMm < 0.5) return "low";
   if (precipMm <= 4) return "med";
   return "high";

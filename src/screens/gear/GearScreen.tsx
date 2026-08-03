@@ -7,6 +7,8 @@ import ShoeList from "./ShoeList";
 import UmbrellaList from "./UmbrellaList";
 import VehicleList from "./VehicleList";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { SPACING, TYPE } from "../../theme/typography";
 import type { MainTabParamList } from "../../navigation/types";
 
 // Inventory manager tab, sub-tabbed by Vehicles/Clothing/Shoes/Umbrellas —
@@ -79,10 +81,19 @@ export default function GearScreen({ route, navigation }: Props) {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    tabBar: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: theme.border },
-    tabButton: { flex: 1, paddingVertical: 12, alignItems: "center" },
-    tabButtonActive: { borderBottomWidth: 2, borderBottomColor: theme.textPrimary },
-    tabLabel: { color: theme.textSecondary },
-    tabLabelActive: { color: theme.textPrimary, fontWeight: "600" },
+    // §9.6 — the sub-tab strip is the first control on this screen and was
+    // the one place a tap target depended entirely on its text height.
+    tabBar: {
+      flexDirection: "row",
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      width: "100%",
+      maxWidth: CONTENT_MAX_WIDTH,
+      alignSelf: "center",
+    },
+    tabButton: { flex: 1, minHeight: 48, justifyContent: "center", alignItems: "center", paddingHorizontal: SPACING.xs },
+    tabButtonActive: { borderBottomWidth: 2, borderBottomColor: theme.accentWalk },
+    tabLabel: { ...TYPE.caption, color: theme.textSecondary },
+    tabLabelActive: { color: theme.accentWalk, fontWeight: "700" },
   });
 }

@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from "react-native";
 import useTheme from "../../theme/useTheme";
-import { conditionColorForSeverity } from "../../theme/tokens";
+import { conditionColorForSeverity , cardElevationStyle } from "../../theme/tokens";
+
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import { classifyWeather } from "../../lib/weather";
 import { HIGH_WIND_KPH } from "../../lib/recommend";
 import type { EnvironmentEffectType, JourneyLeg } from "../../types";
@@ -132,34 +134,34 @@ export default function LegRow({ leg, state = "upcoming", progressFraction = 0, 
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 12, backgroundColor: theme.surface, marginBottom: 12 },
+    row: { flexDirection: "row", alignItems: "center", gap: SPACING.md, padding: SPACING.md, borderRadius: RADIUS.card, backgroundColor: theme.surface, marginBottom: SPACING.md, ...cardElevationStyle(theme) },
     // Phase 22 — the leg you're on gets an accent edge and a raised surface;
     // a finished one recedes without disappearing.
     rowCurrent: { backgroundColor: theme.surfaceRaised, borderLeftWidth: 3, borderLeftColor: theme.accentWalk, paddingLeft: 9 },
     // Dimmed via tokens rather than the `opacity` prop, so contrast against
     // the background stays predictable instead of compounding.
-    rowCompleted: { paddingVertical: 8, marginBottom: 8 },
+    rowCompleted: { paddingVertical: SPACING.sm, marginBottom: SPACING.sm },
     labelCompleted: { color: theme.textSecondary, fontWeight: "500" },
     progressTrack: { height: 3, borderRadius: 2, backgroundColor: theme.border, marginTop: 6, overflow: "hidden" },
     progressFill: { height: 3, borderRadius: 2, backgroundColor: theme.accentWalk },
     iconCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: theme.border },
     pillCircle: { width: "auto", paddingHorizontal: 8, borderRadius: 8, backgroundColor: theme.acBadge },
-    pillLabel: { fontSize: 11, fontWeight: "600", color: "#FFFFFF" },
+    pillLabel: { ...TYPE.micro, fontWeight: "700", color: "#FFFFFF" },
     center: { flex: 1 },
-    label: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    meta: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+    label: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    meta: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2 },
     annotationRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4, marginTop: 2 },
     annotationChip: { flexDirection: "row", alignItems: "center", gap: 3 },
-    annotationChipText: { fontSize: 12, fontWeight: "600", color: theme.accentWalk },
-    annotationLine: { fontSize: 12, color: theme.textSecondary },
+    annotationChipText: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
+    annotationLine: { ...TYPE.caption, color: theme.textSecondary },
     badgeColumn: { alignItems: "flex-end", gap: 4 },
-    badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: theme.border },
+    badge: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, borderRadius: RADIUS.pill, backgroundColor: theme.border },
     // White text on top of a condition* fill (§9.1) for contrast, matching
     // the severe-weather banner's same badge-on-condition-color pattern.
-    badgeText: { fontSize: 12, fontWeight: "600", color: "#FFFFFF" },
-    delayPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+    badgeText: { ...TYPE.caption, fontWeight: "700", color: "#FFFFFF" },
+    delayPill: { paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.pill },
     delayPillOnTime: { backgroundColor: theme.border },
     delayPillLate: { backgroundColor: theme.uvBadge },
-    delayPillText: { fontSize: 11, fontWeight: "600", color: theme.textPrimary },
+    delayPillText: { ...TYPE.micro, fontWeight: "600", color: theme.textPrimary },
   });
 }

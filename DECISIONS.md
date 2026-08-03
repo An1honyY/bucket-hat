@@ -122,6 +122,14 @@ one by date — don't edit the old entry.
 - 2026-07-31 — Icon padding fixed for Android's safe zone; favicon made transparent [bug fix, §10.4]
 - 2026-08-02 — Onboarding gains a welcome screen; the auth form moves out of Settings (§4.1, §13.7) [design]
 - 2026-08-02 — Password reset built, reversing §13.7's "no reset flow" call (§13.7)
+- 2026-08-03 — Shared button/layout styles; Journey Detail restructured (§9.2, §9.3, §9.6) [design]
+- 2026-08-03 — Journey map origin marker carries the travel mode; planned journeys show route steps (§9.3) [design]
+- 2026-08-03 — Weather sky background, day/night hourly blocks, two-list gear card (§9.1, §9.3, §9.5) [design]
+- 2026-08-03 — Gear notes rewritten short; apparent-temp note states both figures (§7, §9.0.1) [design]
+- 2026-08-03 — Saved journeys: a managed list, and Plan opens by asking (§4.3, §3.1)
+- 2026-08-03 — Hourly cells: unique clip ids, both blocks tinted, blank line kept (§9.5) [bug fix, design]
+- 2026-08-03 — Hourly cells commit to a light or dark surface, with measured icon colours (§9.5, §9.1) [design]
+- 2026-08-04 — One hourly cell, one fact: droplet, millimetres and glyph agree (§6, §9.5) [bug fix]
 
 ---
 
@@ -2187,5 +2195,180 @@ did before, `/api/config` reports `passwordReset: false`, and the app hides
 the flow and says plainly that a lost password can't be recovered. Don't
 make the provider mandatory; extend the capability flag instead if a second
 optional server feature ever appears.
+
+---
+
+## 2026-08-03 — Shared button/layout styles; Journey Detail restructured (§9.2, §9.3, §9.6)
+
+**What**: added `src/theme/commonStyles.ts` (content/action width caps, card,
+field and screen shapes) plus `AppButton`/`FormActions`, and migrated every
+screen's bespoke button styles onto them. Journey Detail gained a
+`JourneySummary` card and a single width-capped body column, with the
+feedback prompt moved above the delete action.
+
+**Why**: §9.2 only ever specified type, spacing and radius, so a dozen
+screens each declared their own `saveButton`/`cancelText`/`addButton` — all
+subtly different, several below §9.6's 44pt minimum, and all of them
+stretching to whatever width the viewport gave them. §9.3's layout also
+never said what identifies the journey you're looking at, and nothing did.
+
+**Resolution**: `AppButton` (block width capped at `ACTION_MAX_WIDTH`,
+centred) and `FormActions` are now the only sanctioned way to render an
+action; new screens read layout shapes from `commonStyles` rather than
+re-deriving them. Onboarding was left alone apart from the width cap, per
+the 2026-08-02 entry.
+
+---
+
+## 2026-08-03 — Journey map origin marker carries the travel mode (§9.3)
+
+**What**: the origin/current-location marker on both journey maps is now a
+disc holding the journey's dominant travel-mode glyph (`originMode` prop,
+`modeDivIcon` on web, `originMarker` on native); the destination keeps the
+flag and stops keep the numbered dot. Planned journeys also render each
+leg's turn-by-turn steps under its leg row (`StepList` gained a planned
+variant).
+
+**Why**: reverses the 2026-07-27 call that gave the origin the teardrop pin
+"because a teardrop already means a place" — which is exactly the problem:
+every saved location is a teardrop, so the one marker that means "you, about
+to set off" said nothing about the trip. §9.3 also only ever showed steps
+while following, leaving a planned journey with no route instructions at all.
+
+**Resolution**: the glyph comes from `modeIconPaths.ts`, the same source the
+Journey Mode puck uses, so the marker you set off from and the puck that
+replaces it are the same vehicle — keep those three in step. `originMode` is
+optional; callers that omit it (the location picker) still get the pin.
+
+---
+
+## 2026-08-03 — Weather sky background, day/night hourly blocks, two-list gear card (§9.1, §9.3, §9.5)
+
+**What**: `ScreenPattern` is now a sky — tinted gradient, one diffuse sun
+glow, two soft cloud banks — instead of the dot grid; hourly strips tint the
+hours between sunset and sunrise as one continuous block (`nightTint` token,
+`RainGauge`'s `isNight`/run flags); the gear card renders owned picks with
+their own photos in one list and missing picks in a dashed hint box carrying
+`GENERIC_PICKS_NOTE`; PlanScreen's route rail starts with the travel-mode
+glyph, matching the map.
+
+**Why**: the dot grid (2026-07-23) read as generic app texture in a weather
+app, and §9.5's strip gave day and night hours identical treatment, so "when
+does it get dark" had to be read off the hour labels. The gear card's four
+sections in three type sizes mixed what you own with what you don't.
+
+**Resolution**: the background stays decoration — under 0.2 alpha, no hard
+edges, `pointerEvents="none"`; if it ever competes with a card it's wrong.
+Night tinting is never the only signal (each cell says "after dark" to a
+screen reader, §9.6). Keep the rail, both map origin markers and the puck on
+`modeIconPaths.ts` — four places, one glyph set.
+
+---
+
+## 2026-08-03 — Gear notes rewritten short; the apparent-temp note states both figures (§7, §9.0.1)
+
+**What**: every `notes` string in `recommendGear()` was tightened to one
+clause. The apparent-temp divergence note now reads "Feels like 8°C, not
+10°C — dressed for that", and the warmup-discount note dropped its duration
+and temperature entirely ("Walking will warm you up — going one layer
+lighter").
+
+**Why**: §9.0.1 asks for one clause per line, but these had grown into full
+explanations — the warmup note repeated the leg duration and temperature
+that the leg row directly beneath it already shows, and the divergence note
+described a gap without ever giving the number it was about.
+
+**Resolution**: a note states the thing the rest of the screen can't already
+show. Don't restore the minutes/°C to the warmup line — they're on the leg
+row; if the threshold behind that discount ever needs surfacing, that's the
+debug menu's job (§12.2), not the card's.
+
+---
+
+## 2026-08-03 — Saved journeys: a managed list, and Plan opens by asking (§4.3, §3.1)
+
+**What**: `SavedRoute` gained `isFavorite`/`waypointIds`/`recurrence`
+(migration 007, additive), a Saved journeys screen (favourites pinned, star,
+rename, forget, and Leave now / Pick a time / Set up repeats), a Plan screen
+that opens on "take a saved journey or plan a new one" in place of the old
+chip row, and a "Save this journey" action on Journey Detail.
+
+**Why**: §4.3 spec'd saved routes as a chip strip only, and left "Save as a
+route" from Journey Detail unbuilt — so a trip taken often had to be
+re-entered every time, and nothing could be favourited or repeated without
+rebuilding it by hand.
+
+**Resolution**: a saved journey still stores no date, time or weather — that
+is what keeps it valid indefinitely (§4.3), and `recurrence` here is a
+*preferred* pattern pre-filled into Plan, never a schedule: only a real
+`Journey` materializes occurrences or fires notifications (§7.3). Every
+action on that screen ends at Plan rather than planning directly, so the
+live routing/weather calls stay in one place (§5). Don't add a "plan it now"
+shortcut that bypasses Plan.
+
+---
+
+## 2026-08-03 — Hourly cells: unique clip ids, both blocks tinted, blank line kept (§9.5)
+
+**What**: `RainGauge`'s droplet clip path is now keyed on `useId()` rather
+than the hour label; daylight hours take their own `dayTint` wash instead of
+showing the card through them; a dry hour renders a space rather than an
+empty string; the droplet outline is one continuous set of cubics.
+
+**Why**: hour labels are not unique — the Today card, its 48-hour panel and
+both Plan outlooks can each mount a "3pm" column at once, and SVG ids are
+document-global, so rain fills clipped to the wrong droplet or not at all.
+An empty `<Text>` has no glyphs and collapses to zero height, which is what
+made the night blocks come out ragged. And a transparent daylight cell is at
+its darkest in dark mode, which is backwards.
+
+**Resolution**: any SVG id inside a repeated component needs `useId()` —
+there are no other id-generating components today, but this is the trap.
+Both day and night are opaque fills; keep them that way rather than
+reintroducing "absent means transparent".
+
+---
+
+## 2026-08-03 — Hourly cells commit to a light or dark surface, with measured icon colours (§9.5, §9.1)
+
+**What**: `src/theme/hourlyPalette.ts` replaces the `dayTint`/`nightTint`
+tokens added earlier today. A day cell is a light surface (`#E8EDFA`) taking
+the *light* token set; a night cell is a dark one (`#1E2549`) taking the
+*dark* set — in both app themes — with per-glyph overrides for the few
+colours that still don't carry, each measured against its own background.
+
+**Why**: tinting the day block a mid navy put the blue half of the condition
+palette on a blue background at ~1.4:1, so the rain icons vanished exactly
+when it was raining. No single mid-tone fixes it: `sun` is a gold needing a
+dark backdrop, `rain` a blue needing a light one.
+
+**Resolution**: worst-case glyph contrast is now 4.9:1 (night) and 4.6:1
+(day), verified in the DOM rather than by eye. If a `condition*` token
+changes, re-measure both cells — the overrides are keyed to specific
+backgrounds. §9.1's "components never import darkTheme/lightTheme" still
+holds: this lives in the theme layer, which is the one place allowed both.
+
+---
+
+## 2026-08-04 — One hourly cell, one fact: the droplet, the millimetres and the glyph agree (§6, §9.5)
+
+**What**: `rainIntensityBucket()` dropped its `precipProbabilityPct`
+parameter and is now a pure function of the millimetres, and
+`outlookDisplay.iconKindFor()` reconciles the WMO-code glyph against that
+bucket — a wet glyph on an hour with measurable rain, overcast on one
+without. Snow and storm glyphs are never rewritten.
+
+**Why**: §6 gated the bucket on probability first, so an hour at 20%
+probability filled the droplet with 0.0mm forecast (fill, no number) and an
+hour with a real 0.1mm at 15% emptied it (number, no fill). Separately,
+Open-Meteo's code reports the dominant *sky* condition, so a cloud glyph
+routinely sat above a printed amount. Three signals for one hour, disagreeing
+in every combination.
+
+**Resolution**: the amount is the source of truth for all three, because it's
+the number the user reads; probability is displayed nowhere in this app
+(§9.0.1 bans "60% chance" phrasing) so it shouldn't silently decide what the
+gauge shows. Verified in the DOM: 0 mismatches across 24 cells. Don't
+reintroduce a second wetness signal — reconcile in `iconKindFor` instead.
 
 ---

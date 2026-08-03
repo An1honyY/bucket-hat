@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ScrollView, Switch, Text, TextInput, View } from "react-native";
 import SingleSelect from "../../components/SingleSelect";
 import PhotoPicker from "../../components/PhotoPicker";
 import FormRow from "../../components/FormRow";
 import FormSection from "../../components/FormSection";
+import FormActions from "../../components/FormActions";
 import { newId } from "../../db/rowMapping";
 import useTheme from "../../theme/useTheme";
+import useCommonStyles from "../../theme/commonStyles";
 import type { ShoeItem, ShoeType } from "../../types";
 
 const TYPE_OPTIONS: ShoeType[] = ["sneaker", "boot", "sandal", "formal", "waterproof-boot"];
@@ -21,7 +23,7 @@ interface Props {
 
 export default function ShoeForm({ initial, onSubmit, onCancel, onDelete, onMarkUnavailable }: Props) {
   const theme = useTheme();
-  const styles = getStyles(theme);
+  const styles = useCommonStyles();
   const [id] = useState(() => initial?.id ?? newId());
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<ShoeType>(initial?.type ?? "sneaker");
@@ -36,11 +38,11 @@ export default function ShoeForm({ initial, onSubmit, onCancel, onDelete, onMark
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.scrollContent}>
       <FormSection title="Basics">
         <PhotoPicker itemId={id} photoUri={photoUri} onChange={setPhotoUri} />
         <View>
-          <Text style={styles.label}>Name</Text>
+          <Text style={styles.fieldLabel}>Name</Text>
           <TextInput
             style={styles.input}
             placeholderTextColor={theme.textSecondary}
@@ -53,54 +55,25 @@ export default function ShoeForm({ initial, onSubmit, onCancel, onDelete, onMark
 
       <FormSection title="Details">
         <View>
-          <Text style={styles.label}>Type</Text>
+          <Text style={styles.fieldLabel}>Type</Text>
           <SingleSelect options={TYPE_OPTIONS} value={type} onChange={setType} />
         </View>
         <FormRow label="Waterproof">
           <Switch value={waterproof} onValueChange={setWaterproof} />
         </FormRow>
         <View>
-          <Text style={styles.label}>Grip</Text>
+          <Text style={styles.fieldLabel}>Grip</Text>
           <SingleSelect options={GRIP_OPTIONS} value={grip} onChange={setGrip} />
         </View>
       </FormSection>
 
-      <View style={styles.actions}>
-        <Pressable onPress={onCancel} style={styles.cancelButton}>
-          <Text>Cancel</Text>
-        </Pressable>
-        <Pressable disabled={!canSubmit} onPress={handleSubmit} style={[styles.saveButton, !canSubmit && styles.saveButtonDisabled]}>
-          <Text style={styles.saveLabel}>Save</Text>
-        </Pressable>
-      </View>
-
-      {onMarkUnavailable && (
-        <Pressable onPress={onMarkUnavailable} style={styles.secondaryButton}>
-          <Text style={styles.secondaryLabel}>Mark unavailable until…</Text>
-        </Pressable>
-      )}
-      {onDelete && (
-        <Pressable onPress={onDelete} style={styles.deleteButton}>
-          <Text style={styles.deleteLabel}>Delete item</Text>
-        </Pressable>
-      )}
+      <FormActions
+        onCancel={onCancel}
+        onSubmit={handleSubmit}
+        canSubmit={canSubmit}
+        secondary={onMarkUnavailable ? { label: "Mark unavailable until…", onPress: onMarkUnavailable } : undefined}
+        destructive={onDelete ? { label: "Delete item", onPress: onDelete } : undefined}
+      />
     </ScrollView>
   );
-}
-
-function getStyles(theme: ReturnType<typeof useTheme>) {
-  return StyleSheet.create({
-    container: { padding: 20, alignItems: "stretch" },
-    label: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
-    input: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
-    actions: { flexDirection: "row", gap: 12, marginTop: 24 },
-    cancelButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-    saveButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 8, backgroundColor: theme.accentWalk },
-    saveButtonDisabled: { opacity: 0.4 },
-    saveLabel: { color: theme.bg, fontWeight: "600" },
-    secondaryButton: { marginTop: 16, alignItems: "center", paddingVertical: 10 },
-    secondaryLabel: { color: theme.textPrimary, fontWeight: "600" },
-    deleteButton: { marginTop: 8, alignItems: "center", paddingVertical: 10 },
-    deleteLabel: { color: theme.danger },
-  });
 }

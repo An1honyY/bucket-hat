@@ -6,7 +6,10 @@ import { createLocation, deleteLocation, listLocations, updateLocation } from ".
 import type { SavedLocation } from "../../types";
 import LocationForm, { type LocationFormValues } from "./LocationForm";
 import ActionIcon from "../../components/ActionIcon";
+import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { SPACING, TYPE } from "../../theme/typography";
 
 type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; location: SavedLocation };
 
@@ -77,9 +80,7 @@ export default function LocationsScreen() {
         <View style={styles.emptyContainer}>
           <Text style={styles.title}>Locations</Text>
           <Text style={styles.empty}>No locations yet — add Home and Work first</Text>
-          <Pressable onPress={() => setMode({ kind: "add" })} style={styles.addButton}>
-            <Text style={styles.addButtonLabel}>+ Add a location</Text>
-          </Pressable>
+          <AppButton label="Add a location" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -87,18 +88,27 @@ export default function LocationsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
-            <Pressable onPress={() => setMode({ kind: "add" })} style={styles.addButton}>
-              <Text style={styles.addButtonLabel}>+ Add a location</Text>
-            </Pressable>
+            <AppButton label="Add a location" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
           }
           renderItem={({ item, index }) => (
             <>
               {index === firstNonFavoriteIndex && index > 0 && <View style={styles.divider} />}
-              <Pressable onPress={() => setMode({ kind: "edit", location: item })} style={styles.row}>
-                <View style={styles.rowText}>
-                  <Text style={styles.rowLabel}>{item.label}</Text>
-                  <Text style={styles.rowAddress}>{item.address}</Text>
-                </View>
+              {/* Plain View, so the star is a *sibling* of the row's tap
+                  target rather than nested in it: react-native-web renders
+                  both Pressables as <button>, and a button inside a button
+                  is invalid HTML React warns about on every render. */}
+              <View style={styles.row}>
+                <Pressable
+                  onPress={() => setMode({ kind: "edit", location: item })}
+                  style={styles.rowBody}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.label}, ${item.address}. Double tap to edit`}
+                >
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowLabel}>{item.label}</Text>
+                    <Text style={styles.rowAddress}>{item.address}</Text>
+                  </View>
+                </Pressable>
                 <Pressable
                   onPress={() => toggleFavorite(item)}
                   hitSlop={8}
@@ -113,7 +123,7 @@ export default function LocationsScreen() {
                     filled={item.isFavorite}
                   />
                 </Pressable>
-              </Pressable>
+              </View>
             </>
           )}
         />
@@ -126,11 +136,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
-    title: { fontSize: 20, fontWeight: "600", color: theme.textPrimary },
-    empty: { color: theme.textSecondary },
-    listContent: { padding: 20, gap: 8 },
-    addButton: { paddingVertical: 12, paddingHorizontal: 20, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: theme.border, marginBottom: 8 },
-    addButtonLabel: { fontWeight: "600", color: theme.textPrimary },
+    title: { ...TYPE.title, fontWeight: "600", color: theme.textPrimary },
+    empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },
+    listContent: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.sm, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    addButton: { marginBottom: SPACING.sm },
     divider: { height: 1, backgroundColor: theme.border, marginVertical: 8 },
     row: {
       flexDirection: "row",
@@ -140,9 +149,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       backgroundColor: theme.surface,
       marginBottom: 8,
     },
+    rowBody: { flex: 1 },
     rowText: { flex: 1 },
-    rowLabel: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    rowAddress: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
+    rowLabel: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    rowAddress: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2 },
     starButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   });
 }

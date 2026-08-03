@@ -45,16 +45,18 @@ describe("classifyWeather", () => {
 // §6/§9.5 — the hourly rain-intensity gauge's bucket boundaries.
 describe("rainIntensityBucket", () => {
   it.each([
-    [0, 19, "none"], // below the probability gate regardless of mm
-    [10, 19, "none"],
-    [0, 20, "low"], // at the probability boundary, mm below 0.5
-    [0.4, 20, "low"],
-    [0.5, 20, "med"], // mm boundary: < 0.5, not <=
-    [4, 20, "med"],
-    [4.01, 20, "high"], // mm boundary: <= 4, not <
-    [10, 100, "high"],
-  ] as const)("mm=%s probability=%s -> %s", (mm, probability, expected) => {
-    expect(rainIntensityBucket(mm, probability)).toBe(expected);
+    // The gauge, the millimetres printed under it and the glyph above it are
+    // one fact now, so "no measurable rain" is the only thing that empties
+    // the droplet — probability plays no part (see the function's comment).
+    [0, "none"],
+    [0.1, "low"], // the smallest amount the API reports
+    [0.4, "low"],
+    [0.5, "med"], // mm boundary: < 0.5, not <=
+    [4, "med"],
+    [4.01, "high"], // mm boundary: <= 4, not <
+    [10, "high"],
+  ] as const)("mm=%s -> %s", (mm, expected) => {
+    expect(rainIntensityBucket(mm)).toBe(expected);
   });
 });
 

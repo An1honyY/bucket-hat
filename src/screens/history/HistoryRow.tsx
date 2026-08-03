@@ -4,6 +4,8 @@ import ActionIcon from "../../components/ActionIcon";
 import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import useTheme from "../../theme/useTheme";
+import { cardElevationStyle } from "../../theme/tokens";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { Journey } from "../../types";
 
 // History's compact row — docs/09-design-system.md §9.4.2: "same row
@@ -61,13 +63,13 @@ export default function HistoryRow({ journey, onPress }: Props) {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    card: { padding: 12, borderRadius: 12, backgroundColor: theme.surface, marginBottom: 12, gap: 6 },
+    card: { padding: SPACING.lg, borderRadius: RADIUS.card, backgroundColor: theme.surface, marginBottom: SPACING.md, gap: SPACING.sm, ...cardElevationStyle(theme) },
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    routeRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
-    route: { fontSize: 15, fontWeight: "600", color: theme.textPrimary, flexShrink: 1 },
-    time: { fontSize: 12, color: theme.textSecondary },
-    recRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-    topRecommendation: { fontSize: 13, color: theme.textPrimary },
-    recomputedTag: { fontSize: 11, color: theme.textSecondary },
+    routeRow: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, flexShrink: 1 },
+    route: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary, flexShrink: 1 },
+    time: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
+    recRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap" },
+    topRecommendation: { ...TYPE.caption, color: theme.textPrimary },
+    recomputedTag: { ...TYPE.micro, color: theme.textSecondary, fontStyle: "italic" },
   });
 }

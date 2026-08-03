@@ -210,7 +210,7 @@ export async function getHourlyForecast(
       weatherCode: hourly.weather_code[index],
       precipMm: hourly.precipitation[index],
       windKph: hourly.wind_speed_10m[index],
-      rainIntensity: rainIntensityBucket(hourly.precipitation[index], hourly.precipitation_probability[index]),
+      rainIntensity: rainIntensityBucket(hourly.precipitation[index]),
       isDaylight: hourly.is_day[index] === 1,
     };
   });
@@ -287,7 +287,7 @@ export async function getLocalOutlook(
             weatherCode: hourly.weather_code[index],
             precipMm: hourly.precipitation[index],
             windKph: hourly.wind_speed_10m[index],
-            rainIntensity: rainIntensityBucket(hourly.precipitation[index], hourly.precipitation_probability[index]),
+            rainIntensity: rainIntensityBucket(hourly.precipitation[index]),
             isDaylight: hourly.is_day[index] === 1,
           };
         });

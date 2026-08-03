@@ -7,6 +7,7 @@ import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle, type ThemeTokens } from "../../theme/tokens";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { Journey } from "../../types";
 
 // Today-tab compact journey card — docs/09-design-system.md §9.4.
@@ -131,28 +132,28 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
 function getStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     card: {
-      padding: 12,
-      borderRadius: 12,
+      padding: SPACING.lg,
+      borderRadius: RADIUS.card,
       backgroundColor: theme.surface,
-      marginBottom: 12,
-      gap: 6,
+      marginBottom: SPACING.md,
+      gap: SPACING.sm,
       ...cardElevationStyle(theme),
     },
     // The card-body tap target. Carries the row spacing the card itself used
     // to own, so splitting the Pressable out of the card wrapper is visually
     // a no-op.
-    body: { gap: 6 },
+    body: { gap: SPACING.sm },
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     routeRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
-    route: { fontSize: 15, fontWeight: "600", color: theme.textPrimary, flexShrink: 1 },
-    time: { fontSize: 12, fontWeight: "700", color: theme.accentWalk },
+    route: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary, flexShrink: 1 },
+    time: { ...TYPE.caption, fontWeight: "700", color: theme.accentWalk },
     stagesRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 },
     stageWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
-    stageSep: { fontSize: 11, color: theme.textSecondary, opacity: 0.5 },
+    stageSep: { ...TYPE.micro, color: theme.textSecondary, opacity: 0.5 },
     stage: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: theme.bg, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
-    stageText: { fontSize: 11, fontWeight: "700", color: theme.textSecondary },
-    topRecommendation: { fontSize: 13, color: theme.textPrimary },
-    leavingNowButton: { marginTop: 4, alignSelf: "flex-start", minHeight: 44, justifyContent: "center", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.accentWalk },
-    leavingNowLabel: { color: theme.bg, fontWeight: "600", fontSize: 12 },
+    stageText: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary },
+    topRecommendation: { ...TYPE.caption, color: theme.textPrimary },
+    leavingNowButton: { marginTop: SPACING.xs, alignSelf: "flex-start", minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.lg, borderRadius: RADIUS.pill, backgroundColor: theme.accentWalk },
+    leavingNowLabel: { ...TYPE.caption, color: "#FFFFFF", fontWeight: "700" },
   });
 }

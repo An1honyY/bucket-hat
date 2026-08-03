@@ -1,29 +1,34 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { LayerPick, Recommendation } from "../../lib/recommend";
+import { GENERIC_PICKS_NOTE, type LayerPick, type Recommendation } from "../../lib/recommend";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle } from "../../theme/tokens";
-import { SPACING, TYPE } from "../../theme/typography";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
+import GearThumbnail from "../../components/GearThumbnail";
 import type { GearAddTarget } from "../../navigation/types";
 import type { RecommendationSnapshot } from "../../types";
 
-// Gear recommendation card — docs/09-design-system.md §9.3 item 4, now
-// backed by the real recommendGear() engine (docs/07-recommendation-
-// engine.md §7, docs/08-build-phases.md Phase 5) instead of Phase 3's
-// static placeholder. Purely presentational — JourneyDetailScreen computes
-// the Recommendation once and shares it with the severe-weather banner
-// above this card.
-// Works for any resolved-or-fallback pick (LayerPick, Recommendation.shoes,
-// Recommendation.umbrella) — they all share the same "real item has a
-// name, fallback has fallbackText" shape.
+// Gear recommendation card — docs/09-design-system.md §9.3 item 4, backed by
+// the real recommendGear() engine (docs/07-recommendation-engine.md §7).
+//
+// Two lists, not five (2026-08-03). The card used to render layers, then
+// accessories, then a bottoms/shoes/umbrella row, then notes — four sections
+// in three different type sizes, with the things you own and the things you
+// don't interleaved inside each one. It now reads as:
+//
+//   Wear      — what you own, one row each, with the item's own photo
+//   Also grab — the gaps, in their own muted hint box, still tappable to add
+//   Notes     — why, unchanged
+//
+// The photo is the point of the first list: this app's promise is *your*
+// jacket, not "a jacket", and a name in the user's own words next to their
+// own photo is the strongest version of that (§3.3's thumbnail rule, §9.0's
+// "personal" read). Fallbacks have no photo by definition, which is exactly
+// why they belong in the second list rather than mixed into the first.
 function pickLabel(pick: { name: string } | { fallbackText: string }): { text: string; isFallback: boolean } {
   return "name" in pick ? { text: pick.name, isFallback: false } : { text: pick.fallbackText, isFallback: true };
 }
 
-// §9.3 (2026-07-21) — every layer/accessory/slot row leads with an icon,
-// not just bold text. Only meaningful against a live `recommendation`
-// (LayerPick/ShoeItem/UmbrellaItem carry type info); the frozen `snapshot`
-// path has nothing but flat name strings post-freeze, so it stays icon-less.
 function layerIconKind(pick: LayerPick): ClothingIconKind {
   const type = "layerType" in pick ? pick.layerType : pick.type;
   if (type === "accessory") return accessoryIconKind("fallbackText" in pick ? pick.fallbackText : pick.name);
@@ -31,242 +36,235 @@ function layerIconKind(pick: LayerPick): ClothingIconKind {
   return "accessory";
 }
 
-interface Props {
-  recommendation?: Recommendation;
-  // docs/09-design-system.md §9.4.2 — History's detail view swaps the live
-  // Recommendation for the frozen RecommendationSnapshot fields where one
-  // exists, rather than re-running the engine against inventory that may
-  // have since changed. Snapshot names are flat strings — no fallback/
-  // real-item distinction survives the freeze, so they render plainly.
-  snapshot?: RecommendationSnapshot;
-  // §9.6 — "fallback text should read as an action... double tap to add
-  // one," matching the empty-state CTA pattern from §4.1. Only meaningful
-  // for a live `recommendation` (tap navigates to the matching Gear add
-  // form) — a frozen `snapshot` describes a past journey's pick, and
-  // there's nothing actionable about adding gear retroactively to it, so
-  // this is simply never passed/used in that branch.
-  onAddGear?: (target: GearAddTarget) => void;
+// One slot's worth of recommendation, flattened out of Recommendation's five
+// separate fields so the card can render owned and missing items as two
+// lists rather than repeating the same branch in each section.
+interface Slot {
+  key: string;
+  kind: ClothingIconKind;
+  text: string;
+  /** Present for a real owned item — drives the photo lookup. */
+  itemId?: string;
+  photoUri?: string;
+  /** Where "add one" should land for a missing item. */
+  target?: GearAddTarget;
 }
 
-// A fallback Text becomes a Pressable when onAddGear is supplied (live
-// mode only — GearRecommendationCard never passes it in the snapshot
-// branch). Module-level, not nested in the component, so it isn't
-// recreated every render.
-function FallbackText({
-  text,
-  target,
-  style,
-  onAddGear,
-}: {
-  text: string;
-  target: GearAddTarget;
-  style: object;
+function slotsFor(recommendation: Recommendation): { owned: Slot[]; missing: Slot[] } {
+  const owned: Slot[] = [];
+  const missing: Slot[] = [];
+
+  // Outermost first: the jacket is what you actually reach for on the way
+  // out, so it leads. (layerPlanForWarmthLevel resolves base-first.)
+  const push = (slot: Slot, isFallback: boolean) => (isFallback ? missing : owned).push(slot);
+
+  [...recommendation.layers].reverse().forEach((pick, i) => {
+    const { text, isFallback } = pickLabel(pick);
+    push(
+      {
+        key: `layer-${i}`,
+        kind: layerIconKind(pick),
+        text,
+        itemId: "id" in pick ? pick.id : undefined,
+        photoUri: "photoUri" in pick ? pick.photoUri : undefined,
+        target: "layerType" in pick ? { kind: "clothing", clothingType: pick.layerType } : undefined,
+      },
+      isFallback
+    );
+  });
+
+  if (recommendation.bottoms) {
+    const pick = recommendation.bottoms;
+    const { text, isFallback } = pickLabel(pick);
+    push(
+      {
+        key: "bottoms",
+        kind: "bottoms",
+        text,
+        itemId: "id" in pick ? pick.id : undefined,
+        photoUri: "photoUri" in pick ? pick.photoUri : undefined,
+        target: { kind: "clothing", clothingType: "bottoms" },
+      },
+      isFallback
+    );
+  }
+
+  if (recommendation.shoes) {
+    const pick = recommendation.shoes;
+    const { text, isFallback } = pickLabel(pick);
+    push(
+      {
+        key: "shoes",
+        kind: "shoe",
+        text,
+        itemId: "id" in pick ? pick.id : undefined,
+        photoUri: "photoUri" in pick ? pick.photoUri : undefined,
+        target: { kind: "shoe" },
+      },
+      isFallback
+    );
+  }
+
+  if (recommendation.umbrella) {
+    const pick = recommendation.umbrella;
+    const { text, isFallback } = pickLabel(pick);
+    push(
+      {
+        key: "umbrella",
+        kind: "umbrella",
+        text,
+        itemId: "id" in pick ? pick.id : undefined,
+        photoUri: "photoUri" in pick ? pick.photoUri : undefined,
+        target: { kind: "umbrella" },
+      },
+      isFallback
+    );
+  }
+
+  recommendation.accessories.forEach((pick, i) => {
+    const { text, isFallback } = pickLabel(pick);
+    push(
+      {
+        key: `accessory-${i}`,
+        kind: layerIconKind(pick),
+        text,
+        itemId: "id" in pick ? pick.id : undefined,
+        photoUri: "photoUri" in pick ? pick.photoUri : undefined,
+        target: { kind: "clothing", clothingType: "accessory" },
+      },
+      isFallback
+    );
+  });
+
+  return { owned, missing };
+}
+
+interface Props {
+  recommendation?: Recommendation;
+  // §9.4.2 — History's detail view swaps the live Recommendation for the
+  // frozen snapshot. Snapshot names are flat strings with no ids, so those
+  // rows carry the type glyph rather than a photo, and nothing there is
+  // actionable.
+  snapshot?: RecommendationSnapshot;
   onAddGear?: (target: GearAddTarget) => void;
-}) {
-  if (!onAddGear) return <Text style={style}>{text}</Text>;
-  return (
-    <Pressable
-      onPress={() => onAddGear(target)}
-      accessibilityRole="button"
-      accessibilityLabel={`${text} — double tap to add one`}
-      hitSlop={8}
-    >
-      <Text style={style}>{text}</Text>
-    </Pressable>
-  );
 }
 
 export default function GearRecommendationCard({ recommendation, snapshot, onAddGear }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
+
   if (snapshot) {
-    // layerTypes is index-matched to layerNames (pre-reversal) — zip them
-    // together before reversing so a name never ends up paired with the
-    // wrong type. Missing on snapshots frozen before this field existed;
-    // those layers just render without an icon rather than a wrong one.
     const layersTopDown = [...snapshot.layerNames]
       .map((name, i) => ({ name, kind: snapshot.layerTypes?.[i] }))
       .reverse();
+    const rows: { key: string; kind?: ClothingIconKind; text: string }[] = [
+      ...layersTopDown.map(({ name, kind }, i) => ({ key: `layer-${i}`, kind, text: name })),
+      ...(snapshot.shoeName ? [{ key: "shoes", kind: "shoe" as const, text: snapshot.shoeName }] : []),
+      ...(snapshot.umbrellaName ? [{ key: "umbrella", kind: "umbrella" as const, text: snapshot.umbrellaName }] : []),
+      ...snapshot.accessoryNames.map((name, i) => ({ key: `accessory-${i}`, kind: accessoryIconKind(name), text: name })),
+    ];
     return (
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Recommended gear</Text>
-        {layersTopDown.length > 0 && (
-          <View style={styles.layerStack}>
-            {layersTopDown.map(({ name, kind }, i) => (
-              <View key={i} style={styles.pickRow}>
-                {kind && <ClothingTypeIcon kind={kind} size={16} color={theme.accentWalk} />}
-                <Text style={styles.layerText}>{name}</Text>
+        <View style={styles.list}>
+          {rows.map((row) => (
+            <View key={row.key} style={styles.row}>
+              <View style={styles.glyphSlot}>
+                {row.kind && <ClothingTypeIcon kind={row.kind} size={18} color={theme.accentWalk} />}
               </View>
-            ))}
-          </View>
-        )}
-
-        {snapshot.accessoryNames.length > 0 && (
-          <View style={styles.accessoriesRow}>
-            {snapshot.accessoryNames.map((name, i) => (
-              <View key={i} style={styles.pickRow}>
-                <ClothingTypeIcon kind={accessoryIconKind(name)} size={15} color={theme.accentWalk} />
-                <Text style={styles.accessoryText}>{name}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.slotsRow}>
-          {snapshot.shoeName && (
-            <View style={styles.pickRow}>
-              <ClothingTypeIcon kind="shoe" size={15} color={theme.accentWalk} />
-              <Text style={styles.slotText}>{snapshot.shoeName}</Text>
+              <Text style={styles.itemName}>{row.text}</Text>
             </View>
-          )}
-          {snapshot.umbrellaName && (
-            <View style={styles.pickRow}>
-              <ClothingTypeIcon kind="umbrella" size={15} color={theme.accentWalk} />
-              <Text style={styles.slotText}>{snapshot.umbrellaName}</Text>
-            </View>
-          )}
+          ))}
         </View>
-
-        {snapshot.notes.length > 0 && (
-          <View style={styles.notesCallout}>
-            <View style={styles.notesAccentBar} />
-            <View style={styles.notesTextCol}>
-              {snapshot.notes.map((note, i) => (
-                <Text key={i} style={styles.note}>
-                  {note}
-                </Text>
-              ))}
-            </View>
+        {/* Same split as the live path below: the generic-picks line is
+            about the app's gaps, not that day's weather, so it keeps its own
+            box here too — a frozen journey is still a journey someone
+            reads. Nothing in it is tappable, though: adding gear now can't
+            change what was worn then. */}
+        {snapshot.notes.includes(GENERIC_PICKS_NOTE) && (
+          <View style={styles.hint}>
+            <Text style={styles.hintFooter}>{GENERIC_PICKS_NOTE}</Text>
           </View>
         )}
+        <Notes notes={snapshot.notes.filter((note) => note !== GENERIC_PICKS_NOTE)} styles={styles} />
       </View>
     );
   }
 
   if (!recommendation) return null;
 
-  // §9.3 — visually base at the bottom working up to jacket on top;
-  // layerPlanForWarmthLevel resolves base-first, so reverse for display.
-  const layersTopDown = [...recommendation.layers].reverse();
-
-  const shoesLabel = recommendation.shoes ? pickLabel(recommendation.shoes) : undefined;
-  const umbrellaLabel = recommendation.umbrella ? pickLabel(recommendation.umbrella) : undefined;
-  const bottomsLabel = recommendation.bottoms ? pickLabel(recommendation.bottoms) : undefined;
+  const { owned, missing } = slotsFor(recommendation);
+  // The generic-picks line is about the app's gaps, not this journey's
+  // weather, so it heads the hint box instead of sitting in the notes list.
+  const isGeneric = recommendation.notes.includes(GENERIC_PICKS_NOTE);
+  const weatherNotes = recommendation.notes.filter((note) => note !== GENERIC_PICKS_NOTE);
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Recommended gear</Text>
-      {layersTopDown.length > 0 && (
-        <View style={styles.layerStack}>
-          {layersTopDown.map((pick, i) => {
-            const { text, isFallback } = pickLabel(pick);
-            const icon = <ClothingTypeIcon kind={layerIconKind(pick)} size={16} color={isFallback ? theme.textSecondary : theme.accentWalk} />;
-            if (isFallback && "layerType" in pick) {
-              return (
-                <View key={i} style={styles.pickRow}>
-                  {icon}
-                  <FallbackText
-                    text={text}
-                    target={{ kind: "clothing", clothingType: pick.layerType }}
-                    style={styles.fallback}
-                    onAddGear={onAddGear}
-                  />
-                </View>
-              );
-            }
-            return (
-              <View key={i} style={styles.pickRow}>
-                {icon}
-                <Text style={styles.layerText}>{text}</Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      {recommendation.accessories.length > 0 && (
-        <View style={styles.accessoriesRow}>
-          {recommendation.accessories.map((pick, i) => {
-            const { text, isFallback } = pickLabel(pick);
-            const icon = <ClothingTypeIcon kind={layerIconKind(pick)} size={15} color={isFallback ? theme.textSecondary : theme.accentWalk} />;
-            if (isFallback) {
-              return (
-                <View key={i} style={styles.pickRow}>
-                  {icon}
-                  <FallbackText
-                    text={text}
-                    target={{ kind: "clothing", clothingType: "accessory" }}
-                    style={styles.fallback}
-                    onAddGear={onAddGear}
-                  />
-                </View>
-              );
-            }
-            return (
-              <View key={i} style={styles.pickRow}>
-                {icon}
-                <Text style={styles.accessoryText}>{text}</Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      <View style={styles.slotsRow}>
-        {bottomsLabel && (
-          <View style={styles.pickRow}>
-            <ClothingTypeIcon kind="bottoms" size={15} color={bottomsLabel.isFallback ? theme.textSecondary : theme.accentWalk} />
-            {bottomsLabel.isFallback ? (
-              <FallbackText
-                text={bottomsLabel.text}
-                target={{ kind: "clothing", clothingType: "bottoms" }}
-                style={styles.fallback}
-                onAddGear={onAddGear}
-              />
-            ) : (
-              <Text style={styles.slotText}>{bottomsLabel.text}</Text>
-            )}
-          </View>
-        )}
-        {shoesLabel && (
-          <View style={styles.pickRow}>
-            <ClothingTypeIcon kind="shoe" size={15} color={shoesLabel.isFallback ? theme.textSecondary : theme.accentWalk} />
-            {shoesLabel.isFallback ? (
-              <FallbackText text={shoesLabel.text} target={{ kind: "shoe" }} style={styles.fallback} onAddGear={onAddGear} />
-            ) : (
-              <Text style={styles.slotText}>{shoesLabel.text}</Text>
-            )}
-          </View>
-        )}
-        {umbrellaLabel && (
-          <View style={styles.pickRow}>
-            <ClothingTypeIcon kind="umbrella" size={15} color={umbrellaLabel.isFallback ? theme.textSecondary : theme.accentWalk} />
-            {umbrellaLabel.isFallback ? (
-              <FallbackText
-                text={umbrellaLabel.text}
-                target={{ kind: "umbrella" }}
-                style={styles.fallback}
-                onAddGear={onAddGear}
-              />
-            ) : (
-              <Text style={styles.slotText}>{umbrellaLabel.text}</Text>
-            )}
-          </View>
-        )}
-      </View>
-
-      {recommendation.notes.length > 0 && (
-        <View style={styles.notesCallout}>
-          <View style={styles.notesAccentBar} />
-          <View style={styles.notesTextCol}>
-            {recommendation.notes.map((note, i) => (
-              <Text key={i} style={styles.note}>
-                {note}
+      {/* No heading of its own: the screen's "What to wear" section label
+          sits directly above this card, and a second title inside it just
+          said the same thing twice. */}
+      {owned.length > 0 && (
+        <View style={styles.list}>
+          {owned.map((slot) => (
+            <View key={slot.key} style={styles.row} accessible accessibilityLabel={slot.text}>
+              <GearThumbnail itemId={slot.itemId} photoUri={slot.photoUri} kind={slot.kind} />
+              <Text style={styles.itemName} numberOfLines={1}>
+                {slot.text}
               </Text>
-            ))}
-          </View>
+            </View>
+          ))}
         </View>
       )}
+
+      {/* The gaps, in their own box: greyed, headed, and never mixed in with
+          things you actually own. §9.6 — each line is a real button reading
+          as an action, not a description. */}
+      {missing.length > 0 && (
+        <View style={styles.hint}>
+          <Text style={styles.hintTitle}>{owned.length > 0 ? "Also grab" : "Suggested"}</Text>
+          {missing.map((slot) => {
+            const row = (
+              <View style={styles.hintRow}>
+                <ClothingTypeIcon kind={slot.kind} size={16} color={theme.textSecondary} />
+                <Text style={styles.hintText}>{slot.text}</Text>
+              </View>
+            );
+            if (!onAddGear || !slot.target) return <View key={slot.key}>{row}</View>;
+            return (
+              <Pressable
+                key={slot.key}
+                onPress={() => onAddGear(slot.target!)}
+                accessibilityRole="button"
+                accessibilityLabel={`${slot.text} — double tap to add one`}
+                hitSlop={6}
+              >
+                {row}
+              </Pressable>
+            );
+          })}
+          {isGeneric && <Text style={styles.hintFooter}>{GENERIC_PICKS_NOTE}</Text>}
+        </View>
+      )}
+
+      <Notes notes={weatherNotes} styles={styles} />
+    </View>
+  );
+}
+
+// The §7 reasoning — warmup discount, AC contrast, UV/darkness — kept as its
+// own accented callout so it reads as context rather than more picks.
+function Notes({ notes, styles }: { notes: string[]; styles: ReturnType<typeof getStyles> }) {
+  if (notes.length === 0) return null;
+  return (
+    <View style={styles.notesCallout}>
+      <View style={styles.notesAccentBar} />
+      <View style={styles.notesTextCol}>
+        {notes.map((note, i) => (
+          <Text key={i} style={styles.note}>
+            {note}
+          </Text>
+        ))}
+      </View>
     </View>
   );
 }
@@ -274,29 +272,33 @@ export default function GearRecommendationCard({ recommendation, snapshot, onAdd
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     card: {
-      margin: SPACING.xl,
       padding: SPACING.lg,
-      borderRadius: 12,
+      borderRadius: RADIUS.card,
       backgroundColor: theme.surfaceRaised,
       gap: SPACING.md,
       ...cardElevationStyle(theme),
     },
-    cardTitle: { ...TYPE.subtitle, color: theme.textPrimary },
-    layerStack: { gap: 6 },
-    pickRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-    layerText: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    fallback: { fontSize: 14, fontStyle: "italic", color: theme.textSecondary },
-    accessoriesRow: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
-    accessoryText: { fontSize: 13, color: theme.textPrimary },
-    slotsRow: { flexDirection: "row", flexWrap: "wrap", gap: 18 },
-    slotText: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
-    // A visually distinct "footnote" callout — inset against the card's
-    // surfaceRaised fill with its own accent bar — so the AC-contrast/
-    // warmup-discount/UV reasoning here reads as secondary context, not
-    // more of the same-weight recommendation as the icon+text picks above.
-    notesCallout: { flexDirection: "row", gap: SPACING.sm, backgroundColor: theme.bg, borderRadius: 8, padding: SPACING.sm },
+    list: { gap: SPACING.sm },
+    row: { flexDirection: "row", alignItems: "center", gap: SPACING.md, minHeight: 40 },
+    // Keeps the snapshot rows' glyphs on the same left edge the photo
+    // thumbnails sit on, so the two variants of this card don't wander.
+    glyphSlot: { width: 40, alignItems: "center", justifyContent: "center" },
+    itemName: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary, flexShrink: 1 },
+    hint: {
+      gap: SPACING.xs,
+      padding: SPACING.md,
+      borderRadius: RADIUS.pill,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderStyle: "dashed",
+    },
+    hintTitle: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 },
+    hintRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 28 },
+    hintText: { ...TYPE.caption, color: theme.textSecondary, flexShrink: 1 },
+    hintFooter: { ...TYPE.micro, color: theme.textSecondary, lineHeight: 16, marginTop: SPACING.xs },
+    notesCallout: { flexDirection: "row", gap: SPACING.sm, backgroundColor: theme.bg, borderRadius: RADIUS.pill, padding: SPACING.sm },
     notesAccentBar: { width: 3, borderRadius: 2, backgroundColor: theme.accentWalk },
     notesTextCol: { flex: 1, gap: 4 },
-    note: { fontSize: 12, color: theme.textSecondary },
+    note: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18 },
   });
 }

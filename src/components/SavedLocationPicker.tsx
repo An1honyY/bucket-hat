@@ -6,6 +6,8 @@ import { newId } from "../db/rowMapping";
 import AddressAutocomplete from "./AddressAutocomplete";
 import ActionIcon from "./ActionIcon";
 import useTheme from "../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../theme/commonStyles";
+import { RADIUS, SPACING, TYPE } from "../theme/typography";
 import type { SavedLocation } from "../types";
 
 // Origin/destination/waypoint picker for the Plan screen —
@@ -74,7 +76,15 @@ export default function SavedLocationPicker({ label, value, onChange, placeholde
   return (
     <View>
       <Text style={styles.label}>{label}</Text>
-      <Pressable onPress={() => setOpen(true)} style={styles.field}>
+      {/* §9.6 — this is the primary control on the Plan screen and it had
+          no role and no label: a screen reader announced it as a plain
+          container with the placeholder text inside. */}
+      <Pressable
+        onPress={() => setOpen(true)}
+        style={styles.field}
+        accessibilityRole="button"
+        accessibilityLabel={value ? `${label}: ${value.label}. Change it` : `${label}. ${placeholder}`}
+      >
         <Text style={value ? styles.valueText : styles.placeholderText}>{value?.label ?? placeholder}</Text>
       </Pressable>
 
@@ -100,7 +110,12 @@ export default function SavedLocationPicker({ label, value, onChange, placeholde
                 keyExtractor={(item) => item.id}
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => (
-                  <Pressable onPress={() => selectSaved(item)} style={styles.option}>
+                  <Pressable
+                    onPress={() => selectSaved(item)}
+                    style={styles.option}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.label}, ${item.address}${item.isFavorite ? ", favorite" : ""}`}
+                  >
                     {item.isFavorite && <ActionIcon kind="star" size={14} color={theme.favoriteStar} filled />}
                     <Text style={styles.optionLabel}>{item.label}</Text>
                     <Text style={styles.optionAddress}>{item.address}</Text>
@@ -117,16 +132,26 @@ export default function SavedLocationPicker({ label, value, onChange, placeholde
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    label: { fontSize: 13, color: theme.textSecondary, marginTop: 12, marginBottom: 4 },
-    field: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, minHeight: 44, justifyContent: "center" },
-    valueText: { fontSize: 15, color: theme.textPrimary },
-    placeholderText: { fontSize: 15, color: theme.textSecondary },
-    backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-    sheet: { backgroundColor: theme.surfaceRaised, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, maxHeight: "70%" },
-    sheetTitle: { fontSize: 17, fontWeight: "600", marginBottom: 12, color: theme.textPrimary },
-    empty: { color: theme.textSecondary, paddingVertical: 20, textAlign: "center" },
-    option: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.border, flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
-    optionLabel: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    optionAddress: { fontSize: 12, color: theme.textSecondary },
+    label: { ...TYPE.caption, color: theme.textSecondary, marginTop: SPACING.md, marginBottom: SPACING.xs },
+    field: { borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44, justifyContent: "center" },
+    valueText: { ...TYPE.body, color: theme.textPrimary },
+    placeholderText: { ...TYPE.body, color: theme.textSecondary },
+    backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end", alignItems: "center" },
+    // Centred and capped, so on a wide viewport the sheet stays a sheet
+    // rather than a full-bleed strip across the bottom of the window.
+    sheet: {
+      width: "100%",
+      maxWidth: CONTENT_MAX_WIDTH,
+      backgroundColor: theme.surfaceRaised,
+      borderTopLeftRadius: RADIUS.card,
+      borderTopRightRadius: RADIUS.card,
+      padding: SPACING.xl,
+      maxHeight: "70%",
+    },
+    sheetTitle: { ...TYPE.subtitle, marginBottom: SPACING.md, color: theme.textPrimary },
+    empty: { ...TYPE.body, color: theme.textSecondary, paddingVertical: SPACING.xl, textAlign: "center", lineHeight: 21 },
+    option: { minHeight: 48, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: theme.border, flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap" },
+    optionLabel: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    optionAddress: { ...TYPE.caption, color: theme.textSecondary },
   });
 }

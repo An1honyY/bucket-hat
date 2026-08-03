@@ -2,10 +2,13 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { SavedLocation } from "../../types";
 import useTheme from "../../theme/useTheme";
+import useCommonStyles from "../../theme/commonStyles";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import AddressAutocomplete from "../../components/AddressAutocomplete";
 import LocationPickerMap from "../../components/LocationPickerMap";
 import ActionIcon from "../../components/ActionIcon";
 import FormSection from "../../components/FormSection";
+import FormActions from "../../components/FormActions";
 import { reverseGeocode } from "../../services/placesService";
 
 // Add/edit form for a SavedLocation — docs/04-screens-navigation.md item 3.
@@ -49,6 +52,7 @@ interface Props {
 export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
+  const common = useCommonStyles();
   const [label, setLabel] = useState(initial?.label ?? "");
   const [address, setAddress] = useState(initial?.address ?? "");
   const [lat, setLat] = useState(initial ? String(initial.lat) : "");
@@ -97,15 +101,15 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={common.scrollContent}>
       <FormSection title="Location">
         <View>
-          <Text style={styles.label}>Label</Text>
-          <TextInput style={styles.input} placeholderTextColor={theme.textSecondary} value={label} onChangeText={setLabel} placeholder="Home" />
+          <Text style={common.fieldLabel}>Label</Text>
+          <TextInput style={common.input} placeholderTextColor={theme.textSecondary} value={label} onChangeText={setLabel} placeholder="Home" />
         </View>
 
         <View>
-          <Text style={styles.label}>Address</Text>
+          <Text style={common.fieldLabel}>Address</Text>
           <AddressAutocomplete
             value={address}
             onChangeText={setAddress}
@@ -148,7 +152,7 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
 
         <View>
           <Pressable onPress={() => setAdvancedExpanded((v) => !v)}>
-            <Text style={styles.label}>{advancedExpanded ? "▾" : "▸"} Advanced — set exact coordinates</Text>
+            <Text style={styles.disclosure}>{advancedExpanded ? "▾" : "▸"} Advanced — set exact coordinates</Text>
           </Pressable>
           {advancedExpanded && (
             <>
@@ -158,12 +162,12 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
               </Text>
               <View style={styles.row}>
                 <View style={styles.half}>
-                  <Text style={styles.label}>Latitude</Text>
-                  <TextInput style={styles.input} placeholderTextColor={theme.textSecondary} value={lat} onChangeText={setLat} keyboardType="numbers-and-punctuation" placeholder="-36.8485" />
+                  <Text style={common.fieldLabel}>Latitude</Text>
+                  <TextInput style={common.input} placeholderTextColor={theme.textSecondary} value={lat} onChangeText={setLat} keyboardType="numbers-and-punctuation" placeholder="-36.8485" />
                 </View>
                 <View style={styles.half}>
-                  <Text style={styles.label}>Longitude</Text>
-                  <TextInput style={styles.input} placeholderTextColor={theme.textSecondary} value={lng} onChangeText={setLng} keyboardType="numbers-and-punctuation" placeholder="174.7633" />
+                  <Text style={common.fieldLabel}>Longitude</Text>
+                  <TextInput style={common.input} placeholderTextColor={theme.textSecondary} value={lng} onChangeText={setLng} keyboardType="numbers-and-punctuation" placeholder="174.7633" />
                 </View>
               </View>
             </>
@@ -174,11 +178,11 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
       <FormSection title="Preferences">
         <Pressable onPress={() => setIsFavorite((v) => !v)} style={styles.favoriteRow}>
           <ActionIcon kind="star" size={20} color={theme.favoriteStar} filled={isFavorite} />
-          <Text style={styles.label}>Favorite</Text>
+          <Text style={common.fieldLabel}>Favorite</Text>
         </Pressable>
 
         <View>
-          <Text style={styles.label}>Reliable AC/heating here?</Text>
+          <Text style={common.fieldLabel}>Reliable AC/heating here?</Text>
           <View style={styles.segmentRow}>
             {(["yes", "no", "default"] as ClimateOverride[]).map((option) => (
               <Pressable
@@ -195,71 +199,50 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
         </View>
       </FormSection>
 
-      <View style={styles.actions}>
-        <Pressable onPress={onCancel} style={styles.cancelButton}>
-          <Text>Cancel</Text>
-        </Pressable>
-        <Pressable
-          disabled={!canSubmit}
-          onPress={() =>
-            onSubmit({
-              label: label.trim(),
-              address: address.trim(),
-              lat: latNum,
-              lng: lngNum,
-              isFavorite,
-              hasReliableClimateControl: fromClimateOverride(climate),
-            })
-          }
-          style={[styles.saveButton, !canSubmit && styles.saveButtonDisabled]}
-        >
-          <Text style={styles.saveLabel}>Save</Text>
-        </Pressable>
-      </View>
-
-      {onDelete && (
-        <Pressable onPress={onDelete} style={styles.deleteButton}>
-          <Text style={styles.deleteLabel}>Delete location</Text>
-        </Pressable>
-      )}
+      <FormActions
+        onCancel={onCancel}
+        canSubmit={canSubmit}
+        onSubmit={() =>
+          onSubmit({
+            label: label.trim(),
+            address: address.trim(),
+            lat: latNum,
+            lng: lngNum,
+            isFavorite,
+            hasReliableClimateControl: fromClimateOverride(climate),
+          })
+        }
+        destructive={onDelete ? { label: "Delete location", onPress: onDelete } : undefined}
+      />
     </ScrollView>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: 20 },
-    label: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
-    input: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
-    row: { flexDirection: "row", gap: 12 },
+    row: { flexDirection: "row", gap: SPACING.md },
     half: { flex: 1 },
+    disclosure: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary, minHeight: 44, textAlignVertical: "center" },
     mapPickerButton: {
       alignSelf: "flex-start",
       minHeight: 44,
       justifyContent: "center",
-      paddingHorizontal: 14,
-      borderRadius: 8,
+      paddingHorizontal: SPACING.md,
+      borderRadius: RADIUS.pill,
       borderWidth: 1,
       borderColor: theme.border,
     },
-    mapPickerContent: { flexDirection: "row", alignItems: "center", gap: 6 },
-    mapPickerLabel: { fontSize: 13, fontWeight: "600", color: theme.accentWalk },
-    hint: { fontSize: 12, color: theme.textSecondary, marginTop: 4, marginBottom: 4 },
-    favoriteRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44 },
-    segmentRow: { flexDirection: "row", gap: 8 },
-    segment: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.border, alignItems: "center" },
-    segmentActive: { backgroundColor: theme.accentWalk, borderColor: theme.textPrimary },
-    segmentLabel: { fontSize: 13, color: theme.textPrimary },
+    mapPickerContent: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+    mapPickerLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
+    hint: { ...TYPE.caption, color: theme.textSecondary, marginTop: SPACING.xs, marginBottom: SPACING.xs, lineHeight: 18 },
+    favoriteRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 44 },
+    segmentRow: { flexDirection: "row", gap: SPACING.sm },
+    segment: { flex: 1, minHeight: 44, justifyContent: "center", borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center" },
+    segmentActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    segmentLabel: { ...TYPE.caption, color: theme.textPrimary },
     // Matches SettingsScreen.tsx's equivalent segmented control — both used
     // to disagree (theme.bg vs white for the active label); white reads
     // correctly against accentWalk in both themes, so unified on that.
     segmentLabelActive: { color: "#FFFFFF", fontWeight: "600" },
-    actions: { flexDirection: "row", gap: 12, marginTop: 24 },
-    cancelButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-    saveButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 8, backgroundColor: theme.accentWalk },
-    saveButtonDisabled: { opacity: 0.4 },
-    saveLabel: { color: theme.bg, fontWeight: "600" },
-    deleteButton: { marginTop: 16, alignItems: "center", paddingVertical: 10 },
-    deleteLabel: { color: theme.danger },
   });
 }

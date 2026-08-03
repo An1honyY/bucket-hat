@@ -98,6 +98,16 @@ export interface SavedRoute {
   preferredMode?: TravelMode;
   createdAt: string; // ISO
   lastUsedAt?: string; // ISO
+  // Section 4.3 — a saved journey is still a *shape* of trip, never a
+  // scheduled one: no date, no time, no weather, so it stays valid
+  // indefinitely. These three only carry more of that shape.
+  isFavorite?: boolean; // pinned above the recency-sorted list, mirroring SavedLocation
+  waypointIds?: string[]; // ordered SavedLocation.ids, Section 4.3.1's stops
+  // A *preferred* repeat pattern, pre-filled into Plan when this journey is
+  // reused. It never fires on its own: materializeToday (Section 3) only
+  // ever reads a real Journey's own recurrence, so nothing is scheduled and
+  // no notification exists until the user actually plans it.
+  recurrence?: RecurrenceRule;
 }
 
 // Section 3.4 — pinned local knowledge about a point along a route, distinct

@@ -4,7 +4,8 @@ import type { DailyReading, HourlyReading } from "../../services/weatherService"
 import type { WeatherSnapshot } from "../../types";
 import { cardElevationStyle, type ThemeTokens } from "../../theme/tokens";
 import useWeatherTheme from "../../theme/useWeatherTheme";
-import { RADIUS, SPACING } from "../../theme/typography";
+import { RADIUS, SPACING , TYPE } from "../../theme/typography";
+
 import HourlyForecastRow from "../../components/HourlyForecastRow";
 import LocalForecastPanel from "./LocalForecastPanel";
 
@@ -17,10 +18,11 @@ import LocalForecastPanel from "./LocalForecastPanel";
 // still answers "what is it like *now*", and this card answers "what happens
 // next" without changing what Right now shows.
 //
-// Only the first few hours are on the card. The rest is a tap away rather than
-// a longer horizontal scroll, since Today is a dashboard — the point is a
-// glance, not a study.
-const HOURS_ON_CARD = 8;
+// A full day ahead on the card, scrolled horizontally; the 48-hour and 7-day
+// views stay behind the button. Eight hours (the original figure) stopped
+// short of the evening for anyone checking after lunch, which is exactly when
+// "what am I coming home in" is the question being asked.
+const HOURS_ON_CARD = 24;
 
 interface Props {
   suburb: string | null;
@@ -53,7 +55,7 @@ export default function LocalForecastCard({ suburb, hourly, daily, weather }: Pr
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Hourly forecast</Text>
+          <Text style={styles.title}>Next 24 hours</Text>
           {suburb && <Text style={styles.suburbLabel}>{suburb}</Text>}
         </View>
         <Pressable
@@ -87,17 +89,16 @@ function getStyles(theme: ThemeTokens) {
     },
     headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
     headerText: { flexShrink: 1 },
-    title: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    suburbLabel: { fontSize: 12, color: theme.textSecondary },
+    title: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    suburbLabel: { ...TYPE.caption, color: theme.textSecondary },
     moreButton: {
-      minHeight: 32,
+      minHeight: 44,
       justifyContent: "center",
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      paddingHorizontal: SPACING.md,
       borderRadius: RADIUS.pill,
       borderWidth: 1,
       borderColor: theme.border,
     },
-    moreLabel: { fontSize: 11, fontWeight: "600", color: theme.accentWalk },
+    moreLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
   });
 }

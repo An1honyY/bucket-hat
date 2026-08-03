@@ -15,6 +15,8 @@ import SetupChecklist from "./SetupChecklist";
 import ScreenPattern from "../../components/ScreenPattern";
 import useTheme from "../../theme/useTheme";
 import useWeatherTheme from "../../theme/useWeatherTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { SPACING, TYPE } from "../../theme/typography";
 
 // Home/dashboard tab — docs/04-screens-navigation.md item 1, wired to real
 // recurring-journey materialization and the reduced "Right now" path
@@ -92,21 +94,32 @@ export default function TodayScreen() {
 
         <SetupChecklist />
 
-        {journeys === null ? null : journeys.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.empty}>No journeys yet — plan your first one</Text>
+        {/* Everything above is about the weather where you are; everything
+            below is about trips you've planned. Without a heading the first
+            journey card just carried on from the forecast stack as one
+            undifferentiated run of cards. */}
+        {journeys !== null && (
+          <View style={styles.journeysSection}>
+            <Text style={styles.sectionLabel} accessibilityRole="header">
+              Planned journeys
+            </Text>
+            {journeys.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.empty}>No journeys yet — plan your first one</Text>
+              </View>
+            ) : (
+              journeys.map((journey) => (
+                <JourneyCard
+                  key={journey.id}
+                  journey={journey}
+                  isNextUp={journey.id === nextUpId}
+                  theme={weatherTheme}
+                  onPress={() => openJourney(journey.id)}
+                  onLeavingNow={() => startJourney(journey.id)}
+                />
+              ))
+            )}
           </View>
-        ) : (
-          journeys.map((journey) => (
-            <JourneyCard
-              key={journey.id}
-              journey={journey}
-              isNextUp={journey.id === nextUpId}
-              theme={weatherTheme}
-              onPress={() => openJourney(journey.id)}
-              onLeavingNow={() => startJourney(journey.id)}
-            />
-          ))
         )}
       </ScrollView>
     </SafeAreaView>
@@ -116,8 +129,10 @@ export default function TodayScreen() {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    content: { padding: 20 },
-    emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 48 },
-    empty: { color: theme.textSecondary },
+    content: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    journeysSection: { marginTop: SPACING.sm },
+    sectionLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary, marginBottom: SPACING.sm },
+    emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: SPACING.xxl * 2 },
+    empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },
   });
 }

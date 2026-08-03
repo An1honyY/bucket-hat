@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/types";
 import { deleteJourney, getJourney, updateJourney } from "../../db/repositories/journeys";
+import { createSavedRoute } from "../../db/repositories/savedRoutes";
 import { createAnnotation, listAnnotations } from "../../db/repositories/annotations";
 import { getAnnotationAlertMode, type AnnotationAlertMode } from "../../db/repositories/settings";
 import { applyAnnotationsToLegs, decodePolyline } from "../../lib/annotations";
@@ -38,13 +39,16 @@ import type { ModeIconKind } from "../../components/modeIconPaths";
 import AnnotationForm, { type AnnotationFormValues } from "../local-knowledge/AnnotationForm";
 import { EFFECT_META, EFFECT_MARKER_EMOJI } from "../local-knowledge/effectMeta";
 import GearRecommendationCard from "./GearRecommendationCard";
+import JourneySummary from "./JourneySummary";
 import LegRow, { type LegState } from "./LegRow";
 import StepList from "./StepList";
 import ActionIcon from "../../components/ActionIcon";
+import AppButton from "../../components/AppButton";
 import EffectIcon from "../../components/EffectIcon";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle, conditionColorForSeverity } from "../../theme/tokens";
-import { RADIUS } from "../../theme/typography";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { EnvironmentAnnotation, GearFeedback, Journey, JourneyLeg } from "../../types";
 
 // Core screen — docs/09-design-system.md §9.3, reading a real persisted
@@ -129,6 +133,9 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
   // the user can see them alongside the route (not only the one being added).
   const [annotations, setAnnotations] = useState<EnvironmentAnnotation[]>([]);
   const [calibrationToast, setCalibrationToast] = useState<string | null>(null);
+  // §4.3 — set once this journey has been filed away as a reusable saved
+  // journey, so the button can say so without needing a re-read of the row.
+  const [savedAsJourney, setSavedAsJourney] = useState(false);
   // §7.3 — the pause/resume control (below) always operates on the
   // *template* Journey (the one row with `recurrence` actually set), not
   // whichever occurrence happens to be open — materializeToday.ts never
@@ -355,6 +362,10 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
       : annotations.filter((a) => journey.legs.some((leg) => leg.matchedAnnotationIds?.includes(a.id)));
   const showBriefing = !following && !route.params.readOnly && routeAnnotations.length > 0;
 
+  // Either it was saved on a previous visit (the Journey carries the id) or
+  // it was saved a moment ago in this one.
+  const alreadySaved = !!journey.savedRouteId || savedAsJourney;
+
   const totalDurationMin = journey.legs.reduce((sum, leg) => sum + leg.durationMin, 0);
   const journeyEndMs = new Date(journey.departTime).getTime() + totalDurationMin * 60_000;
   // §4.2 — the prompt appears once the journey is over. "Over" was scheduled
@@ -431,6 +442,29 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
     ]);
   }
 
+  // §4.3 — the shape of the trip, never its date: a saved journey stores
+  // origin, stops, destination and mode, and gets pointed at a new time on
+  // the Plan screen whenever it's reused.
+  async function saveAsJourney() {
+    // Claimed before the await, not after: the write is a round-trip to
+    // SQLite, and two taps inside that window would otherwise file the same
+    // trip away twice.
+    if (alreadySaved) return;
+    setSavedAsJourney(true);
+    const saved = await createSavedRoute({
+      label: `${journey!.origin.label} → ${journey!.destination.label}`,
+      originId: journey!.origin.id,
+      destinationId: journey!.destination.id,
+      preferredMode: dominantMode(journey!.legs),
+      waypointIds: journey!.waypoints?.map((w) => w.id),
+    });
+    // Stamped on the Journey too, so re-opening it shows this as already
+    // saved rather than offering to save a second copy.
+    const updated = { ...journey!, savedRouteId: saved.id };
+    await updateJourney(updated);
+    setJourney(updated);
+  }
+
   async function doDelete() {
     await cancelLeaveByNotification(journey!.id);
     await deleteJourney(journey!.id);
@@ -459,12 +493,16 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={[styles.mapContainer, following && styles.mapContainerJourney]}>
           <JourneyMap
             stops={stops}
             routePath={routePath}
             accentColor={accentColor}
+            // The origin marker carries the mode you're travelling by (the
+            // same glyph the live puck uses), so "where I set off" and "what
+            // I'm on" are one marker rather than a generic place-pin.
+            originMode={dominantMode(journey.legs)}
             onLongPress={openAnnotationSheet}
             previewCircle={previewCircle}
             conditionMarkers={conditionMarkers}
@@ -580,24 +618,6 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {/* Journeys reached any other way (History aside) still need a way
-            in. Offered near the departure window only — following a journey
-            you're not on yet is just a battery drain. */}
-        {!route.params.readOnly && !following && canStartJourney && (
-          <Pressable
-            onPress={() => {
-              setCameraLocked(true);
-              setJourneyMode(true);
-            }}
-            style={styles.startJourneyButton}
-            accessibilityRole="button"
-            accessibilityLabel="Follow this journey on the map"
-          >
-            <ActionIcon kind="crosshair" size={16} color="#FFFFFF" />
-            <Text style={styles.startJourneyLabel}>Follow this journey</Text>
-          </Pressable>
-        )}
-
         {route.params.cachedFromDate && (
           <View style={styles.cachedBanner}>
             <Text style={styles.cachedBannerText}>
@@ -619,125 +639,192 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {!route.params.readOnly && recurrenceTemplate?.recurrence && (
-          <View style={styles.recurrenceRow}>
-            <Text style={styles.recurrenceLabel}>
-              Repeats {recurrenceTemplate.recurrence.daysOfWeek.map((d) => DAY_LABELS[d]).join(", ")}
-              {!recurrenceTemplate.recurrence.active && " — paused"}
-            </Text>
-            <Pressable
-              onPress={toggleRecurrenceActive}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={recurrenceTemplate.recurrence.active ? "Pause this recurring journey" : "Resume this recurring journey"}
-            >
-              <Text style={styles.recurrenceToggleLabel}>{recurrenceTemplate.recurrence.active ? "Pause" : "Resume"}</Text>
-            </Pressable>
-          </View>
-        )}
+        {/* Everything below the map is one width-capped column with a single
+            rhythm, rather than the previous mix of full-bleed strips, cards
+            carrying their own margins, and bare rows. The banners above stay
+            edge-to-edge on purpose (§9.3 items 2-3 — they're strips attached
+            to the map), and the map itself is deliberately outside the cap. */}
+        <View style={styles.body}>
+          {/* What am I looking at: where, when, how long. Hidden while
+              following, where the live journey bar above is already the
+              answer and a static planned time would contradict it. */}
+          {!following && <JourneySummary journey={journey} totalDurationMin={totalDurationMin} />}
 
-        {journey.recommendationSnapshot ? (
-          <GearRecommendationCard snapshot={journey.recommendationSnapshot} />
-        ) : (
-          recommendation && (
-            <GearRecommendationCard
-              recommendation={recommendation}
-              onAddGear={(target) => navigation.navigate("Main", { screen: "Gear", params: { openAdd: target } })}
+          {/* Journeys reached any way other than Today's "Leaving now" still
+              need a way in. Offered near the departure window only —
+              following a journey you're not on yet is just a battery drain.
+              Now the first action under the summary, where a primary CTA
+              belongs, instead of buried between two banners. */}
+          {!route.params.readOnly && !following && canStartJourney && (
+            <AppButton
+              label="Follow this journey"
+              accessibilityLabel="Follow this journey on the map"
+              onPress={() => {
+                setCameraLocked(true);
+                setJourneyMode(true);
+              }}
+              icon={<ActionIcon kind="crosshair" size={16} color="#FFFFFF" />}
             />
-          )
-        )}
-
-        <View style={styles.legList}>
-          {/* Phase 22 — finished legs fold away so the leg you're on is the
-              one you see. §9.6 requires the list to stay a complete summary
-              of the journey with nothing hidden behind an unlabelled
-              gesture, so this is a real focusable button stating exactly
-              what it holds, and it's absent entirely outside journey mode. */}
-          {completedCount > 0 && (
-            <Pressable
-              onPress={() => setShowCompletedLegs((shown) => !shown)}
-              style={styles.completedToggle}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showCompletedLegs }}
-              accessibilityLabel={
-                showCompletedLegs
-                  ? `Hide ${completedCount} completed ${completedCount === 1 ? "step" : "steps"}`
-                  : `Show ${completedCount} completed ${completedCount === 1 ? "step" : "steps"}`
-              }
-            >
-              <Text style={styles.completedToggleLabel}>
-                {showCompletedLegs ? "Hide" : "Show"} {completedCount} completed{" "}
-                {completedCount === 1 ? "step" : "steps"}
-              </Text>
-            </Pressable>
           )}
-          {journey.legs.map((leg, i) => {
-            const state = legStateFor(i);
-            if (state === "completed" && !showCompletedLegs) return null;
-            return (
-              <LegRow
-                key={leg.id}
-                leg={leg}
-                state={state}
-                progressFraction={progress?.currentLegFraction}
-                remainingMin={
-                  state === "current" && progress ? leg.durationMin * (1 - progress.currentLegFraction) : undefined
-                }
-              />
-            );
-          })}
-        </View>
 
-        {/* §4.4/§9.4.2 — the return-trip toggle doesn't apply to something
-            already past, so History's read-only view hides it. */}
-        {!route.params.readOnly && journey.linkedReturnJourneyId && (
-          <Pressable
-            onPress={() => navigation.push("JourneyDetail", { journeyId: journey.linkedReturnJourneyId! })}
-            style={styles.returnLink}
-            accessibilityRole="button"
-            accessibilityLabel="View return trip"
-          >
-            <ActionIcon kind="swap" size={15} color={theme.textPrimary} />
-            <Text style={styles.returnLinkLabel}>Return trip</Text>
-          </Pressable>
-        )}
-
-        <Pressable
-          onPress={confirmDelete}
-          style={styles.deleteButton}
-          accessibilityRole="button"
-          accessibilityLabel="Delete this journey"
-        >
-          <Text style={styles.deleteButtonLabel}>Delete journey</Text>
-        </Pressable>
-
-        {calibrationToast && (
-          <View style={styles.calibrationToast}>
-            <Text style={styles.calibrationToastText}>{calibrationToast}</Text>
-          </View>
-        )}
-
-        {showFeedbackStrip && (
-          <View style={styles.feedbackContainer}>
-            <Text style={styles.feedbackPrompt}>How was the gear call for your commute today?</Text>
-            <View style={styles.feedbackRow}>
-              {FEEDBACK_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  onPress={() => giveFeedback(option.value)}
-                  style={[styles.feedbackButton, option.value === "just_right" && styles.feedbackButtonPositive]}
-                  // §9.6 — 44×44pt minimum; invisible hitSlop padding keeps
-                  // the visible micro-text row at its speced size (§9.3 item 6).
-                  hitSlop={{ top: 10, bottom: 10 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Gear was ${option.label.toLowerCase()}`}
-                >
-                  <Text style={styles.feedbackLabel}>{option.label}</Text>
-                </Pressable>
-              ))}
+          {!route.params.readOnly && recurrenceTemplate?.recurrence && (
+            <View style={styles.recurrenceRow}>
+              <ActionIcon kind="repeat" size={14} color={theme.textSecondary} />
+              <Text style={styles.recurrenceLabel}>
+                Repeats {recurrenceTemplate.recurrence.daysOfWeek.map((d) => DAY_LABELS[d]).join(", ")}
+                {!recurrenceTemplate.recurrence.active && " — paused"}
+              </Text>
+              <Pressable
+                onPress={toggleRecurrenceActive}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={recurrenceTemplate.recurrence.active ? "Pause this recurring journey" : "Resume this recurring journey"}
+              >
+                <Text style={styles.recurrenceToggleLabel}>{recurrenceTemplate.recurrence.active ? "Pause" : "Resume"}</Text>
+              </Pressable>
             </View>
+          )}
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>What to wear</Text>
+            {journey.recommendationSnapshot ? (
+              <GearRecommendationCard snapshot={journey.recommendationSnapshot} />
+            ) : (
+              recommendation && (
+                <GearRecommendationCard
+                  recommendation={recommendation}
+                  onAddGear={(target) => navigation.navigate("Main", { screen: "Gear", params: { openAdd: target } })}
+                />
+              )
+            )}
           </View>
-        )}
+
+          {calibrationToast && (
+            <View style={styles.calibrationToast}>
+              <Text style={styles.calibrationToastText}>{calibrationToast}</Text>
+            </View>
+          )}
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Step by step</Text>
+            {/* Phase 22 — finished legs fold away so the leg you're on is the
+                one you see. §9.6 requires the list to stay a complete summary
+                of the journey with nothing hidden behind an unlabelled
+                gesture, so this is a real focusable button stating exactly
+                what it holds, and it's absent entirely outside journey mode. */}
+            {completedCount > 0 && (
+              <Pressable
+                onPress={() => setShowCompletedLegs((shown) => !shown)}
+                style={styles.completedToggle}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showCompletedLegs }}
+                accessibilityLabel={
+                  showCompletedLegs
+                    ? `Hide ${completedCount} completed ${completedCount === 1 ? "step" : "steps"}`
+                    : `Show ${completedCount} completed ${completedCount === 1 ? "step" : "steps"}`
+                }
+              >
+                <Text style={styles.completedToggleLabel}>
+                  {showCompletedLegs ? "Hide" : "Show"} {completedCount} completed{" "}
+                  {completedCount === 1 ? "step" : "steps"}
+                </Text>
+              </Pressable>
+            )}
+            {journey.legs.map((leg, i) => {
+              const state = legStateFor(i);
+              if (state === "completed" && !showCompletedLegs) return null;
+              return (
+                <View key={leg.id}>
+                  <LegRow
+                    leg={leg}
+                    state={state}
+                    progressFraction={progress?.currentLegFraction}
+                    remainingMin={
+                      state === "current" && progress ? leg.durationMin * (1 - progress.currentLegFraction) : undefined
+                    }
+                  />
+                  {/* The turns within this leg, on a journey you're reading
+                      rather than walking. While following, the current leg's
+                      steps are already pinned under the map (with the next
+                      one highlighted), so repeating every turn here would be
+                      a second copy of the same instructions. */}
+                  {!following && leg.steps && leg.steps.length > 0 && <StepList steps={leg.steps} nested />}
+                </View>
+              );
+            })}
+          </View>
+
+          {/* The prompt now sits above the footer actions rather than below
+              "Delete journey," which put the one thing the app is asking the
+              user for underneath the one action that throws it away. */}
+          {showFeedbackStrip && (
+            <View style={styles.feedbackContainer}>
+              <Text style={styles.feedbackPrompt}>How was the gear call for your commute today?</Text>
+              <View style={styles.feedbackRow}>
+                {FEEDBACK_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => giveFeedback(option.value)}
+                    style={[styles.feedbackButton, option.value === "just_right" && styles.feedbackButtonPositive]}
+                    // §9.6 — 44×44pt minimum; invisible hitSlop padding keeps
+                    // the visible micro-text row at its speced size (§9.3 item 6).
+                    hitSlop={{ top: 10, bottom: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Gear was ${option.label.toLowerCase()}`}
+                  >
+                    <Text style={styles.feedbackLabel}>{option.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.footerActions}>
+            {/* §4.3 — "or after the fact from a Journey Detail screen's
+                overflow menu ('Save as a route')", which never got built
+                until now. This is the path for a trip you've already taken
+                and want again: it files the route, stops and mode away as a
+                reusable saved journey, and deliberately keeps no date. */}
+            {/* Stays put once saved, reading "Saved", rather than
+                disappearing — a control that vanishes on tap leaves the user
+                with no confirmation that anything happened. */}
+            <AppButton
+              label={alreadySaved ? "Saved to your journeys" : "Save this journey"}
+              variant="secondary"
+              disabled={alreadySaved}
+              accessibilityLabel={
+                alreadySaved ? "Already saved to your journeys" : "Save this journey to reuse later"
+              }
+              onPress={saveAsJourney}
+              icon={
+                <ActionIcon
+                  kind="bookmark"
+                  size={15}
+                  color={alreadySaved ? theme.accentWalk : theme.textPrimary}
+                  filled={alreadySaved}
+                />
+              }
+            />
+            {/* §4.4/§9.4.2 — the return-trip link doesn't apply to something
+                already past, so History's read-only view hides it. */}
+            {!route.params.readOnly && journey.linkedReturnJourneyId && (
+              <AppButton
+                label="Return trip"
+                variant="secondary"
+                accessibilityLabel="View return trip"
+                onPress={() => navigation.push("JourneyDetail", { journeyId: journey.linkedReturnJourneyId! })}
+                icon={<ActionIcon kind="swap" size={15} color={theme.textPrimary} />}
+              />
+            )}
+            <AppButton
+              label="Delete journey"
+              variant="danger"
+              size="sm"
+              accessibilityLabel="Delete this journey"
+              onPress={confirmDelete}
+            />
+          </View>
+        </View>
       </ScrollView>
 
       <Modal
@@ -768,6 +855,17 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
+    // §9.2 — one readable column, centred, rather than a screen that keeps
+    // stretching: at web/tablet widths the map became a letterbox strip and
+    // every banner a full-width rule. Capping the scroll content (map
+    // included) keeps the whole screen one object.
+    scrollContent: { width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    // The single column everything below the map lives in — one horizontal
+    // margin and one vertical rhythm for the lot.
+    body: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.xxl * 2, gap: SPACING.lg },
+    section: { gap: SPACING.sm },
+    sectionLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
+    footerActions: { gap: SPACING.sm, marginTop: SPACING.sm },
     content: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
     empty: { color: theme.textSecondary },
     mapContainer: { height: 280, backgroundColor: theme.surface },
@@ -792,7 +890,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderColor: theme.border,
       ...cardElevationStyle(theme),
     },
-    recenterChipLabel: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
+    recenterChipLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
     journeyBar: {
       flexDirection: "row",
       alignItems: "center",
@@ -803,8 +901,8 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       backgroundColor: theme.surfaceRaised,
     },
     journeyBarText: { flex: 1, gap: 2 },
-    journeyBarEta: { fontSize: 15, fontWeight: "700", color: theme.textPrimary },
-    journeyBarStatus: { fontSize: 13, color: theme.textSecondary },
+    journeyBarEta: { ...TYPE.body, fontWeight: "700", color: theme.textPrimary },
+    journeyBarStatus: { ...TYPE.caption, color: theme.textSecondary },
     offRouteBanner: {
       flexDirection: "row",
       alignItems: "center",
@@ -813,21 +911,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       paddingVertical: 10,
       backgroundColor: theme.uvBadge,
     },
-    offRouteText: { flex: 1, fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
-    offRouteAction: { fontSize: 13, fontWeight: "700", color: "#FFFFFF", textDecorationLine: "underline" },
-    journeyBarAction: { fontSize: 13, fontWeight: "600", color: theme.accentWalk },
-    startJourneyButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      marginHorizontal: 20,
-      marginTop: 12,
-      paddingVertical: 12,
-      borderRadius: RADIUS.card,
-      backgroundColor: theme.accentWalk,
-    },
-    startJourneyLabel: { fontSize: 15, fontWeight: "600", color: "#FFFFFF" },
+    offRouteText: { flex: 1, ...TYPE.caption, fontWeight: "600", color: "#FFFFFF" },
+    offRouteAction: { ...TYPE.caption, fontWeight: "700", color: "#FFFFFF", textDecorationLine: "underline" },
+    journeyBarAction: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
     alertChip: {
       flexDirection: "row",
       alignItems: "center",
@@ -841,8 +927,8 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderLeftWidth: 3,
       borderLeftColor: theme.accentWalk,
     },
-    alertChipText: { flex: 1, fontSize: 14, fontWeight: "600", color: theme.textPrimary },
-    alertChipAction: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
+    alertChipText: { flex: 1, ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    alertChipAction: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
     briefingCard: {
       marginHorizontal: 20,
       marginTop: 12,
@@ -851,40 +937,38 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       backgroundColor: theme.surface,
       gap: 6,
     },
-    briefingTitle: { fontSize: 13, fontWeight: "700", color: theme.textPrimary },
+    briefingTitle: { ...TYPE.caption, fontWeight: "700", color: theme.textPrimary },
     briefingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    briefingText: { flex: 1, fontSize: 13, color: theme.textSecondary },
+    briefingText: { flex: 1, ...TYPE.caption, color: theme.textSecondary },
     cachedBanner: { paddingHorizontal: 20, paddingVertical: 8, backgroundColor: theme.conditionLight },
-    cachedBannerText: { fontSize: 12, color: theme.textPrimary },
+    cachedBannerText: { ...TYPE.caption, color: theme.textPrimary },
     severeBanner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.conditionStorm },
-    severeBannerText: { flex: 1, fontSize: 13, color: "#FFFFFF", fontWeight: "600" },
+    severeBannerText: { flex: 1, ...TYPE.caption, color: "#FFFFFF", fontWeight: "600" },
     confidenceBanner: { paddingHorizontal: 20, paddingVertical: 8, backgroundColor: theme.surface },
-    confidenceBannerText: { fontSize: 12, color: theme.confidenceLow },
+    confidenceBannerText: { ...TYPE.caption, color: theme.confidenceLow },
+    // Inside the body column now, so it reads as a property of this journey
+    // rather than another full-bleed strip competing with the banners.
     recurrenceRow: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 20,
-      paddingVertical: 8,
+      gap: SPACING.sm,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      borderRadius: RADIUS.pill,
       backgroundColor: theme.surface,
     },
-    recurrenceLabel: { fontSize: 12, color: theme.textSecondary, flex: 1 },
-    recurrenceToggleLabel: { fontSize: 13, fontWeight: "600", color: theme.accentWalk, minHeight: 30, textAlignVertical: "center" },
-    completedToggle: { paddingVertical: 10, alignItems: "center" },
-    completedToggleLabel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
-    legList: { paddingHorizontal: 20, paddingTop: 12 },
-    returnLink: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, margin: 20, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-    returnLinkLabel: { fontWeight: "600", color: theme.textPrimary },
-    deleteButton: { marginHorizontal: 20, marginTop: 16, alignItems: "center", paddingVertical: 12 },
-    deleteButtonLabel: { color: theme.danger, fontWeight: "600", fontSize: 13 },
-    feedbackContainer: { margin: 20, gap: 8 },
-    feedbackPrompt: { fontSize: 13, color: theme.textSecondary },
-    feedbackRow: { flexDirection: "row", gap: 4 },
-    feedbackButton: { flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 8, backgroundColor: theme.surface },
+    recurrenceLabel: { ...TYPE.caption, color: theme.textSecondary, flex: 1 },
+    recurrenceToggleLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk, minHeight: 30, textAlignVertical: "center" },
+    completedToggle: { minHeight: 44, justifyContent: "center", alignItems: "center" },
+    completedToggleLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
+    feedbackContainer: { gap: SPACING.sm },
+    feedbackPrompt: { ...TYPE.caption, color: theme.textSecondary },
+    feedbackRow: { flexDirection: "row", gap: SPACING.xs },
+    feedbackButton: { flex: 1, minHeight: 44, justifyContent: "center", paddingVertical: SPACING.sm, alignItems: "center", borderRadius: RADIUS.pill, backgroundColor: theme.surface },
     feedbackButtonPositive: { backgroundColor: theme.feedbackPositive },
-    feedbackLabel: { fontSize: 10, textAlign: "center", color: theme.textPrimary },
-    calibrationToast: { marginHorizontal: 20, marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: theme.surfaceRaised },
-    calibrationToastText: { color: theme.textPrimary, fontSize: 12 },
+    feedbackLabel: { ...TYPE.micro, textAlign: "center", color: theme.textPrimary },
+    calibrationToast: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.pill, backgroundColor: theme.surfaceRaised },
+    calibrationToastText: { ...TYPE.caption, color: theme.textPrimary },
     sheetBackdrop: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.35)" },
     sheetDismissArea: { flex: 1 },
     sheet: {
@@ -896,6 +980,6 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderWidth: theme.surfaceRaisedBorder === "transparent" ? 0 : 1,
       borderColor: theme.surfaceRaisedBorder,
     },
-    sheetTitle: { fontSize: 17, fontWeight: "600", textAlign: "center", color: theme.textPrimary },
+    sheetTitle: { ...TYPE.subtitle, textAlign: "center", color: theme.textPrimary },
   });
 }

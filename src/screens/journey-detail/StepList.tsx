@@ -2,7 +2,8 @@ import { StyleSheet, Text, View } from "react-native";
 import ManeuverIcon, { maneuverKindFor } from "../../components/ManeuverIcon";
 import { activeStepIndex } from "../../lib/journeyProgress";
 import useTheme from "../../theme/useTheme";
-import { RADIUS } from "../../theme/typography";
+import { RADIUS , SPACING, TYPE } from "../../theme/typography";
+
 import type { NavigationStep } from "../../types";
 
 // Phase 22 — the turns within the leg you're currently on.
@@ -25,24 +26,34 @@ function formatDistance(distanceM: number): string {
 
 interface Props {
   steps: NavigationStep[];
-  /** 0-1 through the leg these steps belong to. */
-  legFraction: number;
+  /**
+   * 0-1 through the leg these steps belong to — live mode, which highlights
+   * the step you're on and shows only the next few. Omit for the planned
+   * view (below), where there is no "now" to be at.
+   */
+  legFraction?: number;
+  /** Nested under a leg row rather than floating at screen level. */
+  nested?: boolean;
 }
 
-export default function StepList({ steps, legFraction }: Props) {
+export default function StepList({ steps, legFraction, nested = false }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   if (steps.length === 0) return null;
 
-  const activeIndex = activeStepIndex(steps, legFraction);
-  // Two ahead is enough to plan the next move without turning this into a
-  // second copy of the route.
-  const visible = steps.slice(activeIndex, activeIndex + 3);
+  // Planned: the whole leg, in order, nothing highlighted — you're reading
+  // the route before you set off, so "which one is next" isn't a question
+  // yet and truncating to three would hide most of the drive.
+  const live = legFraction !== undefined;
+  const activeIndex = live ? activeStepIndex(steps, legFraction) : 0;
+  // Live: two ahead is enough to plan the next move without turning this
+  // into a second copy of the route.
+  const visible = live ? steps.slice(activeIndex, activeIndex + 3) : steps;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, nested && styles.containerNested]}>
       {visible.map((step, i) => {
-        const isActive = i === 0;
+        const isActive = live && i === 0;
         const distance = formatDistance(step.distanceM);
         return (
           <View
@@ -74,16 +85,27 @@ export default function StepList({ steps, legFraction }: Props) {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: {
-      marginHorizontal: 20,
-      marginTop: 12,
+      marginHorizontal: SPACING.xl,
+      marginTop: SPACING.md,
       borderRadius: RADIUS.card,
       backgroundColor: theme.surface,
       overflow: "hidden",
     },
-    row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 10 },
+    // Under a leg row inside the leg list, which already owns the screen
+    // margin. Indented and pulled up under the row it belongs to so it
+    // reads as that leg's detail rather than a list of its own.
+    containerNested: {
+      marginHorizontal: 0,
+      marginLeft: SPACING.xxl,
+      marginTop: -SPACING.sm,
+      marginBottom: SPACING.md,
+      borderTopLeftRadius: 0,
+      borderTopRightRadius: 0,
+    },
+    row: { flexDirection: "row", alignItems: "center", gap: SPACING.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44 },
     rowActive: { backgroundColor: theme.surfaceRaised },
-    instruction: { flex: 1, fontSize: 14, color: theme.textSecondary },
-    instructionActive: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    distance: { fontSize: 12, color: theme.textSecondary },
+    instruction: { flex: 1, ...TYPE.body, color: theme.textSecondary },
+    instructionActive: { ...TYPE.body, fontWeight: "700", color: theme.textPrimary },
+    distance: { ...TYPE.caption, color: theme.textSecondary },
   });
 }

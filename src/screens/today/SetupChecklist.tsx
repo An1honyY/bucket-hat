@@ -11,6 +11,7 @@ import { listUmbrellas } from "../../db/repositories/umbrellas";
 import { dismissSetupTask, getDismissedSetupTasks } from "../../db/repositories/settings";
 import { cardElevationStyle } from "../../theme/tokens";
 import useTheme from "../../theme/useTheme";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { RootStackParamList } from "../../navigation/types";
 
 // docs/04-screens-navigation.md §4.1 (2026-07-21 minimal-onboarding
@@ -152,11 +153,11 @@ export default function SetupChecklist() {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { gap: 8, marginBottom: 16 },
-    heading: { fontSize: 13, fontWeight: "600", color: theme.textSecondary, marginBottom: 2 },
+    container: { gap: SPACING.sm, marginBottom: SPACING.lg },
+    heading: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary, marginBottom: 2 },
     card: {
-      padding: 14,
-      borderRadius: 12,
+      padding: SPACING.lg,
+      borderRadius: RADIUS.card,
       backgroundColor: theme.surfaceRaised,
       flexDirection: "row",
       alignItems: "center",
@@ -164,11 +165,13 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       ...cardElevationStyle(theme),
     },
     textCol: { flex: 1, gap: 2 },
-    title: { fontSize: 14, fontWeight: "600", color: theme.textPrimary },
-    description: { fontSize: 12, color: theme.textSecondary },
-    actions: { alignItems: "flex-end", gap: 6 },
-    ctaButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: theme.accentWalk },
-    ctaLabel: { color: "#FFFFFF", fontWeight: "600", fontSize: 13 },
-    dismissLabel: { fontSize: 11, color: theme.textSecondary },
+    title: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    description: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18 },
+    actions: { alignItems: "flex-end", gap: SPACING.xs },
+    ctaButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.lg, borderRadius: RADIUS.pill, backgroundColor: theme.accentWalk },
+    ctaLabel: { ...TYPE.caption, color: "#FFFFFF", fontWeight: "700" },
+    // §9.6 — hitSlop covers this on native but does nothing on the web
+    // build, so the height is real rather than borrowed.
+    dismissLabel: { ...TYPE.micro, color: theme.textSecondary, minHeight: 44, textAlignVertical: "center", paddingTop: SPACING.md },
   });
 }

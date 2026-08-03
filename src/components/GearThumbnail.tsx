@@ -20,14 +20,23 @@ interface Props {
   photoUri: string | undefined;
   kind: ClothingIconKind;
   dimmed?: boolean; // §9.4.3 — unavailable items dim to 60% opacity
+  /** Edge length in points. 40 is the list-row size from §3.3; the Today
+   *  card's pick chips ask for a smaller one so the chip stays a chip. */
+  size?: number;
 }
 
-export default function GearThumbnail({ itemId, photoUri, kind, dimmed }: Props) {
+export default function GearThumbnail({ itemId, photoUri, kind, dimmed, size = 40 }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const uri = useGearPhoto(itemId, photoUri);
   return (
-    <View style={[styles.container, dimmed && styles.dimmed]}>
+    <View
+      style={[
+        styles.container,
+        { width: size, height: size, borderRadius: Math.round(size / 5) },
+        dimmed && styles.dimmed,
+      ]}
+    >
       {uri ? (
         // §3.3 — a missing photo falls back to the type glyph, never a
         // broken-image placeholder. That holds while a web fetch is in
@@ -35,7 +44,7 @@ export default function GearThumbnail({ itemId, photoUri, kind, dimmed }: Props)
         // shows rather than an empty box.
         <Image source={{ uri }} style={styles.image} />
       ) : (
-        <ClothingTypeIcon kind={kind} size={20} color={theme.textSecondary} />
+        <ClothingTypeIcon kind={kind} size={Math.round(size / 2)} color={theme.textSecondary} />
       )}
     </View>
   );

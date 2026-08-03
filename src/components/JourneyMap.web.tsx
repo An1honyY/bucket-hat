@@ -3,8 +3,17 @@ import { StyleSheet, Text, View } from "react-native";
 import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap, useMapEvents } from "react-leaflet";
 import type { LeafletMouseEvent } from "leaflet";
 import useLeafletCss from "./useLeafletCss";
-import { pinDivIcon, flagDivIcon, stopDivIcon, conditionDivIcon, annotationDivIcon, userPuckDivIcon } from "./leafletIcons";
+import {
+  pinDivIcon,
+  modeDivIcon,
+  flagDivIcon,
+  stopDivIcon,
+  conditionDivIcon,
+  annotationDivIcon,
+  userPuckDivIcon,
+} from "./leafletIcons";
 import { basemapFor } from "./leafletBasemap";
+import type { ModeIconKind } from "./modeIconPaths";
 import { boundsKey, hexToRgba, usableCoordinates } from "../lib/mapGeometry";
 import type { ConditionMarker, MapAnnotation, MapCircle, MapFollowMode, MapStop, MapUserPuck } from "./JourneyMap";
 import useTheme from "../theme/useTheme";
@@ -23,6 +32,9 @@ interface Props {
   // straight line through `stops` when absent/empty.
   routePath?: MapStop[];
   accentColor: string;
+  // The travel mode drawn inside the origin marker — see JourneyMap.tsx's
+  // Props. Omitted → the origin falls back to the teardrop pin.
+  originMode?: ModeIconKind;
   // Native captures a new annotation on long-press. The browser equivalent
   // is `contextmenu` — right-click on a desktop, press-and-hold on a
   // touchscreen — rather than the plain left-click this used to listen for,
@@ -163,6 +175,7 @@ export default function JourneyMap({
   stops,
   routePath,
   accentColor,
+  originMode,
   onLongPress,
   previewCircle,
   conditionMarkers,
@@ -262,7 +275,9 @@ export default function JourneyMap({
               position={position}
               icon={
                 i === 0
-                  ? pinDivIcon(accentColor)
+                  ? originMode
+                    ? modeDivIcon(accentColor, originMode)
+                    : pinDivIcon(accentColor)
                   : i === positions.length - 1
                     ? flagDivIcon(accentColor)
                     : stopDivIcon(accentColor, String(i))

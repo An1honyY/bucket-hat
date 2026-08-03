@@ -5,7 +5,9 @@ import { EFFECT_META, EFFECT_OPTIONS } from "./effectMeta";
 import RadiusSlider from "../../components/RadiusSlider";
 import EffectIcon from "../../components/EffectIcon";
 import FormSection from "../../components/FormSection";
+import FormActions from "../../components/FormActions";
 import useTheme from "../../theme/useTheme";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 
 // Shared add/edit form for an EnvironmentAnnotation — docs/04-screens-
 // navigation.md §4.5. Used both as the Journey Detail map long-press sheet
@@ -156,33 +158,21 @@ export default function AnnotationForm({
         </View>
       </FormSection>
 
-      <View style={styles.actions}>
-        <Pressable onPress={onCancel} style={styles.cancelButton}>
-          <Text>Cancel</Text>
-        </Pressable>
-        <Pressable
-          disabled={!canSave}
-          onPress={() =>
-            onSave({
-              label: label.trim(),
-              effect,
-              lat: latNum,
-              lng: lngNum,
-              radiusM,
-              notes: notes.trim() || undefined,
-            })
-          }
-          style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
-        >
-          <Text style={styles.saveLabel}>Save</Text>
-        </Pressable>
-      </View>
-
-      {onDelete && (
-        <Pressable onPress={onDelete} style={styles.deleteButton}>
-          <Text style={styles.deleteLabel}>Delete annotation</Text>
-        </Pressable>
-      )}
+      <FormActions
+        onCancel={onCancel}
+        canSubmit={canSave}
+        onSubmit={() =>
+          onSave({
+            label: label.trim(),
+            effect,
+            lat: latNum,
+            lng: lngNum,
+            radiusM,
+            notes: notes.trim() || undefined,
+          })
+        }
+        destructive={onDelete ? { label: "Delete annotation", onPress: onDelete } : undefined}
+      />
     </ScrollView>
   );
 }
@@ -190,7 +180,7 @@ export default function AnnotationForm({
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { padding: 16 },
-    fieldLabel: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
+    fieldLabel: { ...TYPE.caption, color: theme.textSecondary, marginBottom: SPACING.xs },
     effectGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     effectButton: {
       width: "31%",
@@ -201,21 +191,14 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       alignItems: "center",
       gap: 4,
     },
-    effectButtonActive: { backgroundColor: theme.accentWalk, borderColor: theme.textPrimary },
-    effectLabel: { fontSize: 11, textAlign: "center", color: theme.textPrimary },
-    effectLabelActive: { color: theme.bg, fontWeight: "600" },
-    input: { borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
+    effectButtonActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    effectLabel: { ...TYPE.micro, textAlign: "center", color: theme.textPrimary },
+    effectLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    input: { borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44, ...TYPE.body, color: theme.textPrimary },
     notesInput: { minHeight: 64, textAlignVertical: "top" },
     radiusScale: { flexDirection: "row", justifyContent: "space-between", marginTop: 2 },
-    radiusScaleLabel: { fontSize: 11, color: theme.textSecondary },
+    radiusScaleLabel: { ...TYPE.micro, color: theme.textSecondary },
     row: { flexDirection: "row", gap: 12 },
     half: { flex: 1 },
-    actions: { flexDirection: "row", gap: 12, marginTop: 24 },
-    cancelButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-    saveButton: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 8, backgroundColor: theme.accentWalk },
-    saveButtonDisabled: { opacity: 0.4 },
-    saveLabel: { color: theme.bg, fontWeight: "600" },
-    deleteButton: { marginTop: 16, alignItems: "center", paddingVertical: 10 },
-    deleteLabel: { color: theme.danger },
   });
 }

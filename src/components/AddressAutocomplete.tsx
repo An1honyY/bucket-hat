@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { autocompletePlaces, getPlaceLocation, hasPlacesApiKey, newSessionToken, type PlaceSuggestion } from "../services/placesService";
 import type { ServiceError } from "../services/types";
 import useTheme from "../theme/useTheme";
+import { RADIUS, SPACING, TYPE } from "../theme/typography";
 
 // Google Places-backed address field — docs/02-external-apis.md §2, docs/
 // 04-screens-navigation.md §4 "Plan" bullet's "free text via Google Places,
@@ -130,24 +131,25 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       flex: 1,
       borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontSize: 15,
+      borderRadius: RADIUS.pill,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.md,
+      minHeight: 44,
+      ...TYPE.body,
       color: theme.textPrimary,
     },
-    spinner: { position: "absolute", right: 12 },
+    spinner: { position: "absolute", right: SPACING.md },
     dropdown: {
-      marginTop: 4,
-      borderRadius: 8,
+      marginTop: SPACING.xs,
+      borderRadius: RADIUS.pill,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surfaceRaised,
       overflow: "hidden",
     },
-    suggestion: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border },
-    suggestionPrimary: { fontSize: 14, fontWeight: "600", color: theme.textPrimary },
-    suggestionSecondary: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
-    errorText: { fontSize: 12, color: theme.danger, marginTop: 4 },
+    suggestion: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 48, justifyContent: "center", borderBottomWidth: 1, borderBottomColor: theme.border },
+    suggestionPrimary: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    suggestionSecondary: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2 },
+    errorText: { ...TYPE.caption, color: theme.danger, marginTop: SPACING.xs },
   });
 }

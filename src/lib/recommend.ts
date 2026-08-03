@@ -27,6 +27,15 @@ import type {
 // `fallbackText` the same way regardless.
 export type LayerPick = ClothingItem | { fallbackText: string; layerType: ClothingType; isGenericAssumption?: boolean };
 
+// Pushed into `notes` when any pick above was a generic assumption. Exported
+// as a constant because the render layer pulls this one line back *out* of
+// the notes list and gives it its own container (§9.3 item 4): the rest of
+// `notes` explains this journey's weather, while this explains the app's own
+// gaps, and the two shouldn't read as the same kind of remark. Matching on
+// an exported constant rather than the string literal keeps the two ends
+// from drifting apart silently.
+export const GENERIC_PICKS_NOTE = "Generic picks — add your gear for suggestions from your own wardrobe";
+
 export interface Recommendation {
   layers: LayerPick[];
   bottoms?: LayerPick;
@@ -235,7 +244,7 @@ function applyDarknessGear(accessories: LayerPick[], available: ClothingItem[], 
     accessories.push(reflective);
     notes.push("Part of this trip is in the dark — reflective gear picked");
   } else {
-    notes.push("Part of this trip is in the dark — consider something reflective or a light, if you own one");
+    notes.push("Part of this trip is in the dark — something reflective would help");
   }
 }
 
@@ -325,7 +334,7 @@ export function recommendGear(
     }
     notes.push(`${worstOutdoor.label}: ${condition(worstOutdoor.weather!).label.toLowerCase()} expected`);
     if (owned && anyRainCovered) {
-      notes.push("Part of this route is covered — you may not need it out the whole way");
+      notes.push("Part of this route is covered — you may not need it the whole way");
     }
   }
 
@@ -341,7 +350,7 @@ export function recommendGear(
     if (formalShoe) {
       shoes = formalShoe;
       if (shoesNeedWaterproof && !formalShoe.waterproof) {
-        notes.push("Dress shoes picked for the occasion — bring an umbrella, conditions call for one");
+        notes.push("Dress shoes for the occasion — bring an umbrella");
       }
     }
   }
@@ -362,7 +371,7 @@ export function recommendGear(
     }
   }
   if (puddleRisk && !needsWaterproof) {
-    notes.push("Rain earlier today — puddles likely, going with waterproof/grippy shoes even though it's dry now");
+    notes.push("Rain earlier — puddles likely, so waterproof shoes");
   }
 
   // --- Layers ---
@@ -393,7 +402,7 @@ export function recommendGear(
     const windBump =
       1 + clamp(calibration.windSensitivityOffset ?? 0, -WIND_SENSITIVITY_OFFSET_CLAMP, WIND_SENSITIVITY_OFFSET_CLAMP);
     envDelta += windBump;
-    notes.push(`Wind tunnel on ${windLeg.label} — dressing warmer for that stretch`);
+    notes.push(`Wind tunnel on ${windLeg.label} — dressing warmer for it`);
   }
   const sunLeg = outdoorLegs.find(
     (l) =>
@@ -405,8 +414,8 @@ export function recommendGear(
     envDelta -= 1;
     notes.push(
       sunLeg.highReflection
-        ? `Direct sun and reflection on ${sunLeg.label} will feel warmer than the temperature alone suggests`
-        : `Direct sun on ${sunLeg.label} will feel warmer than the temperature alone suggests`
+        ? `Direct sun and reflection on ${sunLeg.label} — warmer than it reads`
+        : `Direct sun on ${sunLeg.label} — warmer than it reads`
     );
   }
   const stationaryLegWindy = outdoorLegs.some((l) => l.isStationary && l.weather!.windKph >= WIND_CHILL_KPH);
@@ -415,8 +424,8 @@ export function recommendGear(
     envDelta += 1;
     notes.push(
       stationaryLegWindy
-        ? `${stationaryMinutes} min waiting in the wind — dressing warmer since you won't be moving to generate heat`
-        : `${stationaryMinutes} min waiting outdoors — dressing warmer since you won't be moving to generate heat`
+        ? `${stationaryMinutes} min waiting in the wind — dressing warmer for it`
+        : `${stationaryMinutes} min waiting outdoors — dressing warmer for it`
     );
   }
   warmthLevel = Math.max(0, Math.min(4, warmthLevel + envDelta)) as typeof warmthLevel;
@@ -425,7 +434,13 @@ export function recommendGear(
   if (worstOutdoor) {
     const gap = worstOutdoor.weather!.tempC - worstOutdoor.weather!.apparentTempC;
     if (gap >= APPARENT_TEMP_DIVERGENCE_NOTE_C) {
-      notes.push(`Feels noticeably colder than the air temperature today — dressed for that, not just the number`);
+      // The whole point of this note is that one number is misleading, so it
+      // has to show the number that isn't: "feels noticeably colder than the
+      // air temperature" told the user a gap existed without ever saying how
+      // big or which figure to trust.
+      notes.push(
+        `Feels like ${Math.round(worstOutdoor.weather!.apparentTempC)}°C, not ${Math.round(worstOutdoor.weather!.tempC)}°C — dressed for that`
+      );
     }
   }
 
@@ -441,12 +456,11 @@ export function recommendGear(
   if (eligibleForWarmupDiscount) {
     warmthLevel = Math.max(0, warmthLevel - 1) as typeof warmthLevel;
     const cyclingQualifies = cyclingMinutes >= WARMUP_CYCLE_MIN_MINUTES;
-    const exertionMinutes = cyclingQualifies ? cyclingMinutes : walkingMinutes;
-    const exertionLabel = cyclingQualifies ? "cycling" : "walking";
-    notes.push(
-      `${exertionMinutes} min of ${exertionLabel} at ${Math.round(minTemp)}°C will warm you up fast — ` +
-        `going one layer lighter than the raw temperature suggests`
-    );
+    const exertionLabel = cyclingQualifies ? "Cycling" : "Walking";
+    // Neither the minutes nor the temperature belong here: both are already
+    // on the leg row this note sits under, and repeating them made the
+    // longest line in the card out of the least new information in it.
+    notes.push(`${exertionLabel} will warm you up — going one layer lighter`);
   }
 
   // 3. Summer AC contrast (§6.1)
@@ -454,9 +468,7 @@ export function recommendGear(
   if (acContrast) {
     requirePackable = true;
     warmthLevel = Math.max(warmthLevel, 2) as typeof warmthLevel;
-    notes.push(
-      "Summer AC on the bus/train will feel cold after being warm outside — pick a layer you can put on and take off easily"
-    );
+    notes.push("Bus/train AC will feel cold after the warmth outside — pick a layer you can take off");
   }
   if (carryPreference === "avoid-spares" && requirePackable) {
     requirePackable = false;
@@ -490,7 +502,7 @@ export function recommendGear(
     pickedJacket.warmth >= warmthLevel * WARMTH_LEVEL_TO_ITEM_SCALE
   ) {
     layers = layers.filter((_, i) => i !== midlayerIndex);
-    notes.push(`Your ${pickedJacket.name} is warm enough on its own — no separate midlayer needed underneath`);
+    notes.push(`Your ${pickedJacket.name} is warm enough on its own — no midlayer needed`);
   }
 
   // 4.6. Hot-weather top (§7.15) — at the lowest warmth level the layer plan
@@ -505,7 +517,7 @@ export function recommendGear(
       layers = [breathableTop, ...layers];
       notes.push(`Warm one today — your ${breathableTop.name} will breathe better than a heavier top`);
     } else {
-      notes.push("Warm enough today that something breathable and light-coloured will feel better than your usual pick");
+      notes.push("Warm one today — something breathable and light-coloured will feel better");
       // The layer plan is empty at this level, so without this the card had
       // nothing at all to say about tops on a hot day — just shoes. Say the
       // useful thing outright rather than leaving a gap.
@@ -567,7 +579,7 @@ export function recommendGear(
     };
   }
   if (needsWaterproofBottoms) {
-    notes.push("Wet and windy enough to warrant rain trousers, not just a jacket");
+    notes.push("Wet and windy enough for rain trousers, not just a jacket");
   }
 
   // --- Accessories (§7.6) ---
@@ -609,7 +621,7 @@ export function recommendGear(
     (shoes && "isGenericAssumption" in shoes && shoes.isGenericAssumption) ||
     (umbrella && "isGenericAssumption" in umbrella && umbrella.isGenericAssumption);
   if (anyGenericAssumption) {
-    notes.push("These are generic picks — add your gear in the Gear tab for suggestions tailored to what you own.");
+    notes.push(GENERIC_PICKS_NOTE);
   }
 
   return { layers, bottoms, accessories, shoes, umbrella, severeWeatherAdvisory, notes };

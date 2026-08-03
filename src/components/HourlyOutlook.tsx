@@ -6,7 +6,8 @@ import { useRouteEtas } from "../lib/useRouteEtas";
 import { useTimeFormatStore } from "../lib/useTimeFormatStore";
 import useTheme from "../theme/useTheme";
 import { cardElevationStyle } from "../theme/tokens";
-import { RADIUS, SPACING } from "../theme/typography";
+import { RADIUS, SPACING , TYPE } from "../theme/typography";
+
 import type { SavedLocation, TravelMode } from "../types";
 import HourlyForecastRow from "./HourlyForecastRow";
 import HourlyOutlookPanel from "./HourlyOutlookPanel";
@@ -147,15 +148,15 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       ...cardElevationStyle(theme),
     },
     headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    title: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
-    moreButton: { minHeight: 32, justifyContent: "center", paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border },
-    moreLabel: { fontSize: 11, fontWeight: "600", color: theme.accentWalk },
+    title: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
+    moreButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.md, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border },
+    moreLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
     row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
     rowLabel: { flexShrink: 1 },
-    locationName: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
-    roleNote: { fontSize: 11, color: theme.textSecondary },
+    locationName: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
+    roleNote: { ...TYPE.micro, color: theme.textSecondary },
     rowReading: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
-    rowTemp: { fontSize: 14, fontWeight: "700", color: theme.textPrimary },
+    rowTemp: { ...TYPE.body, fontWeight: "700", color: theme.textPrimary },
     destinationBlock: { gap: 6, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.sm },
     stripContent: { gap: 12, paddingRight: 4 },
     estimateNote: { fontSize: 11, color: theme.textSecondary, fontStyle: "italic" },

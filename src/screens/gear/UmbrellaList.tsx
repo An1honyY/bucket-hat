@@ -7,7 +7,10 @@ import UmbrellaForm from "./UmbrellaForm";
 import GearThumbnail from "../../components/GearThumbnail";
 import GearRowBadges from "../../components/GearRowBadges";
 import UnavailabilitySheet from "../../components/UnavailabilitySheet";
+import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 
 type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; item: UmbrellaItem };
 
@@ -101,9 +104,7 @@ export default function UmbrellaList({ autoOpenAdd }: Props) {
       {loaded && items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No umbrellas yet — add your first one</Text>
-          <Pressable onPress={() => setMode({ kind: "add" })} style={styles.addButton}>
-            <Text style={styles.addButtonLabel}>+ Add umbrella</Text>
-          </Pressable>
+          <AppButton label="Add umbrella" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -111,9 +112,7 @@ export default function UmbrellaList({ autoOpenAdd }: Props) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
-            <Pressable onPress={() => setMode({ kind: "add" })} style={styles.addButton}>
-              <Text style={styles.addButtonLabel}>+ Add umbrella</Text>
-            </Pressable>
+            <AppButton label="Add umbrella" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
           }
           renderItem={({ item }) => {
             const isUnavailable = !!item.unavailableUntil && new Date(item.unavailableUntil).getTime() > nowMs;
@@ -152,14 +151,13 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
-    empty: { color: theme.textSecondary },
-    listContent: { padding: 20, gap: 8 },
-    addButton: { paddingVertical: 12, paddingHorizontal: 20, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: theme.border, marginBottom: 8 },
-    addButtonLabel: { fontWeight: "600", color: theme.textPrimary },
-    row: { flexDirection: "row", gap: 12, padding: 12, borderRadius: 12, backgroundColor: theme.surface, marginBottom: 8 },
+    empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },
+    listContent: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.sm, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    addButton: { marginBottom: SPACING.sm },
+    row: { flexDirection: "row", gap: 12, padding: 12, borderRadius: RADIUS.card, backgroundColor: theme.surface, marginBottom: 8 },
     rowText: { flex: 1 },
-    rowLabel: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
+    rowLabel: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
     dimmedText: { opacity: 0.6 },
-    rowMeta: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
+    rowMeta: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2 },
   });
 }

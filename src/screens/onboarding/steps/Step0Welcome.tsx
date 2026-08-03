@@ -4,6 +4,7 @@ import NavIcon, { type NavIconKind } from "../../../components/NavIcon";
 import ScreenPattern from "../../../components/ScreenPattern";
 import useTheme from "../../../theme/useTheme";
 import { cardElevationStyle } from "../../../theme/tokens";
+import { ACTION_MAX_WIDTH, CONTENT_MAX_WIDTH } from "../../../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../../../theme/typography";
 
 // docs/04-screens-navigation.md §4.1 — the screen the app opens on, and
@@ -74,7 +75,15 @@ export default function Step0Welcome({ onGetStarted, onSignIn }: Props) {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.bg },
-    scroll: { flexGrow: 1, padding: SPACING.xl, justifyContent: "center", gap: SPACING.xxl },
+    scroll: {
+      flexGrow: 1,
+      padding: SPACING.xl,
+      justifyContent: "center",
+      gap: SPACING.xxl,
+      width: "100%",
+      maxWidth: CONTENT_MAX_WIDTH,
+      alignSelf: "center",
+    },
     hero: { alignItems: "center", gap: SPACING.lg },
     tagline: {
       ...TYPE.body,
@@ -108,13 +117,25 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     actions: { gap: SPACING.xs },
     primaryButton: {
       minHeight: 50,
+      // §9.2 — the one change this pass makes to the welcome screen: an
+      // action capped to a thumb's width instead of the whole viewport.
+      width: "100%",
+      maxWidth: ACTION_MAX_WIDTH,
+      alignSelf: "center",
       borderRadius: RADIUS.pill,
       backgroundColor: theme.accentWalk,
       alignItems: "center",
       justifyContent: "center",
     },
     primaryLabel: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
-    secondaryButton: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+    secondaryButton: {
+      minHeight: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      maxWidth: ACTION_MAX_WIDTH,
+      alignSelf: "center",
+    },
     secondaryLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
     reassurance: {
       ...TYPE.micro,

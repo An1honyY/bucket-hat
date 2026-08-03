@@ -27,7 +27,8 @@ export function pinDivIcon(color: string): L.DivIcon {
 // route" and sat one white ring away from being the numbered stop marker
 // below it. It briefly became the flag, but a flag is a *finish* line — so
 // the flag moved to the destination and the origin took the teardrop pin,
-// which is already this app's "a place" glyph. The disc around the flag keeps
+// and then (2026-08-03) the mode glyph in modeDivIcon below, since the start
+// of a route is also where you are now. The disc around the flag keeps
 // the contrast against a busy basemap that a bare glyph would lose. Mirrors
 // ActionIcon's `flag` path and JourneyMap.tsx's native destinationMarker;
 // keep the three in step.
@@ -37,6 +38,25 @@ export function flagDivIcon(color: string): L.DivIcon {
     html: `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));"><circle cx="12" cy="12" r="10.5" fill="${color}" stroke="#FFFFFF" stroke-width="2"/><path d="M9,6.5v11" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M9,7.6h6.6l-1.7,2.6l1.7,2.6h-6.6z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
+  });
+}
+
+// The origin, carrying the journey's travel mode — the start of a route is
+// where you are now, so it says what you'll be on rather than repeating the
+// generic "a place" teardrop every saved location already uses. Glyphs come
+// from modeIconPaths.ts, the same source the puck and ModeIcon draw from, so
+// the marker you set off from and the puck that replaces it once you're
+// moving can't be different vehicles. Mirrors JourneyMap.tsx's native
+// originMarker; keep the two in step.
+export function modeDivIcon(color: string, mode: ModeIconKind): L.DivIcon {
+  const paths = MODE_ICON_PATHS[mode]
+    .map((d) => `<path d="${d}" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`)
+    .join("");
+  return L.divIcon({
+    className: "cwp-mode-marker",
+    html: `<div style="width:28px;height:28px;border-radius:14px;background:${color};border:2px solid #FFFFFF;box-sizing:border-box;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.4);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none">${paths}</svg></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 }
 

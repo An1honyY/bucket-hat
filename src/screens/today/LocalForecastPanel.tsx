@@ -3,7 +3,8 @@ import { collectKeyEntries } from "../../lib/outlookDisplay";
 import type { DailyReading, HourlyReading } from "../../services/weatherService";
 import { conditionColorForIcon } from "../../theme/conditionColor";
 import useTheme from "../../theme/useTheme";
-import { RADIUS, SPACING } from "../../theme/typography";
+import { RADIUS, SPACING , TYPE } from "../../theme/typography";
+
 import ActionIcon from "../../components/ActionIcon";
 import HourlyForecastRow from "../../components/HourlyForecastRow";
 import WeatherKey from "../../components/WeatherKey";
@@ -140,9 +141,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       paddingBottom: SPACING.sm,
     },
     headerText: { flexShrink: 1 },
-    heading: { fontSize: 17, fontWeight: "600", color: theme.textPrimary },
-    suburbLabel: { fontSize: 12, color: theme.textSecondary },
-    close: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+    heading: { ...TYPE.subtitle, color: theme.textPrimary },
+    suburbLabel: { ...TYPE.caption, color: theme.textSecondary },
+    close: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     body: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl, gap: SPACING.md },
     // Each section is its own card rather than three runs of text sharing one
     // background — closer to how the rest of the app groups things, and it
@@ -166,12 +167,12 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // own that becomes a stray gap at the top.
     keyBlock: { paddingTop: 0 },
     sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
-    sectionLabel: { fontSize: 10, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase" },
-    scrollHint: { fontSize: 10, color: theme.textSecondary, opacity: 0.8 },
+    sectionLabel: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase" },
+    scrollHint: { ...TYPE.micro, color: theme.textSecondary, opacity: 0.8 },
     dayRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 40 },
-    dayName: { fontSize: 14, fontWeight: "600", color: theme.textPrimary, width: 92 },
-    dayPrecip: { fontSize: 11, fontWeight: "600", color: theme.conditionRain, width: 48 },
-    dayTemps: { marginLeft: "auto", fontSize: 14 },
+    dayName: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary, width: 92 },
+    dayPrecip: { ...TYPE.micro, fontWeight: "600", color: theme.conditionRain, width: 48 },
+    dayTemps: { marginLeft: "auto", ...TYPE.body },
     dayMax: { fontWeight: "700", color: theme.textPrimary },
     dayMin: { color: theme.textSecondary, fontWeight: "500" },
   });

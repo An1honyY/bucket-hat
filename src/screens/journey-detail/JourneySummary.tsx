@@ -1,0 +1,116 @@
+import { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import ModeIcon from "../../components/ModeIcon";
+import ActionIcon from "../../components/ActionIcon";
+import useTheme from "../../theme/useTheme";
+import { cardElevationStyle } from "../../theme/tokens";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
+import { formatTime } from "../../lib/formatTime";
+import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
+import type { Journey } from "../../types";
+
+// docs/09-design-system.md §9.3 — the answer to "what am I looking at?",
+// which this screen previously never gave. You arrive here from a Today
+// card, a notification or History and the first thing on screen was a map
+// with no caption, followed straight by a gear card: where you're going,
+// when you leave, when you get there and how long it takes all had to be
+// reverse-engineered from the leg rows further down. The stack header only
+// ever said "Journey."
+//
+// One card, four facts, top of the scroll. Times respect the 12/24h
+// setting like everywhere else, and the mode icons are the same glyph set
+// the leg rows use so the summary reads as a compressed version of the list
+// below it rather than a second visual language.
+interface Props {
+  journey: Journey;
+  totalDurationMin: number;
+}
+
+function formatDay(iso: string, nowMs: number): string {
+  const date = new Date(iso);
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dayDelta = Math.round((startOfDay(date) - startOfDay(new Date(nowMs))) / 86_400_000);
+  if (dayDelta === 0) return "Today";
+  if (dayDelta === 1) return "Tomorrow";
+  if (dayDelta === -1) return "Yesterday";
+  return date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
+export default function JourneySummary({ journey, totalDurationMin }: Props) {
+  const theme = useTheme();
+  const styles = getStyles(theme);
+  const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
+  // Date.now() is impure to call during render — a lazy initializer runs it
+  // once at mount, the same pattern the rest of this screen uses.
+  const [nowMs] = useState(() => Date.now());
+  const day = formatDay(journey.departTime, nowMs);
+  const departMs = new Date(journey.departTime).getTime();
+  const arriveIso = new Date(departMs + totalDurationMin * 60_000).toISOString();
+  // Modes in the order they happen, de-duplicated — a bus trip that starts
+  // and ends on foot is "walk, bus," not "walk, bus, walk."
+  const modes = journey.legs
+    .filter((leg) => leg.outdoor && !leg.isStationary)
+    .map((leg) => leg.mode)
+    .filter((mode, i, all) => all.indexOf(mode) === i);
+  const stopCount = journey.waypoints?.length ?? 0;
+
+  return (
+    <View
+      style={styles.card}
+      accessible
+      accessibilityLabel={`${journey.origin.label} to ${journey.destination.label}, ${day}, leaving ${formatTime(journey.departTime, hour12)}, arriving ${formatTime(arriveIso, hour12)}, ${totalDurationMin} minutes`}
+    >
+      <View style={styles.routeRow}>
+        <Text style={styles.endpoint} numberOfLines={1}>
+          {journey.origin.label}
+        </Text>
+        <ActionIcon kind="arrowRight" size={14} color={theme.textSecondary} />
+        <Text style={styles.endpoint} numberOfLines={1}>
+          {journey.destination.label}
+        </Text>
+      </View>
+
+      <View style={styles.timeRow}>
+        <Text style={styles.time}>{formatTime(journey.departTime, hour12)}</Text>
+        <Text style={styles.timeSep}>→</Text>
+        <Text style={styles.time}>{formatTime(arriveIso, hour12)}</Text>
+        <Text style={styles.duration}>{totalDurationMin} min</Text>
+      </View>
+
+      <View style={styles.metaRow}>
+        <Text style={styles.meta}>{day}</Text>
+        {modes.length > 0 && <View style={styles.dot} />}
+        {modes.map((mode) => (
+          <ModeIcon key={mode} kind={mode} size={14} color={theme.textSecondary} />
+        ))}
+        {stopCount > 0 && <View style={styles.dot} />}
+        {stopCount > 0 && (
+          <Text style={styles.meta}>
+            {stopCount} stop{stopCount === 1 ? "" : "s"} on the way
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function getStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    card: {
+      padding: SPACING.lg,
+      borderRadius: RADIUS.card,
+      backgroundColor: theme.surface,
+      gap: SPACING.sm,
+      ...cardElevationStyle(theme),
+    },
+    routeRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+    endpoint: { ...TYPE.subtitle, color: theme.textPrimary, flexShrink: 1 },
+    timeRow: { flexDirection: "row", alignItems: "baseline", gap: SPACING.sm },
+    time: { ...TYPE.title, color: theme.accentWalk },
+    timeSep: { ...TYPE.subtitle, color: theme.textSecondary },
+    duration: { ...TYPE.caption, color: theme.textSecondary, marginLeft: SPACING.xs },
+    metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.sm },
+    meta: { ...TYPE.caption, color: theme.textSecondary },
+    dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: theme.textSecondary, opacity: 0.6 },
+  });
+}

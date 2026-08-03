@@ -6,6 +6,7 @@ import TodayScreen from "../screens/today/TodayScreen";
 import PlanScreen from "../screens/plan/PlanScreen";
 import LocationsScreen from "../screens/locations/LocationsScreen";
 import GearScreen from "../screens/gear/GearScreen";
+import ActionIcon from "../components/ActionIcon";
 import NavIcon from "../components/NavIcon";
 import useTheme from "../theme/useTheme";
 import type { MainTabParamList, RootStackParamList } from "./types";
@@ -63,6 +64,26 @@ function TodayHeaderButtons() {
         accessibilityLabel="History"
       >
         <NavIcon kind="history" size={22} color={theme.textPrimary} />
+      </Pressable>
+    </View>
+  );
+}
+
+// §4.3 — the way in to the saved-journeys list. A bookmark, matching the
+// "Save this journey" control on the Plan screen itself: the icon that
+// files a trip away and the icon that opens the drawer are the same one.
+function SavedJourneysButton() {
+  const theme = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  return (
+    <View style={headerButtonRowStyle}>
+      <Pressable
+        onPress={() => navigation.navigate("SavedJourneys")}
+        style={headerButtonStyle(theme)}
+        accessibilityRole="button"
+        accessibilityLabel="Saved journeys"
+      >
+        <ActionIcon kind="bookmark" size={20} color={theme.textPrimary} />
       </Pressable>
     </View>
   );
@@ -149,6 +170,7 @@ export default function MainTabs() {
         name="Plan"
         component={PlanScreen}
         options={{
+          headerRight: SavedJourneysButton,
           tabBarIcon: ({ color, size }) => <NavIcon kind="plan" size={size} color={color} />,
           tabBarLabel: ({ color }) => <TabLabel color={color}>Plan</TabLabel>,
         }}

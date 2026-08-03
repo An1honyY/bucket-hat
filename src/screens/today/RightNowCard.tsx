@@ -3,8 +3,10 @@ import type { RightNowState } from "../../lib/useRightNow";
 import { classifyWeather } from "../../lib/weather";
 import { conditionColorForIcon } from "../../theme/conditionColor";
 import useWeatherTheme from "../../theme/useWeatherTheme";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import { cardElevationStyle } from "../../theme/tokens";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
+import GearThumbnail from "../../components/GearThumbnail";
 import WeatherIcon, { weatherIconKindFor } from "../../components/WeatherIcon";
 import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
@@ -58,7 +60,8 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
   // keeps showing a stored reading — which is the whole point of the "as of"
   // line now that a refresh no longer blanks the card.
   const asOf = formatTime(fetchedAt !== null && fetchedAt !== undefined ? new Date(fetchedAt).toISOString() : weather.time, hour12);
-  const picks: { pick: { name: string } | { fallbackText: string }; icon: ClothingIconKind }[] = [
+  type Pick = { name: string; id?: string; photoUri?: string } | { fallbackText: string };
+  const picks: { pick: Pick; icon: ClothingIconKind }[] = [
     ...recommendation.layers.map((pick) => ({ pick, icon: layerIconKind(pick) })),
     ...recommendation.accessories.map((pick) => ({ pick, icon: layerIconKind(pick) })),
   ];
@@ -96,9 +99,16 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
           <View style={styles.picksRow}>
             {picks.map(({ pick, icon }, i) => {
               const { text, isFallback } = pickLabel(pick);
+              // An owned item shows its own photo where it has one (§3.3) —
+              // the chip is the smallest surface in the app that can carry
+              // "this is *your* jacket" rather than a category glyph.
+              const photo =
+                !isFallback && "id" in pick ? <GearThumbnail itemId={pick.id} photoUri={pick.photoUri} kind={icon} size={20} /> : null;
               return (
                 <View key={i} style={[styles.pickChip, isFallback && styles.pickChipFallback]}>
-                  <ClothingTypeIcon kind={icon} size={15} color={isFallback ? theme.textSecondary : theme.accentWalk} />
+                  {photo ?? (
+                    <ClothingTypeIcon kind={icon} size={15} color={isFallback ? theme.textSecondary : theme.accentWalk} />
+                  )}
                   <Text style={isFallback ? styles.pickTextFallback : styles.pickText}>{text}</Text>
                 </View>
               );
@@ -118,41 +128,41 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
 function getStyles(theme: ReturnType<typeof useWeatherTheme>) {
   return StyleSheet.create({
     card: {
-      padding: 16,
-      borderRadius: 12,
+      padding: SPACING.lg,
+      borderRadius: RADIUS.card,
       backgroundColor: theme.surfaceRaised,
-      gap: 8,
-      marginBottom: 16,
+      gap: SPACING.sm,
+      marginBottom: SPACING.lg,
       ...cardElevationStyle(theme),
     },
-    title: { fontSize: 15, fontWeight: "600", color: theme.textPrimary },
-    suburbLabel: { fontSize: 12, color: theme.textSecondary },
-    conditionRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    title: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    suburbLabel: { ...TYPE.caption, color: theme.textSecondary },
+    conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     temp: { fontSize: 24, fontWeight: "700", color: theme.textPrimary },
-    conditionLabel: { fontSize: 14, fontWeight: "600", color: theme.textSecondary },
-    uvBadge: { marginLeft: "auto", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: theme.uvBadge },
-    uvBadgeText: { fontSize: 11, color: "#FFFFFF", fontWeight: "600" },
-    picksSection: { gap: 8, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 12, marginTop: 2 },
-    picksHeading: { fontSize: 10, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 },
-    picksRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    conditionLabel: { ...TYPE.body, fontWeight: "600", color: theme.textSecondary },
+    uvBadge: { marginLeft: "auto", paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, borderRadius: RADIUS.pill, backgroundColor: theme.uvBadge },
+    uvBadgeText: { ...TYPE.micro, color: "#FFFFFF", fontWeight: "700" },
+    picksSection: { gap: SPACING.sm, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.md, marginTop: 2 },
+    picksHeading: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 },
+    picksRow: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
     // A resolved pick names something the user owns, so it gets the accent and
     // a tinted chip. A fallback is generic advice, so it stays quieter and
     // outlined — the difference was previously carried by italics alone.
     pickChip: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 999,
+      gap: SPACING.xs,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      borderRadius: RADIUS.circle,
       backgroundColor: theme.surface,
       borderWidth: 1,
       borderColor: theme.accentWalk,
     },
     pickChipFallback: { borderColor: theme.border },
-    pickText: { fontSize: 13, fontWeight: "700", color: theme.accentWalk },
-    pickTextFallback: { fontSize: 13, color: theme.textSecondary },
-    fallback: { fontSize: 13, fontStyle: "italic", color: theme.textSecondary },
-    asOf: { fontSize: 11, color: theme.textSecondary },
+    pickText: { ...TYPE.caption, fontWeight: "700", color: theme.accentWalk },
+    pickTextFallback: { ...TYPE.caption, color: theme.textSecondary },
+    fallback: { ...TYPE.caption, fontStyle: "italic", color: theme.textSecondary },
+    asOf: { ...TYPE.micro, color: theme.textSecondary },
   });
 }

@@ -15,7 +15,8 @@ export type ActionIconKind =
   | "bookmark"
   | "crosshair"
   | "flag"
-  | "search";
+  | "search"
+  | "arrowRight";
 
 const PATHS: Record<ActionIconKind, string[]> = {
   check: ["M5,13l4,4l10,-10"],
@@ -30,6 +31,9 @@ const PATHS: Record<ActionIconKind, string[]> = {
   // magnifier: the address field it opens is a search, and `pin` already
   // means "a spot on a map" one row below it.
   search: ["M10.5,4a6.5,6.5,0,1,1,0,13a6.5,6.5,0,0,1,0,-13", "M15.3,15.3l4.7,4.7"],
+  // "origin → destination", for the journey summary card. `swap` is the
+  // two-way return-trip glyph and would read as the wrong relationship here.
+  arrowRight: ["M4,12h15", "M13,6l6,6l-6,6"],
   // "Where the route starts", for PlanScreen's route rail and the journey
   // maps' first marker. A flag rather than another circle: the rail's other
   // two markers are already a circle (each stop) and a teardrop (the

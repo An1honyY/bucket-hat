@@ -23,6 +23,7 @@ import { clearRemotePhotoCache } from "../../lib/sync/remotePhotoCache";
 import { showAlert } from "../../lib/crossPlatformAlert";
 import { AUTH_ERROR_COPY } from "../../lib/auth/errorCopy";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { cardElevationStyle } from "../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { RootStackParamList } from "../../navigation/types";
@@ -175,8 +176,8 @@ export default function AccountScreen() {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: SPACING.xl, gap: 4, backgroundColor: theme.bg },
-    sectionTitle: { ...TYPE.subtitle, fontSize: 15, marginBottom: SPACING.sm, color: theme.textPrimary },
+    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    sectionTitle: { ...TYPE.subtitle, fontSize: 16, marginBottom: SPACING.sm, color: theme.textPrimary },
     sectionCard: {
       backgroundColor: theme.surface,
       borderRadius: RADIUS.card,
@@ -186,11 +187,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     },
     email: { ...TYPE.subtitle, fontSize: 16, color: theme.textPrimary },
     body: { ...TYPE.caption, color: theme.textSecondary },
-    hint: { ...TYPE.micro, fontSize: 12, color: theme.textSecondary },
+    hint: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18 },
     buttonRow: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.sm },
     button: {
-      minHeight: 44,
-      paddingVertical: 10,
+      minHeight: 48,
       borderRadius: RADIUS.pill,
       borderWidth: 1,
       borderColor: theme.border,
@@ -202,8 +202,8 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // one try to claim half the card's height.
     rowButton: { flex: 1 },
     primaryButton: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk, marginTop: SPACING.md },
-    primaryButtonLabel: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
+    primaryButtonLabel: { ...TYPE.body, fontWeight: "700", color: "#FFFFFF" },
     buttonDisabled: { opacity: 0.5 },
-    buttonLabel: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
+    buttonLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
   });
 }

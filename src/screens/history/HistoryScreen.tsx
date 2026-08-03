@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, SectionList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -7,7 +7,10 @@ import type { RootStackParamList } from "../../navigation/types";
 import { listPastJourneys } from "../../db/repositories/journeys";
 import { groupJourneysByDay, type HistorySection } from "../../lib/historyGrouping";
 import HistoryRow from "./HistoryRow";
+import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { SPACING, TYPE } from "../../theme/typography";
 import type { Journey } from "../../types";
 
 // Reverse-chronological read-only journey list — docs/04-screens-navigation.md
@@ -90,9 +93,13 @@ export default function HistoryScreen({ navigation }: Props) {
         )}
         ListFooterComponent={
           hasMore ? (
-            <Pressable onPress={loadMore} style={styles.loadMoreButton} disabled={loadingMore}>
-              {loadingMore ? <ActivityIndicator /> : <Text style={styles.loadMoreLabel}>Load more</Text>}
-            </Pressable>
+            <View style={styles.loadMore}>
+              {loadingMore ? (
+                <ActivityIndicator />
+              ) : (
+                <AppButton label="Load more" variant="secondary" size="sm" onPress={loadMore} />
+              )}
+            </View>
           ) : null
         }
       />
@@ -104,11 +111,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
     content: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-    title: { fontSize: 20, fontWeight: "600", color: theme.textPrimary },
-    empty: { color: theme.textSecondary },
-    listContent: { padding: 20 },
-    sectionHeader: { fontSize: 13, fontWeight: "600", color: theme.textSecondary, marginBottom: 8, marginTop: 12 },
-    loadMoreButton: { alignItems: "center", paddingVertical: 12 },
-    loadMoreLabel: { fontWeight: "600", fontSize: 13, color: theme.textPrimary },
+    title: { ...TYPE.title, color: theme.textPrimary },
+    empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center", paddingHorizontal: SPACING.xl },
+    listContent: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    sectionHeader: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary, marginBottom: SPACING.sm, marginTop: SPACING.md },
+    loadMore: { paddingVertical: SPACING.md },
   });
 }

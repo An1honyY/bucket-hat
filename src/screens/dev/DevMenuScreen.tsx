@@ -7,7 +7,10 @@ import { resetOnboardingAndPreferences } from "../../db/repositories/settings";
 import { listUpcomingJourneys } from "../../db/repositories/journeys";
 import { checkForecastDrift } from "../../lib/forecastDrift";
 import { showAlert } from "../../lib/crossPlatformAlert";
+import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { RootStackParamList } from "../../navigation/types";
 import type { Journey } from "../../types";
 import type { ServiceError } from "../../services/types";
@@ -202,35 +205,34 @@ export default function DevMenuScreen() {
       )}
 
       <Text style={styles.heading}>First-run state</Text>
-      <Pressable onPress={confirmResetOnboarding} style={styles.dangerButton}>
-        <Text style={styles.dangerButtonLabel}>Reset onboarding + preferences</Text>
-      </Pressable>
+      <View style={styles.dangerAction}>
+        <AppButton label="Reset onboarding + preferences" variant="danger" onPress={confirmResetOnboarding} />
+      </View>
     </ScrollView>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: 20, gap: 4, backgroundColor: theme.bg },
-    heading: { fontSize: 15, fontWeight: "600", marginTop: 24, marginBottom: 4, color: theme.textPrimary },
-    hint: { fontSize: 12, color: theme.textSecondary, marginBottom: 8 },
-    section: { marginTop: 12 },
-    rowTitle: { fontSize: 13, fontWeight: "600", color: theme.textPrimary, marginBottom: 6 },
-    segmentRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-    segment: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.border },
+    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    heading: { ...TYPE.subtitle, fontSize: 16, marginTop: SPACING.xxl, marginBottom: SPACING.xs, color: theme.textPrimary },
+    hint: { ...TYPE.caption, color: theme.textSecondary, marginBottom: SPACING.sm, lineHeight: 18 },
+    section: { marginTop: SPACING.md },
+    rowTitle: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary, marginBottom: SPACING.xs },
+    segmentRow: { flexDirection: "row", gap: SPACING.sm, flexWrap: "wrap" },
+    segment: { minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.md, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border },
     segmentActive: { backgroundColor: theme.textPrimary, borderColor: theme.textPrimary },
-    segmentLabel: { fontSize: 12, color: theme.textPrimary },
+    segmentLabel: { ...TYPE.caption, color: theme.textPrimary },
     segmentLabelActive: { color: theme.bg, fontWeight: "600" },
-    delayRow: { flexDirection: "row", gap: 8, alignItems: "center" },
-    delayInput: { flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: theme.textPrimary },
-    smallButton: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-    smallButtonLabel: { fontSize: 13, fontWeight: "600", color: theme.textPrimary },
-    linkButton: { marginTop: 12, alignSelf: "flex-start" },
-    linkLabel: { fontSize: 13, color: theme.accentWalk, fontWeight: "600" },
-    journeyRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border },
-    journeyLabel: { fontSize: 14, fontWeight: "600", color: theme.textPrimary },
-    journeyMeta: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
-    dangerButton: { marginTop: 8, paddingVertical: 12, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: theme.danger },
-    dangerButtonLabel: { color: theme.danger, fontWeight: "600", fontSize: 14 },
+    delayRow: { flexDirection: "row", gap: SPACING.sm, alignItems: "center" },
+    delayInput: { flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44, ...TYPE.body, color: theme.textPrimary },
+    smallButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.lg, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border },
+    smallButtonLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
+    linkButton: { marginTop: SPACING.md, minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
+    linkLabel: { ...TYPE.caption, color: theme.accentWalk, fontWeight: "600" },
+    journeyRow: { paddingVertical: SPACING.md, minHeight: 44, borderBottomWidth: 1, borderBottomColor: theme.border },
+    journeyLabel: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    journeyMeta: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2 },
+    dangerAction: { marginTop: SPACING.sm },
   });
 }
