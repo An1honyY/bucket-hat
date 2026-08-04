@@ -87,6 +87,13 @@ export interface SavedLocation {
   isFavorite?: boolean;
   lastUsedAt?: string; // ISO
   hasReliableClimateControl?: boolean; // Section 3.4 — overrides CLIMATE_BY_MODE default
+  // What the user has decided they want at this place regardless of what the
+  // forecast says — "the office runs cold, I always want the cardigan."
+  // Deliberately *not* an input to recommendGear(): these are the user's own
+  // standing choices, displayed next to the engine's picks rather than folded
+  // into them (see DECISIONS.md 2026-08-04).
+  preferredGearIds?: string[]; // ClothingItem/ShoeItem/UmbrellaItem ids, any mix
+  notes?: string; // free text, unlike EnvironmentAnnotation's structured effects
 }
 
 // Bookmarked origin→destination pair (not a fixed schedule — see RecurrenceRule)

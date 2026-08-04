@@ -9,6 +9,8 @@ import LocationPickerMap from "../../components/LocationPickerMap";
 import ActionIcon from "../../components/ActionIcon";
 import FormSection from "../../components/FormSection";
 import FormActions from "../../components/FormActions";
+import GearMultiSelect from "../../components/GearMultiSelect";
+import { useGearOptions } from "../../lib/useGearOptions";
 import { reverseGeocode } from "../../services/placesService";
 
 // Add/edit form for a SavedLocation — docs/04-screens-navigation.md item 3.
@@ -40,6 +42,8 @@ export interface LocationFormValues {
   lng: number;
   isFavorite: boolean;
   hasReliableClimateControl: boolean | undefined;
+  preferredGearIds: string[];
+  notes: string;
 }
 
 interface Props {
@@ -47,9 +51,13 @@ interface Props {
   onSubmit: (values: LocationFormValues) => void;
   onCancel: () => void;
   onDelete?: () => void;
+  /** Render without the screen-level ScrollView, for callers that already
+   *  scroll (LocationDetail nests this inside its disclosure section, and a
+   *  ScrollView inside a ScrollView neither scrolls nor sizes correctly). */
+  embedded?: boolean;
 }
 
-export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: Props) {
+export default function LocationForm({ initial, onSubmit, onCancel, onDelete, embedded = false }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const common = useCommonStyles();
@@ -59,6 +67,9 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
   const [lng, setLng] = useState(initial ? String(initial.lng) : "");
   const [isFavorite, setIsFavorite] = useState(initial?.isFavorite ?? false);
   const [climate, setClimate] = useState<ClimateOverride>(toClimateOverride(initial?.hasReliableClimateControl));
+  const [preferredGearIds, setPreferredGearIds] = useState<string[]>(initial?.preferredGearIds ?? []);
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const { options: gearOptions, loaded: gearLoaded } = useGearOptions();
   // Collapsed by default, same pattern as Settings' "Advanced" threshold
   // override — auto-expanded when editing an existing location, since its
   // lat/lng are already meaningful values rather than blank fields waiting
@@ -100,8 +111,11 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
     if ("data" in result) setAddress(result.data.formattedAddress);
   }
 
+  const Container = embedded ? View : ScrollView;
+  const containerProps = embedded ? {} : { contentContainerStyle: common.scrollContent };
+
   return (
-    <ScrollView contentContainerStyle={common.scrollContent}>
+    <Container {...containerProps}>
       <FormSection title="Location">
         <View>
           <Text style={common.fieldLabel}>Label</Text>
@@ -197,6 +211,39 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
             ))}
           </View>
         </View>
+
+        {/* Standing choices about this place, alongside the AC/heating
+            override above — that field says what the place is like, these two
+            say what the user wants there. Both live under Preferences rather
+            than getting a section of their own, so the form stays two cards. */}
+        <View>
+          <Text style={common.fieldLabel}>Usual gear here</Text>
+          {!gearLoaded ? null : gearOptions.length === 0 ? (
+            <Text style={styles.hint}>Nothing in your wardrobe yet — add gear and it&apos;ll show up here to choose from.</Text>
+          ) : (
+            <>
+              <Text style={styles.hint}>
+                Shown with the forecast whenever you open this place. It doesn&apos;t change what the app recommends for
+                a journey.
+              </Text>
+              <GearMultiSelect options={gearOptions} selectedIds={preferredGearIds} onChange={setPreferredGearIds} />
+            </>
+          )}
+        </View>
+
+        <View>
+          <Text style={common.fieldLabel}>Notes</Text>
+          <TextInput
+            style={[common.input, styles.notesInput]}
+            placeholderTextColor={theme.textSecondary}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Anything worth remembering about this place"
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+        </View>
       </FormSection>
 
       <FormActions
@@ -210,11 +257,13 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete }: 
             lng: lngNum,
             isFavorite,
             hasReliableClimateControl: fromClimateOverride(climate),
+            preferredGearIds,
+            notes: notes.trim(),
           })
         }
         destructive={onDelete ? { label: "Delete location", onPress: onDelete } : undefined}
       />
-    </ScrollView>
+    </Container>
   );
 }
 
@@ -235,6 +284,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     mapPickerContent: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     mapPickerLabel: { ...TYPE.caption, fontWeight: "600", color: theme.accentWalk },
     hint: { ...TYPE.caption, color: theme.textSecondary, marginTop: SPACING.xs, marginBottom: SPACING.xs, lineHeight: 18 },
+    // A pill-shaped single-line input is the wrong shape for a few sentences,
+    // so the notes field squares off and grows.
+    notesInput: { minHeight: 88, borderRadius: RADIUS.card, paddingTop: SPACING.md },
     favoriteRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 44 },
     segmentRow: { flexDirection: "row", gap: SPACING.sm },
     segment: { flex: 1, minHeight: 44, justifyContent: "center", borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center" },

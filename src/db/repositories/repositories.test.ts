@@ -115,6 +115,35 @@ describe("repository round-trips", () => {
     expect(all.map((l) => l.id)).toEqual([home.id]);
   });
 
+  it("locations: round-trips preferred gear ids and notes, storing empty ones as absent", async () => {
+    const created = await createLocation({
+      label: "Work",
+      address: "2 Queen St",
+      lat: -36.85,
+      lng: 174.76,
+      preferredGearIds: ["clothing-1", "shoe-2"],
+      notes: "  Office runs cold — bring the cardigan  ",
+    });
+
+    let saved = (await listLocations())[0];
+    expect(saved.preferredGearIds).toEqual(["clothing-1", "shoe-2"]);
+    // Trimmed on the way in, so a note of nothing but whitespace can't
+    // resurrect the card that renders it.
+    expect(saved.notes).toBe("Office runs cold — bring the cardigan");
+
+    await updateLocation({ ...created, preferredGearIds: [], notes: "   " });
+    saved = (await listLocations())[0];
+    expect(saved.preferredGearIds).toBeUndefined();
+    expect(saved.notes).toBeUndefined();
+  });
+
+  it("locations: a location saved before these fields existed reads back as undefined", async () => {
+    await createLocation({ label: "Gym", address: "3 Queen St", lat: -36.85, lng: 174.76 });
+    const saved = (await listLocations())[0];
+    expect(saved.preferredGearIds).toBeUndefined();
+    expect(saved.notes).toBeUndefined();
+  });
+
   it("clothing: create with caller-supplied id, round-trips tags/booleans/optional fields", async () => {
     const id = newId();
     await createClothing({

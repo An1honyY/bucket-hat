@@ -130,6 +130,8 @@ one by date — don't edit the old entry.
 - 2026-08-03 — Hourly cells: unique clip ids, both blocks tinted, blank line kept (§9.5) [bug fix, design]
 - 2026-08-03 — Hourly cells commit to a light or dark surface, with measured icon colours (§9.5, §9.1) [design]
 - 2026-08-04 — One hourly cell, one fact: droplet, millimetres and glyph agree (§6, §9.5) [bug fix]
+- 2026-08-04 — Opening a saved location leads with its forecast; the edit form moves behind a disclosure (§4, §9.3.1) [design]
+- 2026-08-04 — Per-location gear picks and notes are displayed, not fed to recommendGear() (§3.4, §7)
 
 ---
 
@@ -2370,5 +2372,50 @@ the number the user reads; probability is displayed nowhere in this app
 (§9.0.1 bans "60% chance" phrasing) so it shouldn't silently decide what the
 gauge shows. Verified in the DOM: 0 mismatches across 24 cells. Don't
 reintroduce a second wetness signal — reconcile in `iconKindFor` instead.
+
+---
+
+## 2026-08-04 — Opening a saved location leads with its forecast (§4, §9.3.1)
+
+**What**: tapping a saved location now opens a detail screen whose first
+content is the Today tab's own `RightNowCard` + `LocalForecastCard`, pinned to
+that location's coordinates; the label/address/coordinates/preferences form it
+used to open directly into is collapsed behind a "Location & preferences"
+disclosure.
+
+**Why**: §4 only ever described Locations as CRUD, so "open a location" meant
+"edit a location." But a saved place's weather is the thing worth checking
+repeatedly and its address is the thing you set once, so the screen was
+leading with the rarer question.
+
+**Resolution**: `useRightNow(fixedCoords?)` gained an optional pinned-location
+mode (its cache is now a Map keyed by place, so Today and a location can't
+clobber each other's reading) and `LocationForm` an `embedded` prop that drops
+its own ScrollView. Both cards are reused verbatim — a saved location's
+forecast and the current-location forecast are the same question about
+different coordinates, so don't fork a second card design for this screen.
+
+---
+
+## 2026-08-04 — Per-location gear picks and notes are displayed, not fed to the engine (§3.4, §7)
+
+**What**: `SavedLocation` gains `preferredGearIds` (ids across clothing/shoes/
+umbrellas) and free-text `notes`, editable under the location form's
+Preferences section and rendered as a card under the forecast on the location
+detail screen. Migration 008, additive.
+
+**Why**: §3.4 gave a location exactly one engine-read property
+(`hasReliableClimateControl`), and §7 defines `recommendGear()` purely over
+weather, inventory and calibration. Letting a per-place pick override the
+engine's own would cut across the calibration loop (§7.5), the availability
+and warmth-target logic, and the "why was this picked" reasoning — a real
+§7 change, not a §3.4 one.
+
+**Resolution**: these are the user's standing choices shown *next to* the
+engine's picks, never merged into them, and the form says so in as many words.
+Free text is deliberate too: an `EnvironmentAnnotation` is a structured signal
+the engine matches (§7.8), this is a human reminder about a named place — don't
+collapse the two. Wiring preferred gear into `recommendGear()` is a scoped §7
+task if it's ever wanted, not an informal extension of this.
 
 ---
