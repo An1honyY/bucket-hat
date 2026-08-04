@@ -8,6 +8,7 @@ import { listUmbrellas } from "../db/repositories/umbrellas";
 import { getWarmthCalibration } from "../db/repositories/calibration";
 import { getAdvancedThresholds } from "../db/repositories/advancedThresholds";
 import { resolveApproximateLocation } from "./approximateLocation";
+import { useAmbientWeatherStore } from "../theme/useAmbientWeatherStore";
 import { reverseGeocodeSuburb } from "../services/placesService";
 import { newId } from "../db/rowMapping";
 import type { Journey, WeatherSnapshot } from "../types";
@@ -179,6 +180,12 @@ export function useRightNow(fixedCoords?: { lat: number; lng: number }): RightNo
       }
 
       const { current: weather, hourly, daily } = outlookResult.data;
+
+      // §9.1.3 — the app-wide tint reads from here. Only the *user's own*
+      // location sets it: a pinned reading is some other suburb's weather,
+      // and opening a saved location shouldn't repaint the whole app in the
+      // mood of a place you aren't standing in.
+      if (!pinned) useAmbientWeatherStore.getState().setAmbientWeather(weather);
 
       const [clothing, shoes, umbrellas, calibration, thresholds] = await Promise.all([
         listClothing(),

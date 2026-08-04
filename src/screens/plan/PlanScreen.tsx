@@ -20,6 +20,7 @@ import FormSection from "../../components/FormSection";
 import ActionIcon from "../../components/ActionIcon";
 import ModeIcon from "../../components/ModeIcon";
 import AppButton from "../../components/AppButton";
+import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle } from "../../theme/tokens";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
@@ -438,394 +439,398 @@ export default function PlanScreen() {
   // goes straight to the form, exactly as before.
   if (savedRoutes.length > 0 && chooser === "auto") {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.chooserCard}>
-          <Text style={styles.chooserTitle}>Take a saved journey</Text>
-          <Text style={styles.chooserHint}>Reuse one of your usual trips — pick the time on the next screen.</Text>
-          {savedRoutes.map((saved) => {
-            const from = locations.find((l) => l.id === saved.originId)?.label;
-            const to = locations.find((l) => l.id === saved.destinationId)?.label;
-            const stops = saved.waypointIds?.length ?? 0;
-            return (
-              <Pressable
-                key={saved.id}
-                onPress={() => {
-                  touchSavedRoute(saved.id);
-                  applySavedRoute(saved, "now");
-                }}
-                style={styles.chooserRow}
-                accessibilityRole="button"
-                accessibilityLabel={`Take the saved journey ${saved.label}`}
-              >
-                <View style={styles.chooserRowIcon}>
-                  <ModeIcon kind={saved.preferredMode ?? "walk"} size={16} color={theme.accentWalk} />
-                </View>
-                <View style={styles.chooserRowText}>
-                  <Text style={styles.chooserRowLabel} numberOfLines={1}>
-                    {saved.label}
-                  </Text>
-                  {/* The default label *is* "origin → destination", so
-                      repeating it underneath would print the same line
-                      twice; a renamed journey still gets its route shown. */}
-                  {from && to && (saved.label !== `${from} → ${to}` || stops > 0) && (
-                    <Text style={styles.chooserRowMeta} numberOfLines={1}>
-                      {from} → {to}
-                      {stops > 0 ? ` · ${stops} stop${stops === 1 ? "" : "s"}` : ""}
+      <ScreenSurface edges={["bottom"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <View style={styles.chooserCard}>
+            <Text style={styles.chooserTitle}>Take a saved journey</Text>
+            <Text style={styles.chooserHint}>Reuse one of your usual trips — pick the time on the next screen.</Text>
+            {savedRoutes.map((saved) => {
+              const from = locations.find((l) => l.id === saved.originId)?.label;
+              const to = locations.find((l) => l.id === saved.destinationId)?.label;
+              const stops = saved.waypointIds?.length ?? 0;
+              return (
+                <Pressable
+                  key={saved.id}
+                  onPress={() => {
+                    touchSavedRoute(saved.id);
+                    applySavedRoute(saved, "now");
+                  }}
+                  style={styles.chooserRow}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Take the saved journey ${saved.label}`}
+                >
+                  <View style={styles.chooserRowIcon}>
+                    <ModeIcon kind={saved.preferredMode ?? "walk"} size={16} color={theme.accentWalk} />
+                  </View>
+                  <View style={styles.chooserRowText}>
+                    <Text style={styles.chooserRowLabel} numberOfLines={1}>
+                      {saved.label}
                     </Text>
-                  )}
-                </View>
-                {saved.isFavorite && <ActionIcon kind="star" size={14} color={theme.favoriteStar} filled />}
-              </Pressable>
-            );
-          })}
-        </View>
+                    {/* The default label *is* "origin → destination", so
+                        repeating it underneath would print the same line
+                        twice; a renamed journey still gets its route shown. */}
+                    {from && to && (saved.label !== `${from} → ${to}` || stops > 0) && (
+                      <Text style={styles.chooserRowMeta} numberOfLines={1}>
+                        {from} → {to}
+                        {stops > 0 ? ` · ${stops} stop${stops === 1 ? "" : "s"}` : ""}
+                      </Text>
+                    )}
+                  </View>
+                  {saved.isFavorite && <ActionIcon kind="star" size={14} color={theme.favoriteStar} filled />}
+                </Pressable>
+              );
+            })}
+          </View>
 
-        <View style={styles.chooserActions}>
-          <AppButton label="Plan a new journey" variant="secondary" onPress={() => setChooser("dismissed")} />
-          <AppButton
-            label="Manage saved journeys"
-            variant="ghost"
-            size="sm"
-            onPress={() => navigation.navigate("SavedJourneys")}
-          />
-        </View>
-      </ScrollView>
+          <View style={styles.chooserActions}>
+            <AppButton label="Plan a new journey" variant="secondary" onPress={() => setChooser("dismissed")} />
+            <AppButton
+              label="Manage saved journeys"
+              variant="ghost"
+              size="sm"
+              onPress={() => navigation.navigate("SavedJourneys")}
+            />
+          </View>
+        </ScrollView>
+      </ScreenSurface>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <FormSection title="Route">
-        <View style={styles.timelineRow}>
-          <View style={styles.timelineRail}>
-            {/* Blank, not dashed — nothing comes before the start of a
-                route. It exists only to drop the marker onto the same
-                baseline every other marker sits on. */}
-            <View style={styles.timelineLeadSpacer} />
-            <View style={styles.timelineMarker}>
-              {/* The mode you've picked, matching the journey map's origin
-                  marker (JourneyMap's `originMode`) — the rail and the map
-                  have to say the same thing, and "a place" was the one
-                  thing this marker didn't need to say: both the field
-                  beside it and every other marker on the rail are places. */}
-              <ModeIcon kind={mode} size={18} color={theme.accentWalk} />
-            </View>
-            <View style={styles.timelineConnector} />
-          </View>
-          <View style={styles.timelineContent}>
-            <SavedLocationPicker label="Start Location" value={origin} onChange={setOrigin} placeholder="Choose a start location" />
-          </View>
-        </View>
-
-        {waypoints.map((stop, index) => (
-          <View key={index} style={styles.timelineRow}>
+      <ScreenSurface edges={["bottom"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+        <FormSection title="Route">
+          <View style={styles.timelineRow}>
             <View style={styles.timelineRail}>
-              <View style={styles.timelineConnectorLead} />
+              {/* Blank, not dashed — nothing comes before the start of a
+                  route. It exists only to drop the marker onto the same
+                  baseline every other marker sits on. */}
+              <View style={styles.timelineLeadSpacer} />
               <View style={styles.timelineMarker}>
-                <View style={styles.timelineDotStop} />
+                {/* The mode you've picked, matching the journey map's origin
+                    marker (JourneyMap's `originMode`) — the rail and the map
+                    have to say the same thing, and "a place" was the one
+                    thing this marker didn't need to say: both the field
+                    beside it and every other marker on the rail are places. */}
+                <ModeIcon kind={mode} size={18} color={theme.accentWalk} />
               </View>
               <View style={styles.timelineConnector} />
             </View>
             <View style={styles.timelineContent}>
-              <View style={styles.waypointRow}>
-                <View style={styles.waypointPicker}>
-                  <SavedLocationPicker
-                    label={`Stop ${index + 1}`}
-                    value={stop}
-                    onChange={(location) =>
-                      setWaypoints((current) => current.map((w, i) => (i === index ? location : w)))
-                    }
-                    placeholder="Choose a stop"
-                  />
+              <SavedLocationPicker label="Start Location" value={origin} onChange={setOrigin} placeholder="Choose a start location" />
+            </View>
+          </View>
+
+          {waypoints.map((stop, index) => (
+            <View key={index} style={styles.timelineRow}>
+              <View style={styles.timelineRail}>
+                <View style={styles.timelineConnectorLead} />
+                <View style={styles.timelineMarker}>
+                  <View style={styles.timelineDotStop} />
                 </View>
-                <Pressable
-                  onPress={() => setWaypoints((current) => current.filter((_, i) => i !== index))}
-                  hitSlop={8}
-                  style={styles.removeStop}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove stop ${index + 1}`}
-                >
-                  <ActionIcon kind="close" size={16} color={theme.textSecondary} />
-                </Pressable>
+                <View style={styles.timelineConnector} />
+              </View>
+              <View style={styles.timelineContent}>
+                <View style={styles.waypointRow}>
+                  <View style={styles.waypointPicker}>
+                    <SavedLocationPicker
+                      label={`Stop ${index + 1}`}
+                      value={stop}
+                      onChange={(location) =>
+                        setWaypoints((current) => current.map((w, i) => (i === index ? location : w)))
+                      }
+                      placeholder="Choose a stop"
+                    />
+                  </View>
+                  <Pressable
+                    onPress={() => setWaypoints((current) => current.filter((_, i) => i !== index))}
+                    hitSlop={8}
+                    style={styles.removeStop}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove stop ${index + 1}`}
+                  >
+                    <ActionIcon kind="close" size={16} color={theme.textSecondary} />
+                  </Pressable>
+                </View>
               </View>
             </View>
-          </View>
-        ))}
+          ))}
 
-        <View style={styles.timelineRow}>
-          <View style={styles.timelineRail}>
-            {/* The rail used to stop dead at the bottom of the row above and
-                pick up again at a marker pinned to the very top of this one —
-                the line visibly broke right where the route arrives, and that
-                marker sat a good 30px higher than every dot above it. This
-                lead segment carries the dashes down through the gap and drops
-                it onto the same baseline as the other markers. */}
-            <View style={styles.timelineConnectorLead} />
-            <View style={styles.timelineMarker}>
-              <ActionIcon kind="flag" size={18} color={theme.accentWalk} filled />
+          <View style={styles.timelineRow}>
+            <View style={styles.timelineRail}>
+              {/* The rail used to stop dead at the bottom of the row above and
+                  pick up again at a marker pinned to the very top of this one —
+                  the line visibly broke right where the route arrives, and that
+                  marker sat a good 30px higher than every dot above it. This
+                  lead segment carries the dashes down through the gap and drops
+                  it onto the same baseline as the other markers. */}
+              <View style={styles.timelineConnectorLead} />
+              <View style={styles.timelineMarker}>
+                <ActionIcon kind="flag" size={18} color={theme.accentWalk} filled />
+              </View>
+            </View>
+            <View style={styles.timelineContent}>
+              <SavedLocationPicker label="Destination" value={destination} onChange={setDestination} placeholder="Choose a destination" />
             </View>
           </View>
-          <View style={styles.timelineContent}>
-            <SavedLocationPicker label="Destination" value={destination} onChange={setDestination} placeholder="Choose a destination" />
-          </View>
-        </View>
 
-        <Pressable onPress={addStop} style={styles.addStop} accessibilityRole="button" accessibilityLabel="Add a stop">
-          <Text style={styles.addStopLabel}>+ Add a stop</Text>
-        </Pressable>
-      </FormSection>
+          <Pressable onPress={addStop} style={styles.addStop} accessibilityRole="button" accessibilityLabel="Add a stop">
+            <Text style={styles.addStopLabel}>+ Add a stop</Text>
+          </Pressable>
+        </FormSection>
 
-      {/* Mode sits above When deliberately: how you're travelling is what
-          decides how long the trip takes, and the When section's hourly
-          outlook is computed from that duration — picking the time first
-          means picking it against an outlook the next tap invalidates. */}
-      <FormSection title="Mode">
-        <View style={styles.row}>
-          {MODES.map((m) => (
-            <Pressable
-              key={m}
-              onPress={() => setMode(m)}
-              style={[styles.modeChip, mode === m && styles.modeChipActive]}
-              accessibilityRole="button"
-              // Selected state in the label, matching the dress-code
-              // segments below — react-native-web drops accessibilityState
-              // for role="button" entirely.
-              accessibilityLabel={`Travel by ${MODE_LABEL[m].toLowerCase()}${mode === m ? ", selected" : ""}`}
-            >
-              <Text style={[styles.modeChipLabel, mode === m && styles.modeChipLabelActive]}>{MODE_LABEL[m]}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </FormSection>
-
-      <FormSection title="When">
-        <View style={styles.row}>
-          {TIME_MODES.map((tm) => (
-            <Pressable
-              key={tm}
-              onPress={() => setTimeMode(tm)}
-              style={[styles.modeChip, timeMode === tm && styles.modeChipActive]}
-              accessibilityRole="button"
-              accessibilityLabel={`${TIME_MODE_LABEL[tm]}${timeMode === tm ? ", selected" : ""}`}
-            >
-              <Text style={[styles.modeChipLabel, timeMode === tm && styles.modeChipLabelActive]}>{TIME_MODE_LABEL[tm]}</Text>
-            </Pressable>
-          ))}
-        </View>
-        {timeMode !== "leave-now" && (
+        {/* Mode sits above When deliberately: how you're travelling is what
+            decides how long the trip takes, and the When section's hourly
+            outlook is computed from that duration — picking the time first
+            means picking it against an outlook the next tap invalidates. */}
+        <FormSection title="Mode">
           <View style={styles.row}>
-            <TextInput
-              style={[styles.input, styles.flex1]}
-              placeholderTextColor={theme.textSecondary}
-              value={dateStr}
-              onChangeText={setDateStr}
-              placeholder="YYYY-MM-DD"
-            />
-            <TextInput
-              style={[styles.input, styles.flex1]}
-              placeholderTextColor={theme.textSecondary}
-              value={timeStr}
-              onChangeText={setTimeStr}
-              placeholder="HH:mm"
-            />
-          </View>
-        )}
-        {origin && destination && selectedDepartTimeIso && (
-          <HourlyOutlook
-            origin={origin}
-            waypoints={waypoints}
-            destination={destination}
-            mode={mode}
-            departTimeIso={selectedDepartTimeIso}
-          />
-        )}
-
-        {timeMode === "leave-by" && (
-          <FormRow label="Repeats">
-            <Switch value={repeatsEnabled} onValueChange={setRepeatsEnabled} />
-          </FormRow>
-        )}
-        {timeMode === "leave-by" && repeatsEnabled && (
-          <View style={styles.row}>
-            {DAY_LABELS.map((dayLabel, day) => (
+            {MODES.map((m) => (
               <Pressable
-                key={day}
-                onPress={() => toggleDay(day)}
-                style={[styles.dayChip, selectedDays.includes(day) && styles.dayChipActive]}
+                key={m}
+                onPress={() => setMode(m)}
+                style={[styles.modeChip, mode === m && styles.modeChipActive]}
                 accessibilityRole="button"
-                accessibilityLabel={`${dayLabel}${selectedDays.includes(day) ? ", selected" : ""}`}
+                // Selected state in the label, matching the dress-code
+                // segments below — react-native-web drops accessibilityState
+                // for role="button" entirely.
+                accessibilityLabel={`Travel by ${MODE_LABEL[m].toLowerCase()}${mode === m ? ", selected" : ""}`}
               >
-                <Text style={[styles.dayChipLabel, selectedDays.includes(day) && styles.dayChipLabelActive]}>{dayLabel}</Text>
+                <Text style={[styles.modeChipLabel, mode === m && styles.modeChipLabelActive]}>{MODE_LABEL[m]}</Text>
               </Pressable>
             ))}
           </View>
-        )}
-      </FormSection>
+        </FormSection>
 
-      {/* One "Preferences" card used to hold the dress code, the spare layer
-          and the save-route bookmark together. They aren't one decision: the
-          first two change what gets recommended, the third only decides
-          whether the route is remembered afterwards. Split into their own
-          sections, with saving moved down beside the button that acts on it. */}
-      <FormSection title="Dress code">
-        <Text style={styles.hint}>
-          Formal prefers dress shoes and anything tagged formal, and skips the bulky wind layer.
-        </Text>
-        <View style={styles.segmentRow}>
-          {FORMAL_OPTIONS.map((option) => (
-            <Pressable
-              key={String(option.value)}
-              onPress={() => setFormal(option.value)}
-              style={[styles.segment, formal === option.value && styles.segmentActive]}
-              accessibilityRole="button"
-              // The selected state goes in the *label*, not accessibilityState:
-              // react-native-web drops accessibilityState for role="button"
-              // entirely (verified in the DOM — no aria-pressed, no
-              // aria-selected), which would leave the choice conveyed by fill
-              // colour alone, exactly what §9.6 rules out.
-              accessibilityLabel={`Dress code: ${option.label}${formal === option.value ? ", selected" : ""}`}
-            >
-              <Text style={[styles.segmentLabel, formal === option.value && styles.segmentLabelActive]}>{option.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </FormSection>
-
-      <FormSection title="Spare layer">
-        <Text style={styles.hint}>Whether to suggest packing a removable layer for this trip.</Text>
-        <View style={styles.segmentRow}>
-          {CARRY_PREFERENCE_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => setCarryPreference(option.value)}
-              style={[styles.segment, carryPreference === option.value && styles.segmentActive]}
-              accessibilityRole="button"
-              // Selected state in the label — see the dress-code segments above.
-              accessibilityLabel={`Spare layer: ${option.label}${carryPreference === option.value ? ", selected" : ""}`}
-            >
-              <Text style={[styles.segmentLabel, carryPreference === option.value && styles.segmentLabelActive]}>{option.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </FormSection>
-
-      {/* One card holds both the toggle and (when on) the time picker below
-          it, rather than a switch with a separately-styled block floating
-          underneath — the shared card boundary is what reads as "this
-          content belongs to this toggle," the same way the Settings
-          screen's Advanced disclosure keeps its body inside its own
-          section. */}
-      <View style={styles.returnCard}>
-        <FormRow label="Plan return trip too">
-          <Switch value={planReturnTrip} onValueChange={seedReturnTimeIfUnset} />
-        </FormRow>
-        {planReturnTrip && (
-          <View style={styles.returnCardBody}>
-            <View style={styles.returnCardDivider} />
-            <Text style={styles.label}>Return time</Text>
+        <FormSection title="When">
+          <View style={styles.row}>
+            {TIME_MODES.map((tm) => (
+              <Pressable
+                key={tm}
+                onPress={() => setTimeMode(tm)}
+                style={[styles.modeChip, timeMode === tm && styles.modeChipActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`${TIME_MODE_LABEL[tm]}${timeMode === tm ? ", selected" : ""}`}
+              >
+                <Text style={[styles.modeChipLabel, timeMode === tm && styles.modeChipLabelActive]}>{TIME_MODE_LABEL[tm]}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {timeMode !== "leave-now" && (
             <View style={styles.row}>
               <TextInput
                 style={[styles.input, styles.flex1]}
                 placeholderTextColor={theme.textSecondary}
-                value={returnDateStr}
-                onChangeText={setReturnDateStr}
+                value={dateStr}
+                onChangeText={setDateStr}
                 placeholder="YYYY-MM-DD"
               />
               <TextInput
                 style={[styles.input, styles.flex1]}
                 placeholderTextColor={theme.textSecondary}
-                value={returnTimeStr}
-                onChangeText={setReturnTimeStr}
+                value={timeStr}
+                onChangeText={setTimeStr}
                 placeholder="HH:mm"
               />
             </View>
-            {/* The return trip runs the same route backwards, so its outlook
-                takes the reversed stop order — the destination is where you
-                set off from on the way home. */}
-            {origin && destination && returnDepartTimeIso && (
-              <HourlyOutlook
-                origin={destination}
-                waypoints={[...waypoints].reverse()}
-                destination={origin}
-                mode={mode}
-                departTimeIso={returnDepartTimeIso}
-              />
-            )}
-            {returnRainWindow && (
-              <View style={styles.rainSuggestion}>
-                <Text style={styles.rainSuggestionText}>
-                  Rain expected {formatTime(returnRainWindow.startIso, hour12)}–{formatTime(returnRainWindow.endIso, hour12)} near your
-                  return time — consider leaving before {formatTime(returnRainWindow.startIso, hour12)} or after{" "}
-                  {formatTime(returnRainWindow.endIso, hour12)} to dodge the shower.
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* Last thing before the button that acts on it — saving is a decision
-          about this journey as a whole, so it only really makes sense once
-          the route above it is settled. Turning it on reveals what's about
-          to be saved (a name, and whether it's a favourite) rather than
-          silently filing "Home → Work" away under a generated label. */}
-      <View style={styles.saveCard}>
-        <Pressable
-          onPress={() => setSaveThisRoute((v) => !v)}
-          style={styles.saveRouteRow}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: saveThisRoute }}
-          // State repeated in the label because react-native-web emits neither
-          // aria-checked nor aria-pressed here (verified in the DOM), so without
-          // it the only signal that this is on is the bookmark's fill colour.
-          accessibilityLabel={saveThisRoute ? "Save this journey, on" : "Save this journey, off"}
-        >
-          <ActionIcon kind="bookmark" size={20} color={saveThisRoute ? theme.accentWalk : theme.textSecondary} filled={saveThisRoute} />
-          <Text style={styles.label}>Save this journey to reuse</Text>
-        </Pressable>
-        {saveThisRoute && (
-          <View style={styles.saveBody}>
-            <TextInput
-              style={styles.input}
-              value={saveLabel}
-              onChangeText={setSaveLabel}
-              placeholder={origin && destination ? `${origin.label} → ${destination.label}` : "Morning commute"}
-              placeholderTextColor={theme.textSecondary}
+          )}
+          {origin && destination && selectedDepartTimeIso && (
+            <HourlyOutlook
+              origin={origin}
+              waypoints={waypoints}
+              destination={destination}
+              mode={mode}
+              departTimeIso={selectedDepartTimeIso}
             />
-            <Pressable
-              onPress={() => setSaveAsFavorite((v) => !v)}
-              style={styles.saveRouteRow}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: saveAsFavorite }}
-              accessibilityLabel={saveAsFavorite ? "Favourite, on" : "Favourite, off"}
-            >
-              <ActionIcon kind="star" size={20} color={saveAsFavorite ? theme.favoriteStar : theme.textSecondary} filled={saveAsFavorite} />
-              <Text style={styles.label}>Favourite — keep it at the top</Text>
-            </Pressable>
-            <Text style={styles.hint}>
-              Saved journeys keep the route, stops and mode — never a date, so you can take them again whenever.
-            </Text>
-          </View>
-        )}
-      </View>
+          )}
 
-      <View style={styles.planAction}>
-        {planning ? (
-          <View style={styles.planningIndicator}>
-            <ActivityIndicator color={theme.accentWalk} />
-            <Text style={styles.planningLabel}>Planning your journey…</Text>
+          {timeMode === "leave-by" && (
+            <FormRow label="Repeats">
+              <Switch value={repeatsEnabled} onValueChange={setRepeatsEnabled} />
+            </FormRow>
+          )}
+          {timeMode === "leave-by" && repeatsEnabled && (
+            <View style={styles.row}>
+              {DAY_LABELS.map((dayLabel, day) => (
+                <Pressable
+                  key={day}
+                  onPress={() => toggleDay(day)}
+                  style={[styles.dayChip, selectedDays.includes(day) && styles.dayChipActive]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${dayLabel}${selectedDays.includes(day) ? ", selected" : ""}`}
+                >
+                  <Text style={[styles.dayChipLabel, selectedDays.includes(day) && styles.dayChipLabelActive]}>{dayLabel}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </FormSection>
+
+        {/* One "Preferences" card used to hold the dress code, the spare layer
+            and the save-route bookmark together. They aren't one decision: the
+            first two change what gets recommended, the third only decides
+            whether the route is remembered afterwards. Split into their own
+            sections, with saving moved down beside the button that acts on it. */}
+        <FormSection title="Dress code">
+          <Text style={styles.hint}>
+            Formal prefers dress shoes and anything tagged formal, and skips the bulky wind layer.
+          </Text>
+          <View style={styles.segmentRow}>
+            {FORMAL_OPTIONS.map((option) => (
+              <Pressable
+                key={String(option.value)}
+                onPress={() => setFormal(option.value)}
+                style={[styles.segment, formal === option.value && styles.segmentActive]}
+                accessibilityRole="button"
+                // The selected state goes in the *label*, not accessibilityState:
+                // react-native-web drops accessibilityState for role="button"
+                // entirely (verified in the DOM — no aria-pressed, no
+                // aria-selected), which would leave the choice conveyed by fill
+                // colour alone, exactly what §9.6 rules out.
+                accessibilityLabel={`Dress code: ${option.label}${formal === option.value ? ", selected" : ""}`}
+              >
+                <Text style={[styles.segmentLabel, formal === option.value && styles.segmentLabelActive]}>{option.label}</Text>
+              </Pressable>
+            ))}
           </View>
-        ) : (
-          <AppButton label="Plan journey" onPress={handlePlanJourney} />
-        )}
-      </View>
-    </ScrollView>
+        </FormSection>
+
+        <FormSection title="Spare layer">
+          <Text style={styles.hint}>Whether to suggest packing a removable layer for this trip.</Text>
+          <View style={styles.segmentRow}>
+            {CARRY_PREFERENCE_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => setCarryPreference(option.value)}
+                style={[styles.segment, carryPreference === option.value && styles.segmentActive]}
+                accessibilityRole="button"
+                // Selected state in the label — see the dress-code segments above.
+                accessibilityLabel={`Spare layer: ${option.label}${carryPreference === option.value ? ", selected" : ""}`}
+              >
+                <Text style={[styles.segmentLabel, carryPreference === option.value && styles.segmentLabelActive]}>{option.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </FormSection>
+
+        {/* One card holds both the toggle and (when on) the time picker below
+            it, rather than a switch with a separately-styled block floating
+            underneath — the shared card boundary is what reads as "this
+            content belongs to this toggle," the same way the Settings
+            screen's Advanced disclosure keeps its body inside its own
+            section. */}
+        <View style={styles.returnCard}>
+          <FormRow label="Plan return trip too">
+            <Switch value={planReturnTrip} onValueChange={seedReturnTimeIfUnset} />
+          </FormRow>
+          {planReturnTrip && (
+            <View style={styles.returnCardBody}>
+              <View style={styles.returnCardDivider} />
+              <Text style={styles.label}>Return time</Text>
+              <View style={styles.row}>
+                <TextInput
+                  style={[styles.input, styles.flex1]}
+                  placeholderTextColor={theme.textSecondary}
+                  value={returnDateStr}
+                  onChangeText={setReturnDateStr}
+                  placeholder="YYYY-MM-DD"
+                />
+                <TextInput
+                  style={[styles.input, styles.flex1]}
+                  placeholderTextColor={theme.textSecondary}
+                  value={returnTimeStr}
+                  onChangeText={setReturnTimeStr}
+                  placeholder="HH:mm"
+                />
+              </View>
+              {/* The return trip runs the same route backwards, so its outlook
+                  takes the reversed stop order — the destination is where you
+                  set off from on the way home. */}
+              {origin && destination && returnDepartTimeIso && (
+                <HourlyOutlook
+                  origin={destination}
+                  waypoints={[...waypoints].reverse()}
+                  destination={origin}
+                  mode={mode}
+                  departTimeIso={returnDepartTimeIso}
+                />
+              )}
+              {returnRainWindow && (
+                <View style={styles.rainSuggestion}>
+                  <Text style={styles.rainSuggestionText}>
+                    Rain expected {formatTime(returnRainWindow.startIso, hour12)}–{formatTime(returnRainWindow.endIso, hour12)} near your
+                    return time — consider leaving before {formatTime(returnRainWindow.startIso, hour12)} or after{" "}
+                    {formatTime(returnRainWindow.endIso, hour12)} to dodge the shower.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Last thing before the button that acts on it — saving is a decision
+            about this journey as a whole, so it only really makes sense once
+            the route above it is settled. Turning it on reveals what's about
+            to be saved (a name, and whether it's a favourite) rather than
+            silently filing "Home → Work" away under a generated label. */}
+        <View style={styles.saveCard}>
+          <Pressable
+            onPress={() => setSaveThisRoute((v) => !v)}
+            style={styles.saveRouteRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: saveThisRoute }}
+            // State repeated in the label because react-native-web emits neither
+            // aria-checked nor aria-pressed here (verified in the DOM), so without
+            // it the only signal that this is on is the bookmark's fill colour.
+            accessibilityLabel={saveThisRoute ? "Save this journey, on" : "Save this journey, off"}
+          >
+            <ActionIcon kind="bookmark" size={20} color={saveThisRoute ? theme.accentWalk : theme.textSecondary} filled={saveThisRoute} />
+            <Text style={styles.label}>Save this journey to reuse</Text>
+          </Pressable>
+          {saveThisRoute && (
+            <View style={styles.saveBody}>
+              <TextInput
+                style={styles.input}
+                value={saveLabel}
+                onChangeText={setSaveLabel}
+                placeholder={origin && destination ? `${origin.label} → ${destination.label}` : "Morning commute"}
+                placeholderTextColor={theme.textSecondary}
+              />
+              <Pressable
+                onPress={() => setSaveAsFavorite((v) => !v)}
+                style={styles.saveRouteRow}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: saveAsFavorite }}
+                accessibilityLabel={saveAsFavorite ? "Favourite, on" : "Favourite, off"}
+              >
+                <ActionIcon kind="star" size={20} color={saveAsFavorite ? theme.favoriteStar : theme.textSecondary} filled={saveAsFavorite} />
+                <Text style={styles.label}>Favourite — keep it at the top</Text>
+              </Pressable>
+              <Text style={styles.hint}>
+                Saved journeys keep the route, stops and mode — never a date, so you can take them again whenever.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.planAction}>
+          {planning ? (
+            <View style={styles.planningIndicator}>
+              <ActivityIndicator color={theme.accentWalk} />
+              <Text style={styles.planningLabel}>Planning your journey…</Text>
+            </View>
+          ) : (
+            <AppButton label="Plan journey" onPress={handlePlanJourney} />
+          )}
+        </View>
+      </ScrollView>
+      </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     // §4.3 — the saved-or-new question this screen opens on. Replaces the
     // horizontal chip row that used to sit above the pickers: a chip strip
     // is a shortcut you have to notice, and it competed with the form

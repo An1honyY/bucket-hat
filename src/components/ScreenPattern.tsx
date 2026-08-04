@@ -2,7 +2,9 @@ import { StyleSheet } from "react-native";
 import Svg, { Defs, Ellipse, LinearGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import useTheme from "../theme/useTheme";
 
-// The wash behind every screen's scroll content.
+// The wash behind every screen's scroll content. Rendered via ScreenSurface,
+// which is what every screen's root actually is — don't add this directly to
+// a screen, or that screen ends up with two of them.
 //
 // Was a flat dot grid (2026-07-23): texture, but texture that could have
 // belonged to any app — a notes app, a to-do list, a banking app. This is a
@@ -10,8 +12,8 @@ import useTheme from "../theme/useTheme";
 // the top, one soft sun glow, and two low cloud banks drifting across the
 // upper third. All of it in the caller's tint, which on the Today tab is the
 // mood-reactive `patternTint` (§9.1.3) — so the sky behind the cards leans
-// cool on a cold wet day and warm on a bright one, without any screen having
-// to opt in.
+// cool on a cold wet day and warm on a bright one. Every other screen gets
+// the theme's neutral tint: same sky, no mood.
 //
 // Still decoration, never a foreground element (§9.0's glanceability-first
 // rule): everything here sits under 0.2 alpha before the container opacity is

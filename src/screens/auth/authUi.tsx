@@ -11,9 +11,8 @@ import {
   type KeyboardTypeOptions,
   type TextInputProps,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import BrandMark from "../../components/BrandMark";
-import ScreenPattern from "../../components/ScreenPattern";
+import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { ACTION_MAX_WIDTH, CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { cardElevationStyle, type ThemeTokens } from "../../theme/tokens";
@@ -38,8 +37,7 @@ export function AuthLayout({ title, subtitle, children, footer }: LayoutProps) {
   const theme = useTheme();
   const styles = getStyles(theme);
   return (
-    <SafeAreaView style={styles.screen} edges={["bottom"]}>
-      <ScreenPattern />
+    <ScreenSurface edges={["bottom"]}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.brand}>
           <BrandMark size={40} />
@@ -49,7 +47,7 @@ export function AuthLayout({ title, subtitle, children, footer }: LayoutProps) {
         <View style={styles.card}>{children}</View>
         {footer}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
@@ -191,7 +189,6 @@ export function LocalFirstNote({ children }: { children: string }) {
 
 export function getStyles(theme: ThemeTokens) {
   return StyleSheet.create({
-    screen: { flex: 1, backgroundColor: theme.bg },
     scroll: {
       padding: SPACING.xl,
       paddingTop: SPACING.xxl,

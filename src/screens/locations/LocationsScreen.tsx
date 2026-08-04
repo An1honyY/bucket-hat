@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { createLocation, deleteLocation, listLocations, updateLocation } from "../../db/repositories/locations";
 import type { SavedLocation } from "../../types";
 import LocationForm, { type LocationFormValues } from "./LocationForm";
 import LocationDetail from "./LocationDetail";
+import ScreenSurface from "../../components/ScreenSurface";
 import ActionIcon from "../../components/ActionIcon";
 import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
@@ -61,15 +61,15 @@ export default function LocationsScreen() {
 
   if (mode.kind === "add") {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenSurface>
         <LocationForm onSubmit={handleSubmit} onCancel={() => setMode({ kind: "list" })} />
-      </SafeAreaView>
+      </ScreenSurface>
     );
   }
 
   if (mode.kind === "edit") {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenSurface>
         {/* Keyed by id so switching locations remounts rather than reusing
             one screen's forecast state for another suburb. */}
         <LocationDetail
@@ -79,14 +79,14 @@ export default function LocationsScreen() {
           onCancel={() => setMode({ kind: "list" })}
           onDelete={handleDelete}
         />
-      </SafeAreaView>
+      </ScreenSurface>
     );
   }
 
   const firstNonFavoriteIndex = locations.findIndex((l) => !l.isFavorite);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenSurface>
       {loaded && locations.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.title}>Locations</Text>
@@ -139,13 +139,12 @@ export default function LocationsScreen() {
           )}
         />
       )}
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg },
     emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
     title: { ...TYPE.title, fontWeight: "600", color: theme.textPrimary },
     empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },

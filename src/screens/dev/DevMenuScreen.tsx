@@ -8,6 +8,7 @@ import { listUpcomingJourneys } from "../../db/repositories/journeys";
 import { checkForecastDrift } from "../../lib/forecastDrift";
 import { showAlert } from "../../lib/crossPlatformAlert";
 import AppButton from "../../components/AppButton";
+import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
@@ -148,73 +149,75 @@ export default function DevMenuScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Force API errors</Text>
-      <Text style={styles.hint}>Exercises §5.1&apos;s offline fallback UX without a real outage or rate limit.</Text>
-      <ForceErrorRow title="Routes" overrideKey="routesError" value={overrides.routesError} onChange={updateOverride} />
-      <ForceErrorRow title="Weather" overrideKey="weatherError" value={overrides.weatherError} onChange={updateOverride} />
-      <ForceErrorRow title="Transit" overrideKey="transitError" value={overrides.transitError} onChange={updateOverride} />
+      <ScreenSurface edges={["bottom"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.heading}>Force API errors</Text>
+        <Text style={styles.hint}>Exercises §5.1&apos;s offline fallback UX without a real outage or rate limit.</Text>
+        <ForceErrorRow title="Routes" overrideKey="routesError" value={overrides.routesError} onChange={updateOverride} />
+        <ForceErrorRow title="Weather" overrideKey="weatherError" value={overrides.weatherError} onChange={updateOverride} />
+        <ForceErrorRow title="Transit" overrideKey="transitError" value={overrides.transitError} onChange={updateOverride} />
 
-      <Text style={styles.heading}>Simulate transit delay</Text>
-      <Text style={styles.hint}>
-        Applies to every AT GTFS Realtime lookup until cleared — {overrides.transitDelayMinutes !== undefined
-          ? `currently forcing ${overrides.transitDelayMinutes} min.`
-          : "not set."}
-      </Text>
-      <View style={styles.delayRow}>
-        <TextInput
-          style={styles.delayInput}
-          placeholderTextColor={theme.textSecondary}
-          value={delayText}
-          onChangeText={setDelayText}
-          placeholder="Minutes"
-          keyboardType="numbers-and-punctuation"
-        />
-        <Pressable onPress={applyDelay} style={styles.smallButton}>
-          <Text style={styles.smallButtonLabel}>Apply</Text>
-        </Pressable>
-        <Pressable onPress={clearDelay} style={styles.smallButton}>
-          <Text style={styles.smallButtonLabel}>Clear</Text>
-        </Pressable>
-      </View>
-
-      <Pressable onPress={clearAllOverrides} style={styles.linkButton}>
-        <Text style={styles.linkLabel}>Clear all overrides</Text>
-      </Pressable>
-
-      <Text style={styles.heading}>Forecast drift re-check</Text>
-      <Text style={styles.hint}>Manually runs §5.2&apos;s re-fetch-and-recompute against a chosen upcoming journey.</Text>
-      {upcomingJourneys.length === 0 ? (
-        <Text style={styles.hint}>No upcoming journeys to test against.</Text>
-      ) : (
-        upcomingJourneys.map((journey) => (
-          <Pressable
-            key={journey.id}
-            onPress={() => runDriftCheck(journey)}
-            disabled={checkingDrift === journey.id}
-            style={styles.journeyRow}
-          >
-            <Text style={styles.journeyLabel}>
-              {journey.origin.label} → {journey.destination.label}
-            </Text>
-            <Text style={styles.journeyMeta}>
-              {checkingDrift === journey.id ? "Checking…" : new Date(journey.departTime).toLocaleString()}
-            </Text>
+        <Text style={styles.heading}>Simulate transit delay</Text>
+        <Text style={styles.hint}>
+          Applies to every AT GTFS Realtime lookup until cleared — {overrides.transitDelayMinutes !== undefined
+            ? `currently forcing ${overrides.transitDelayMinutes} min.`
+            : "not set."}
+        </Text>
+        <View style={styles.delayRow}>
+          <TextInput
+            style={styles.delayInput}
+            placeholderTextColor={theme.textSecondary}
+            value={delayText}
+            onChangeText={setDelayText}
+            placeholder="Minutes"
+            keyboardType="numbers-and-punctuation"
+          />
+          <Pressable onPress={applyDelay} style={styles.smallButton}>
+            <Text style={styles.smallButtonLabel}>Apply</Text>
           </Pressable>
-        ))
-      )}
+          <Pressable onPress={clearDelay} style={styles.smallButton}>
+            <Text style={styles.smallButtonLabel}>Clear</Text>
+          </Pressable>
+        </View>
 
-      <Text style={styles.heading}>First-run state</Text>
-      <View style={styles.dangerAction}>
-        <AppButton label="Reset onboarding + preferences" variant="danger" onPress={confirmResetOnboarding} />
-      </View>
-    </ScrollView>
+        <Pressable onPress={clearAllOverrides} style={styles.linkButton}>
+          <Text style={styles.linkLabel}>Clear all overrides</Text>
+        </Pressable>
+
+        <Text style={styles.heading}>Forecast drift re-check</Text>
+        <Text style={styles.hint}>Manually runs §5.2&apos;s re-fetch-and-recompute against a chosen upcoming journey.</Text>
+        {upcomingJourneys.length === 0 ? (
+          <Text style={styles.hint}>No upcoming journeys to test against.</Text>
+        ) : (
+          upcomingJourneys.map((journey) => (
+            <Pressable
+              key={journey.id}
+              onPress={() => runDriftCheck(journey)}
+              disabled={checkingDrift === journey.id}
+              style={styles.journeyRow}
+            >
+              <Text style={styles.journeyLabel}>
+                {journey.origin.label} → {journey.destination.label}
+              </Text>
+              <Text style={styles.journeyMeta}>
+                {checkingDrift === journey.id ? "Checking…" : new Date(journey.departTime).toLocaleString()}
+              </Text>
+            </Pressable>
+          ))
+        )}
+
+        <Text style={styles.heading}>First-run state</Text>
+        <View style={styles.dangerAction}>
+          <AppButton label="Reset onboarding + preferences" variant="danger" onPress={confirmResetOnboarding} />
+        </View>
+      </ScrollView>
+      </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     heading: { ...TYPE.subtitle, fontSize: 16, marginTop: SPACING.xxl, marginBottom: SPACING.xs, color: theme.textPrimary },
     hint: { ...TYPE.caption, color: theme.textSecondary, marginBottom: SPACING.sm, lineHeight: 18 },
     section: { marginTop: SPACING.md },

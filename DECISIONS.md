@@ -132,6 +132,8 @@ one by date — don't edit the old entry.
 - 2026-08-04 — One hourly cell, one fact: droplet, millimetres and glyph agree (§6, §9.5) [bug fix]
 - 2026-08-04 — Opening a saved location leads with its forecast; the edit form moves behind a disclosure (§4, §9.3.1) [design]
 - 2026-08-04 — Per-location gear picks and notes are displayed, not fed to recommendGear() (§3.4, §7)
+- 2026-08-05 — `ScreenSurface` puts the sky background on every screen; the weather tint stays Today's (§9.1, §9.2) [design]
+- 2026-08-05 — Weather mood goes app-wide via `useTheme()`, from a published reading rather than per-screen fetches (§9.1.3) [supersedes the 2026-07-21 Today-only scoping]
 
 ---
 
@@ -2417,5 +2419,53 @@ Free text is deliberate too: an `EnvironmentAnnotation` is a structured signal
 the engine matches (§7.8), this is a human reminder about a named place — don't
 collapse the two. Wiring preferred gear into `recommendGear()` is a scoped §7
 task if it's ever wanted, not an informal extension of this.
+
+---
+
+## 2026-08-05 — ScreenSurface puts the sky background on every screen (§9.1, §9.2)
+
+**What**: new `src/components/ScreenSurface.tsx` — safe-area inset, themed
+background colour and `ScreenPattern`, in one root component. Every screen now
+uses it instead of re-declaring `{ flex: 1, backgroundColor: theme.bg }` and
+(mostly) omitting the pattern. Gear's sub-lists and the wrapped screens'
+scroll containers dropped their own opaque fills so the pattern shows through.
+
+**Why**: ScreenPattern's own header claimed it was "the wash behind every
+screen", but only Today, onboarding and auth rendered it — so most of the app
+was a flat slab. Making it universal touches the 2026-07-21 call that scoped
+the weather-reactive tint to the Today tab.
+
+**Resolution**: the background *shape* is now universal; the mood *colour*
+still isn't. `tint` is opt-in and only TodayScreen passes it, so §9.1.3's
+weather-reactive palette remains the Today tab's alone — the 2026-07-21 entry
+stands. A new screen should render `ScreenSurface` as its root and never
+`ScreenPattern` directly, or it gets two skies.
+
+---
+
+## 2026-08-05 — Weather mood goes app-wide, from a published reading (§9.1.3)
+
+**What**: `useTheme()` now merges the current weather mood onto the base
+palette, so every screen, card, form, header and tab bar tints with the
+weather — not just Today's cards. The reading comes from a new
+`useAmbientWeatherStore`, which `useRightNow` publishes to when it resolves
+the *user's own* location; a pinned reading (a saved location in another
+suburb) deliberately does not repaint the app. `patternTint` joined
+`MoodOverride`, so the sky now varies too — it never did before, which made
+Today's `tint` prop a no-op.
+
+**Why**: this reverses the 2026-07-21 call scoping the mood to the Today tab,
+on explicit request. The stated worry was API cost of a live reading per
+screen; there is none, because no screen fetches — they read a value Today
+already fetched, through the same 15-minute cache.
+
+**Resolution**: exactly six palettes (3 moods × light/dark), pinned in
+`mood.test.ts`, merged objects cached by base+mood so `theme` identity holds
+still for `useMemo`/`getStyles`. Ambient is null until the first reading
+lands, which resolves to the plain base palette. `useWeatherTheme(reading)`
+survives for cards showing weather that isn't here-and-now, and falls back to
+ambient rather than to base so a loading card never disagrees with the screen
+behind it. Don't add a weather fetch to a screen to get its mood — publish to
+the store instead.
 
 ---

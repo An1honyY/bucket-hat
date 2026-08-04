@@ -1,29 +1,20 @@
-import { useColorScheme } from "react-native";
-import { useThemeStore } from "./useThemeStore";
-import { darkTheme, lightTheme, moodOverrides, type ThemeTokens } from "./tokens";
-import { classifyWeather, resolveWeatherMood } from "../lib/weather";
+import { useBaseTheme } from "./useTheme";
+import { useAmbientWeatherStore } from "./useAmbientWeatherStore";
+import { applyWeatherMood } from "./mood";
+import type { ThemeTokens } from "./tokens";
 import type { WeatherSnapshot } from "../types";
 
-// §9.1 (2026-07-21) — Today tab only (docs/09-design-system.md's weather-
-// reactive tint subsection): layers a mood-based tint on top of the same
-// dark/light resolution useTheme() does, so the rest of the app (Settings,
-// Gear, Locations, Journey Detail, ...) stays on the fixed base palette and
-// only the Today tab's "Right now" card + journey cards react to current
-// conditions. Pass `undefined`/`null` (no weather loaded yet, or a screen
-// that doesn't want the reactive tint) to get the plain base theme back —
-// same value useTheme() would return.
+// §9.1.3 — the mood for one *specific* reading, rather than the app-wide
+// ambient one useTheme() carries. Used where a card describes weather that
+// isn't necessarily here-and-now: a journey's own conditions, or a saved
+// location in another suburb.
+//
+// Passing `undefined`/`null` falls back to the ambient mood, so a card still
+// agrees with the screen around it while its own reading is loading —
+// returning the bare base palette there would have made the card visibly
+// disagree with everything behind it for a frame or two.
 export default function useWeatherTheme(weather: WeatherSnapshot | undefined | null): ThemeTokens {
-  const themePreference = useThemeStore((s) => s.themePreference);
-  const systemScheme = useColorScheme();
-  const resolved = themePreference === "system" ? (systemScheme ?? "dark") : themePreference;
-  const base = resolved === "light" ? lightTheme : darkTheme;
-
-  if (!weather) return base;
-
-  const severity = classifyWeather(weather.weatherCode, weather.precipMm, weather.windKph).severity;
-  const mood = resolveWeatherMood(weather.apparentTempC, severity);
-  if (mood === "mild") return base;
-
-  const override = moodOverrides[mood][resolved === "light" ? "light" : "dark"];
-  return { ...base, ...override };
+  const base = useBaseTheme();
+  const ambient = useAmbientWeatherStore((s) => s.weather);
+  return applyWeatherMood(base, weather ?? ambient);
 }

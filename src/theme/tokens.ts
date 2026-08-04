@@ -38,7 +38,9 @@ export type ThemeTokens = {
   // §9.1 (2026-07-23) — a softly branded header/chrome wash + the tint used
   // by the subtle screen background pattern, so light mode reads as coloured
   // rather than plain black-on-white. In dark mode both sit close to the
-  // existing surface tokens (the navy already provides depth).
+  // existing surface tokens (the navy already provides depth). Both are
+  // mood-tracked (§9.1.3): they share an edge with `bg`/`surface`, so a
+  // fixed value here reads as a mismatched strip once the mood shifts.
   headerBg: string;
   patternTint: string;
   // Set once per base theme (dark/light) and left untouched by weather-mood
@@ -138,7 +140,24 @@ export function cardElevationStyle(theme: ThemeTokens) {
 // darkTheme/lightTheme unchanged, so useWeatherTheme() skips merging
 // anything for it rather than duplicating the base values here.
 type MoodOverride = Partial<
-  Pick<ThemeTokens, "bg" | "surface" | "surfaceRaised" | "border" | "textPrimary" | "textSecondary" | "accentWalk">
+  Pick<
+    ThemeTokens,
+    | "bg"
+    | "surface"
+    | "surfaceRaised"
+    | "border"
+    | "textPrimary"
+    | "textSecondary"
+    | "accentWalk"
+    | "patternTint"
+    // Chrome, not content — but it sits directly against `bg` and `surface`,
+    // so leaving it on the base palette left a violet-navy header stranded
+    // above a blue screen on a cold day (and above a brown one when warm).
+    // Anything that shares an edge with a mood-tinted surface has to move
+    // with it.
+    | "headerBg"
+    | "surfaceRaisedBorder"
+  >
 >;
 
 export const moodOverrides: Record<Exclude<WeatherMood, "mild">, { dark: MoodOverride; light: MoodOverride }> = {
@@ -151,6 +170,12 @@ export const moodOverrides: Record<Exclude<WeatherMood, "mild">, { dark: MoodOve
       textPrimary: "#EAF6FF",
       textSecondary: "#8FB3D6",
       accentWalk: "#2FB8E8",
+      // The sky takes the mood's own accent, so the wash behind the cards and
+      // the accent on them are the same hue rather than two colours arguing.
+      patternTint: "#2FB8E8",
+      // Sits between this mood's bg and surface, exactly as the base
+      // headerBg sits between the base pair.
+      headerBg: "#142138",
     },
     light: {
       bg: "#EFF6FB",
@@ -160,6 +185,11 @@ export const moodOverrides: Record<Exclude<WeatherMood, "mild">, { dark: MoodOve
       textPrimary: "#10202E",
       textSecondary: "#57748A",
       accentWalk: "#0E86B0",
+      patternTint: "#0E86B0",
+      // Light mode's header is a *tinted wash*, more saturated than bg, not
+      // a midpoint — the base pink becomes this mood's blue.
+      headerBg: "#E2EFF8",
+      surfaceRaisedBorder: "#D3E4F0",
     },
   },
   warm: {
@@ -171,6 +201,8 @@ export const moodOverrides: Record<Exclude<WeatherMood, "mild">, { dark: MoodOve
       textPrimary: "#FFF6EC",
       textSecondary: "#D9B99A",
       accentWalk: "#FFD23F",
+      patternTint: "#FFD23F",
+      headerBg: "#2C1F16",
     },
     light: {
       bg: "#FBF3EA",
@@ -180,6 +212,9 @@ export const moodOverrides: Record<Exclude<WeatherMood, "mild">, { dark: MoodOve
       textPrimary: "#2E2013",
       textSecondary: "#8A6F52",
       accentWalk: "#B8790E",
+      patternTint: "#B8790E",
+      headerBg: "#F7E6D0",
+      surfaceRaisedBorder: "#EEDCC4",
     },
   },
 };

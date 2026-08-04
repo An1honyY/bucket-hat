@@ -27,6 +27,7 @@ import { showAlert } from "../../lib/crossPlatformAlert";
 import { initCrashReportingIfEnabled } from "../../lib/crashReporting";
 import { useThemeStore } from "../../theme/useThemeStore";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
+import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { cardElevationStyle } from "../../theme/tokens";
@@ -203,268 +204,270 @@ export default function SettingsScreen() {
   const hasSeasonalSamples = seasonalSampleCounts && Object.values(seasonalSampleCounts).some((n) => n > 0);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.sectionTitle}>Appearance</Text>
-      <View style={styles.sectionCard}>
-        <View style={styles.segmentRow}>
-          {THEME_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => selectTheme(option.value)}
-              style={[styles.segment, theme === option.value && styles.segmentActive]}
-            >
-              <Text style={[styles.segmentLabel, theme === option.value && styles.segmentLabelActive]}>{option.label}</Text>
-            </Pressable>
-          ))}
+      <ScreenSurface edges={["bottom"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.sectionTitle}>Appearance</Text>
+        <View style={styles.sectionCard}>
+          <View style={styles.segmentRow}>
+            {THEME_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => selectTheme(option.value)}
+                style={[styles.segment, theme === option.value && styles.segmentActive]}
+              >
+                <Text style={[styles.segmentLabel, theme === option.value && styles.segmentLabelActive]}>{option.label}</Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
 
-      <Text style={styles.sectionTitle}>Time format</Text>
-      <View style={styles.sectionCard}>
-        <View style={styles.segmentRow}>
-          {TIME_FORMAT_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => selectTimeFormat(option.value)}
-              style={[styles.segment, timeFormat === option.value && styles.segmentActive]}
-            >
-              <Text style={[styles.segmentLabel, timeFormat === option.value && styles.segmentLabelActive]}>{option.label}</Text>
-            </Pressable>
-          ))}
+        <Text style={styles.sectionTitle}>Time format</Text>
+        <View style={styles.sectionCard}>
+          <View style={styles.segmentRow}>
+            {TIME_FORMAT_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => selectTimeFormat(option.value)}
+                style={[styles.segment, timeFormat === option.value && styles.segmentActive]}
+              >
+                <Text style={[styles.segmentLabel, timeFormat === option.value && styles.segmentLabelActive]}>{option.label}</Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
 
-      <Text style={styles.sectionTitle}>Local knowledge alerts</Text>
-      <View style={styles.sectionCard}>
-        <Text style={styles.body}>
-          The spots you&apos;ve marked — covered walkways, windy corners — can be listed before you set off, or
-          called out as you reach them.
-        </Text>
-        <View style={styles.segmentRow}>
-          {ANNOTATION_ALERT_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => selectAnnotationAlerts(option.value)}
-              style={[styles.segment, annotationAlerts === option.value && styles.segmentActive]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: annotationAlerts === option.value }}
-            >
-              <Text style={[styles.segmentLabel, annotationAlerts === option.value && styles.segmentLabelActive]}>
-                {option.label}
+        <Text style={styles.sectionTitle}>Local knowledge alerts</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.body}>
+            The spots you&apos;ve marked — covered walkways, windy corners — can be listed before you set off, or
+            called out as you reach them.
+          </Text>
+          <View style={styles.segmentRow}>
+            {ANNOTATION_ALERT_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => selectAnnotationAlerts(option.value)}
+                style={[styles.segment, annotationAlerts === option.value && styles.segmentActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: annotationAlerts === option.value }}
+              >
+                <Text style={[styles.segmentLabel, annotationAlerts === option.value && styles.segmentLabelActive]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Warmth</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.body}>
+            {calibration.sampleCount > 0
+              ? `Adjusted from ${calibration.sampleCount} check-ins`
+              : "No check-ins yet — rate the gear call after a trip to start calibrating"}
+          </Text>
+          {hasSeasonalSamples && seasonalSampleCounts && (
+            <>
+              <Text style={styles.hint}>We learn separately for each season, since how you dress in winter doesn&apos;t always match summer.</Text>
+              <Text style={styles.body}>
+                {SEASON_LABELS.map((s) => `${s.label}: ${seasonalSampleCounts[s.key]}`).join(" · ")}
               </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+            </>
+          )}
 
-      <Text style={styles.sectionTitle}>Warmth</Text>
-      <View style={styles.sectionCard}>
-        <Text style={styles.body}>
-          {calibration.sampleCount > 0
-            ? `Adjusted from ${calibration.sampleCount} check-ins`
-            : "No check-ins yet — rate the gear call after a trip to start calibrating"}
-        </Text>
-        {hasSeasonalSamples && seasonalSampleCounts && (
+          <Text style={[styles.label, styles.windSensitivityLabel]}>Wind sensitivity</Text>
+          <Text style={styles.hint}>
+            Only changes the extra warmth bump for windy spots you&apos;ve marked (Local knowledge) — doesn&apos;t affect your regular recommendations.
+          </Text>
+          <View style={styles.segmentRow}>
+            {WIND_SENSITIVITY_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => selectWindSensitivity(option.value)}
+                style={[styles.segment, (calibration.windSensitivityOffset ?? 0) === option.value && styles.segmentActive]}
+              >
+                <Text
+                  style={[
+                    styles.segmentLabel,
+                    (calibration.windSensitivityOffset ?? 0) === option.value && styles.segmentLabelActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Carrying a spare layer</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.body}>
+            Some trips (a bus or train with unpredictable AC) work best with a removable layer you can
+            take off or put on. Decide whether we should suggest packing one — this is the default for
+            new trips; you can still override it per trip on the Plan screen.
+          </Text>
+          <View style={styles.segmentRow}>
+            {CARRY_PREFERENCE_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => selectCarryPreference(option.value)}
+                style={[styles.segment, carryPreference === option.value && styles.segmentActive]}
+              >
+                <Text style={[styles.segmentLabel, carryPreference === option.value && styles.segmentLabelActive]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Crash reporting</Text>
+        <View style={styles.sectionCard}>
+          <FormRow label="Anonymous crash reports" description="Helps us find and fix bugs.">
+            <Switch value={crashReporting} onValueChange={toggleCrashReporting} />
+          </FormRow>
+        </View>
+
+        {/* docs/13-extended-features.md §13.7 — sits directly above "Your
+            data" because both are about where your data lives; sync is the
+            cross-device answer, export/import the offline one. */}
+        <Text style={styles.sectionTitle}>Sync</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.body}>
+            Keep your gear, places and journeys in step across your devices.
+          </Text>
+          <Pressable
+            onPress={() => navigation.navigate("Account")}
+            style={styles.dataButton}
+            accessibilityRole="button"
+            accessibilityLabel="Sync and account settings"
+          >
+            <Text style={styles.dataButtonLabel}>Sync &amp; account</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.sectionTitle}>Your data</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.body}>
+            Export a backup of your gear, locations, and journey history — including gear photos — as a single
+            file, or restore from one after a reinstall.
+          </Text>
+          <View style={styles.dataButtonRow}>
+            <Pressable
+              onPress={handleExport}
+              disabled={exportBusy}
+              style={[styles.dataButton, exportBusy && styles.dataButtonDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel="Export my data"
+            >
+              <Text style={styles.dataButtonLabel}>{exportBusy ? "Exporting…" : "Export my data"}</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleImport}
+              disabled={importBusy}
+              style={[styles.dataButton, importBusy && styles.dataButtonDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel="Import data"
+            >
+              <Text style={styles.dataButtonLabel}>{importBusy ? "Importing…" : "Import data"}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {dismissedSetupTaskCount > 0 && (
           <>
-            <Text style={styles.hint}>We learn separately for each season, since how you dress in winter doesn&apos;t always match summer.</Text>
-            <Text style={styles.body}>
-              {SEASON_LABELS.map((s) => `${s.label}: ${seasonalSampleCounts[s.key]}`).join(" · ")}
-            </Text>
+            <Text style={styles.sectionTitle}>Setup tips</Text>
+            <View style={styles.sectionCard}>
+              <Text style={styles.body}>
+                You&apos;ve postponed {dismissedSetupTaskCount} setup {dismissedSetupTaskCount === 1 ? "tip" : "tips"} on
+                the Today tab.
+              </Text>
+              <Pressable onPress={showSetupTipsAgain} style={styles.dataButton}>
+                <Text style={styles.dataButtonLabel}>Show setup tips again</Text>
+              </Pressable>
+            </View>
           </>
         )}
 
-        <Text style={[styles.label, styles.windSensitivityLabel]}>Wind sensitivity</Text>
-        <Text style={styles.hint}>
-          Only changes the extra warmth bump for windy spots you&apos;ve marked (Local knowledge) — doesn&apos;t affect your regular recommendations.
-        </Text>
-        <View style={styles.segmentRow}>
-          {WIND_SENSITIVITY_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => selectWindSensitivity(option.value)}
-              style={[styles.segment, (calibration.windSensitivityOffset ?? 0) === option.value && styles.segmentActive]}
-            >
-              <Text
-                style={[
-                  styles.segmentLabel,
-                  (calibration.windSensitivityOffset ?? 0) === option.value && styles.segmentLabelActive,
-                ]}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
+        <Text style={styles.sectionTitle}>About</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.body}>
+            Bucket Hat is built for one person&apos;s wardrobe and one commute at a time.
+          </Text>
         </View>
-      </View>
 
-      <Text style={styles.sectionTitle}>Carrying a spare layer</Text>
-      <View style={styles.sectionCard}>
-        <Text style={styles.body}>
-          Some trips (a bus or train with unpredictable AC) work best with a removable layer you can
-          take off or put on. Decide whether we should suggest packing one — this is the default for
-          new trips; you can still override it per trip on the Plan screen.
-        </Text>
-        <View style={styles.segmentRow}>
-          {CARRY_PREFERENCE_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => selectCarryPreference(option.value)}
-              style={[styles.segment, carryPreference === option.value && styles.segmentActive]}
-            >
-              <Text style={[styles.segmentLabel, carryPreference === option.value && styles.segmentLabelActive]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>Crash reporting</Text>
-      <View style={styles.sectionCard}>
-        <FormRow label="Anonymous crash reports" description="Helps us find and fix bugs.">
-          <Switch value={crashReporting} onValueChange={toggleCrashReporting} />
-        </FormRow>
-      </View>
-
-      {/* docs/13-extended-features.md §13.7 — sits directly above "Your
-          data" because both are about where your data lives; sync is the
-          cross-device answer, export/import the offline one. */}
-      <Text style={styles.sectionTitle}>Sync</Text>
-      <View style={styles.sectionCard}>
-        <Text style={styles.body}>
-          Keep your gear, places and journeys in step across your devices.
-        </Text>
-        <Pressable
-          onPress={() => navigation.navigate("Account")}
-          style={styles.dataButton}
-          accessibilityRole="button"
-          accessibilityLabel="Sync and account settings"
-        >
-          <Text style={styles.dataButtonLabel}>Sync &amp; account</Text>
+        <Pressable onPress={() => setAdvancedExpanded((v) => !v)} style={styles.advancedHeader}>
+          <Text style={styles.sectionTitle}>{advancedExpanded ? "▾" : "▸"} Advanced — set exact temperature thresholds</Text>
         </Pressable>
-      </View>
+        <View style={styles.sectionCard}>
+          <Text style={styles.body}>
+            Most people get better results from the check-ins after a trip — only change these if you want to set the
+            exact cutoffs yourself.
+          </Text>
+          {advancedExpanded && (
+            <View style={styles.advancedBody}>
+              <Text style={styles.label}>Freezing cutoff (°C)</Text>
+              <Text style={styles.hint}>Below this, we always recommend maximum warmth, no exceptions.</Text>
+              <TextInput
+                style={styles.input}
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="numbers-and-punctuation"
+                placeholder={String(DEFAULT_FREEZING_C)}
+                value={thresholds.freezingC === undefined ? "" : String(thresholds.freezingC)}
+                onChangeText={(t) => updateThreshold("freezingC", t)}
+              />
 
-      <Text style={styles.sectionTitle}>Your data</Text>
-      <View style={styles.sectionCard}>
-        <Text style={styles.body}>
-          Export a backup of your gear, locations, and journey history — including gear photos — as a single
-          file, or restore from one after a reinstall.
-        </Text>
-        <View style={styles.dataButtonRow}>
-          <Pressable
-            onPress={handleExport}
-            disabled={exportBusy}
-            style={[styles.dataButton, exportBusy && styles.dataButtonDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel="Export my data"
-          >
-            <Text style={styles.dataButtonLabel}>{exportBusy ? "Exporting…" : "Export my data"}</Text>
-          </Pressable>
-          <Pressable
-            onPress={handleImport}
-            disabled={importBusy}
-            style={[styles.dataButton, importBusy && styles.dataButtonDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel="Import data"
-          >
-            <Text style={styles.dataButtonLabel}>{importBusy ? "Importing…" : "Import data"}</Text>
-          </Pressable>
+              <Text style={styles.label}>Cool cutoff (°C)</Text>
+              <Text style={styles.hint}>Above this, conditions count as mild rather than cool.</Text>
+              <TextInput
+                style={styles.input}
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="numbers-and-punctuation"
+                placeholder={String(DEFAULT_COOL_UPPER_C)}
+                value={thresholds.coolUpperC === undefined ? "" : String(thresholds.coolUpperC)}
+                onChangeText={(t) => updateThreshold("coolUpperC", t)}
+              />
+
+              <Text style={styles.label}>Warm cutoff (°C)</Text>
+              <Text style={styles.hint}>Above this, we treat it as warm enough to trigger the bus/train AC warning in summer.</Text>
+              <TextInput
+                style={styles.input}
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="numbers-and-punctuation"
+                placeholder={String(DEFAULT_WARM_OUTDOOR_C)}
+                value={thresholds.warmOutdoorC === undefined ? "" : String(thresholds.warmOutdoorC)}
+                onChangeText={(t) => updateThreshold("warmOutdoorC", t)}
+              />
+
+              <Pressable onPress={resetThresholds}>
+                <Text style={styles.resetLabel}>Reset to defaults</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
-      </View>
 
-      {dismissedSetupTaskCount > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Setup tips</Text>
-          <View style={styles.sectionCard}>
-            <Text style={styles.body}>
-              You&apos;ve postponed {dismissedSetupTaskCount} setup {dismissedSetupTaskCount === 1 ? "tip" : "tips"} on
-              the Today tab.
-            </Text>
-            <Pressable onPress={showSetupTipsAgain} style={styles.dataButton}>
-              <Text style={styles.dataButtonLabel}>Show setup tips again</Text>
-            </Pressable>
-          </View>
-        </>
-      )}
-
-      <Text style={styles.sectionTitle}>About</Text>
-      <View style={styles.sectionCard}>
-        <Text style={styles.body}>
-          Bucket Hat is built for one person&apos;s wardrobe and one commute at a time.
-        </Text>
-      </View>
-
-      <Pressable onPress={() => setAdvancedExpanded((v) => !v)} style={styles.advancedHeader}>
-        <Text style={styles.sectionTitle}>{advancedExpanded ? "▾" : "▸"} Advanced — set exact temperature thresholds</Text>
-      </Pressable>
-      <View style={styles.sectionCard}>
-        <Text style={styles.body}>
-          Most people get better results from the check-ins after a trip — only change these if you want to set the
-          exact cutoffs yourself.
-        </Text>
-        {advancedExpanded && (
-          <View style={styles.advancedBody}>
-            <Text style={styles.label}>Freezing cutoff (°C)</Text>
-            <Text style={styles.hint}>Below this, we always recommend maximum warmth, no exceptions.</Text>
-            <TextInput
-              style={styles.input}
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="numbers-and-punctuation"
-              placeholder={String(DEFAULT_FREEZING_C)}
-              value={thresholds.freezingC === undefined ? "" : String(thresholds.freezingC)}
-              onChangeText={(t) => updateThreshold("freezingC", t)}
-            />
-
-            <Text style={styles.label}>Cool cutoff (°C)</Text>
-            <Text style={styles.hint}>Above this, conditions count as mild rather than cool.</Text>
-            <TextInput
-              style={styles.input}
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="numbers-and-punctuation"
-              placeholder={String(DEFAULT_COOL_UPPER_C)}
-              value={thresholds.coolUpperC === undefined ? "" : String(thresholds.coolUpperC)}
-              onChangeText={(t) => updateThreshold("coolUpperC", t)}
-            />
-
-            <Text style={styles.label}>Warm cutoff (°C)</Text>
-            <Text style={styles.hint}>Above this, we treat it as warm enough to trigger the bus/train AC warning in summer.</Text>
-            <TextInput
-              style={styles.input}
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="numbers-and-punctuation"
-              placeholder={String(DEFAULT_WARM_OUTDOOR_C)}
-              value={thresholds.warmOutdoorC === undefined ? "" : String(thresholds.warmOutdoorC)}
-              onChangeText={(t) => updateThreshold("warmOutdoorC", t)}
-            />
-
-            <Pressable onPress={resetThresholds}>
-              <Text style={styles.resetLabel}>Reset to defaults</Text>
-            </Pressable>
-          </View>
+        {/* docs/12-dev-workflow-ci.md §12.2 — `__DEV__` compiles to a literal
+            `false` in release builds, so this row (and the DevMenu route
+            itself, RootNavigator.tsx) is dead-code-eliminated, not merely
+            hidden behind a runtime check. */}
+        {__DEV__ && (
+          <>
+            <Text style={styles.sectionTitle}>Developer</Text>
+            <View style={styles.sectionCard}>
+              <Pressable onPress={() => navigation.navigate("DevMenu")} style={styles.dataButton}>
+                <Text style={styles.dataButtonLabel}>Debug menu</Text>
+              </Pressable>
+            </View>
+          </>
         )}
-      </View>
-
-      {/* docs/12-dev-workflow-ci.md §12.2 — `__DEV__` compiles to a literal
-          `false` in release builds, so this row (and the DevMenu route
-          itself, RootNavigator.tsx) is dead-code-eliminated, not merely
-          hidden behind a runtime check. */}
-      {__DEV__ && (
-        <>
-          <Text style={styles.sectionTitle}>Developer</Text>
-          <View style={styles.sectionCard}>
-            <Pressable onPress={() => navigation.navigate("DevMenu")} style={styles.dataButton}>
-              <Text style={styles.dataButtonLabel}>Debug menu</Text>
-            </Pressable>
-          </View>
-        </>
-      )}
-    </ScrollView>
+      </ScrollView>
+      </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     sectionTitle: { ...TYPE.subtitle, fontSize: 16, marginTop: SPACING.xxl, marginBottom: SPACING.sm, color: theme.textPrimary },
     sectionCard: {
       backgroundColor: theme.surface,
