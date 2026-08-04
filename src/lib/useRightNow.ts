@@ -14,7 +14,10 @@ import type { Journey, WeatherSnapshot } from "../types";
 
 // "Right now" card — docs/04-screens-navigation.md §4.2. Location resolved
 // via approximateLocation.ts's shared GPS → default-location → Auckland
-// chain (also used by LocationPickerMap's pin-drop seeding). One Open-Meteo
+// chain (also used by LocationPickerMap's pin-drop seeding), unless the
+// caller pins it to fixed coordinates — which is how a saved location's
+// detail screen shows the same pair of cards for *its* suburb rather than
+// for wherever the phone is. One Open-Meteo
 // call, and a *reduced* recommendGear() pass: a single short walk leg means
 // AC-contrast and the warmup discount never fire on their own, and
 // bottoms/severeWeatherAdvisory are stripped explicitly per §4.2's "the
@@ -74,7 +77,10 @@ const EMPTY: RightNowState = {
   fetchedAt: null,
 };
 
-let cache: { state: RightNowState; fetchedAt: number; coordsKey: string } | null = null;
+// Keyed by which place the reading is for — "current" for the resolved
+// approximate location, "lat,lng" for a caller-pinned one — so a saved
+// location's cards and Today's cards can't overwrite each other's entry.
+const cache = new Map<string, { state: RightNowState; fetchedAt: number }>();
 
 function buildSyntheticJourney(weather: WeatherSnapshot, coords: { lat: number; lng: number }): Journey {
   const here = { id: "current-location", label: "Current location", address: "", lat: coords.lat, lng: coords.lng };
@@ -97,23 +103,43 @@ function buildSyntheticJourney(weather: WeatherSnapshot, coords: { lat: number; 
   };
 }
 
-export function useRightNow(): RightNowResult {
-  const [state, setState] = useState<RightNowState>(cache?.state ?? EMPTY);
+/**
+ * @param fixedCoords pins the reading to one place instead of resolving the
+ *   user's approximate location — used by the saved-location detail screen.
+ *   Compared by value, so a fresh object literal each render is fine.
+ */
+export function useRightNow(fixedCoords?: { lat: number; lng: number }): RightNowResult {
+  const cacheKey = fixedCoords ? `${fixedCoords.lat},${fixedCoords.lng}` : "current";
+  const [state, setState] = useState<RightNowState>(cache.get(cacheKey)?.state ?? EMPTY);
   const [refreshing, setRefreshing] = useState(false);
   // Guards against a pull-to-refresh landing on top of the focus/interval
   // fetch (or vice versa) and setting state twice from two round-trips.
   const inFlight = useRef(false);
+  // Destructured to primitives so `load` only changes when the coordinates
+  // themselves do — depending on the object would rebuild the callback (and
+  // so the focus effect, and so the fetch) on every render of the caller.
+  const fixedLat = fixedCoords?.lat;
+  const fixedLng = fixedCoords?.lng;
+
+  // Which place the state currently on screen describes. Repointing the hook
+  // at different coordinates must drop that reading immediately rather than
+  // captioning another suburb's weather with this location's name.
+  const shownKey = useRef(cacheKey);
 
   const load = useCallback(async (options: { force: boolean }) => {
+    if (shownKey.current !== cacheKey) {
+      shownKey.current = cacheKey;
+      setState(cache.get(cacheKey)?.state ?? EMPTY);
+    }
     if (inFlight.current) return;
 
     // A fresh-enough cached read wins outright — skip the round-trip entirely
     // rather than refetching every time the Today tab regains focus. A manual
     // pull always forces, since the whole point of pulling is distrusting the
     // age on screen.
-    const isFresh = cache !== null && Date.now() - cache.fetchedAt < STALE_AFTER_MS;
-    if (!options.force && isFresh) {
-      setState(cache!.state);
+    const cached = cache.get(cacheKey);
+    if (!options.force && cached && Date.now() - cached.fetchedAt < STALE_AFTER_MS) {
+      setState(cached.state);
       return;
     }
 
@@ -126,9 +152,13 @@ export function useRightNow(): RightNowResult {
     setRefreshing(true);
 
     try {
-      const { lat, lng, isFallback: isFallbackLocation } = await resolveApproximateLocation();
+      const pinned = fixedLat !== undefined && fixedLng !== undefined ? { lat: fixedLat, lng: fixedLng } : null;
+      // A pinned location is never a fallback — the user chose these exact
+      // coordinates when they saved the place.
+      const { lat, lng, isFallback: isFallbackLocation } = pinned
+        ? { ...pinned, isFallback: false }
+        : await resolveApproximateLocation();
       const coords = { lat, lng };
-      const coordsKey = `${lat},${lng}`;
 
       const [outlookResult, suburbResult] = await Promise.all([
         getLocalOutlook(coords, HOURLY_HOURS, DAILY_DAYS),
@@ -175,12 +205,12 @@ export function useRightNow(): RightNowResult {
         fetchedAt,
       };
       setState(next);
-      cache = { state: next, fetchedAt, coordsKey };
+      cache.set(cacheKey, { state: next, fetchedAt });
     } finally {
       inFlight.current = false;
       setRefreshing(false);
     }
-  }, []);
+  }, [cacheKey, fixedLat, fixedLng]);
 
   useFocusEffect(
     useCallback(() => {

@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { createLocation, deleteLocation, listLocations, updateLocation } from "../../db/repositories/locations";
 import type { SavedLocation } from "../../types";
 import LocationForm, { type LocationFormValues } from "./LocationForm";
+import LocationDetail from "./LocationDetail";
 import ActionIcon from "../../components/ActionIcon";
 import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
@@ -31,10 +32,17 @@ export default function LocationsScreen() {
 
   async function handleSubmit(values: LocationFormValues) {
     if (mode.kind === "edit") {
-      await updateLocation({ ...mode.location, ...values });
-    } else {
-      await createLocation(values);
+      // Stay on the detail screen with the saved values applied, rather than
+      // bouncing back to the list. Saving a note or a gear pick and being
+      // returned to a row that shows neither gave no confirmation it landed;
+      // the back chip is still there for leaving.
+      const updated = { ...mode.location, ...values };
+      await updateLocation(updated);
+      setMode({ kind: "edit", location: updated });
+      reload();
+      return;
     }
+    await createLocation(values);
     setMode({ kind: "list" });
     reload();
   }
@@ -62,8 +70,11 @@ export default function LocationsScreen() {
   if (mode.kind === "edit") {
     return (
       <SafeAreaView style={styles.container}>
-        <LocationForm
-          initial={mode.location}
+        {/* Keyed by id so switching locations remounts rather than reusing
+            one screen's forecast state for another suburb. */}
+        <LocationDetail
+          key={mode.location.id}
+          location={mode.location}
           onSubmit={handleSubmit}
           onCancel={() => setMode({ kind: "list" })}
           onDelete={handleDelete}
@@ -102,7 +113,7 @@ export default function LocationsScreen() {
                   onPress={() => setMode({ kind: "edit", location: item })}
                   style={styles.rowBody}
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.label}, ${item.address}. Double tap to edit`}
+                  accessibilityLabel={`${item.label}, ${item.address}. Double tap to open`}
                 >
                   <View style={styles.rowText}>
                     <Text style={styles.rowLabel}>{item.label}</Text>
