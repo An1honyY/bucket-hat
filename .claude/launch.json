@@ -15,6 +15,14 @@
       "port": 8081
     },
     {
+      "comment": "Metro for a physical device over LAN. Needs a dev build installed (react-native-maps / react-native-zip-archive are not in Expo Go). Scan the QR or open the exp+bucket-hat://expo-development-client URL from preview_logs.",
+      "name": "expo-mobile",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--dev-client", "--host", "lan", "--port", "8082"],
+      "port": 8082,
+      "autoPort": false
+    },
+    {
       "name": "expo-web-alt",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["expo", "start", "--web"],
