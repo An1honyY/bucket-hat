@@ -37,7 +37,7 @@ export function AuthLayout({ title, subtitle, children, footer }: LayoutProps) {
   const theme = useTheme();
   const styles = getStyles(theme);
   return (
-    <ScreenSurface edges={["bottom"]}>
+    <ScreenSurface>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.brand}>
           <BrandMark size={40} />

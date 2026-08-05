@@ -90,7 +90,7 @@ export default function AccountScreen() {
 
   if (!isAuthConfigured()) {
     return (
-      <ScreenSurface edges={["bottom"]}>
+      <ScreenSurface>
         <ScrollView contentContainerStyle={styles.container}>
           <Text style={styles.sectionTitle}>Sync</Text>
           <View style={styles.sectionCard}>
@@ -106,7 +106,7 @@ export default function AccountScreen() {
 
   if (session) {
     return (
-      <ScreenSurface edges={["bottom"]}>
+      <ScreenSurface>
         <ScrollView contentContainerStyle={styles.container}>
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.sectionCard}>
@@ -147,7 +147,7 @@ export default function AccountScreen() {
   // two drift apart. What's left here is the part that's specific to
   // Settings: what an account is for, and the way in.
   return (
-      <ScreenSurface edges={["bottom"]}>
+      <ScreenSurface>
         <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.sectionTitle}>Sync across devices</Text>
         <View style={styles.sectionCard}>

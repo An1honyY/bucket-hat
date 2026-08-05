@@ -134,6 +134,7 @@ one by date — don't edit the old entry.
 - 2026-08-04 — Per-location gear picks and notes are displayed, not fed to recommendGear() (§3.4, §7)
 - 2026-08-05 — `ScreenSurface` puts the sky background on every screen; the weather tint stays Today's (§9.1, §9.2) [design]
 - 2026-08-05 — Weather mood goes app-wide via `useTheme()`, from a published reading rather than per-screen fetches (§9.1.3) [supersedes the 2026-07-21 Today-only scoping]
+- 2026-08-05 — `ScreenSurface` derives its safe-area edges from the navigation chrome, correcting the 2026-07-30 call (§9.2) [bug fix]
 
 ---
 
@@ -2467,5 +2468,33 @@ survives for cards showing weather that isn't here-and-now, and falls back to
 ambient rather than to base so a loading card never disagrees with the screen
 behind it. Don't add a weather fetch to a screen to get its mood — publish to
 the store instead.
+
+---
+
+## 2026-08-05 — `ScreenSurface` derives its safe-area edges from the navigation chrome, correcting the 2026-07-30 call (§9.2) [bug fix]
+
+**What**: `ScreenSurface` now computes `edges` itself from
+`HeaderShownContext` and `BottomTabBarHeightContext` — skipping "top" when a
+header is drawn above and "bottom" when a tab bar sits below — and all 25
+per-screen `edges` props are gone. The top inset had been applied twice on
+every header'd screen, showing as a fixed band under the header that could
+not be scrolled away.
+
+**Why**: the 2026-07-30 entry claimed React Navigation hands each screen a
+context already reduced by header and tab-bar heights. It does not; nothing
+in these packages overrides `SafeAreaInsetsContext`. That entry's instinct
+was still right — hand-picking edges per screen duplicates the arithmetic
+and goes stale when a screen's header option changes — so the fix keeps its
+principle and repairs its mechanism, rather than reversing it outright.
+
+**Resolution**: screens pass no `edges`; the prop survives only as an escape
+hatch for a screen deliberately drawing under chrome the contexts cannot
+see. The derivation is a pure exported `chromeAwareEdges()` covered by
+`ScreenSurface.test.ts`, because the web build reports every inset as 0 and
+so can never distinguish a right edge set from a wrong one — that is exactly
+how the original bug shipped "verified". Never treat a green web check as
+safe-area verification. Chrome insets are also not the tail whitespace at
+the end of a scroll: that is `scrollContent`'s `paddingBottom`, lives inside
+the ScrollView, and is deliberate — don't reach for an inset to get it.
 
 ---

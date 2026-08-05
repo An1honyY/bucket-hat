@@ -210,7 +210,7 @@ export default function GearBasicsSetup({ onDone }: Props) {
   }
 
   return (
-      <ScreenSurface edges={["bottom"]}>
+      <ScreenSurface>
         <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Add a few gear basics</Text>
 
