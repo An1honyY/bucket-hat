@@ -135,6 +135,7 @@ one by date — don't edit the old entry.
 - 2026-08-05 — `ScreenSurface` puts the sky background on every screen; the weather tint stays Today's (§9.1, §9.2) [design]
 - 2026-08-05 — Weather mood goes app-wide via `useTheme()`, from a published reading rather than per-screen fetches (§9.1.3) [supersedes the 2026-07-21 Today-only scoping]
 - 2026-08-05 — `ScreenSurface` derives its safe-area edges from the navigation chrome, correcting the 2026-07-30 call (§9.2) [bug fix]
+- 2026-08-05 — Displayed temperatures are the air temperature; "feels like" is stated, never implied (§6.2, §9.3) [design]
 
 ---
 
@@ -2496,5 +2497,31 @@ how the original bug shipped "verified". Never treat a green web check as
 safe-area verification. Chrome insets are also not the tail whitespace at
 the end of a scroll: that is `scrollContent`'s `paddingBottom`, lives inside
 the ScrollView, and is deliberate — don't reach for an inset to get it.
+
+---
+
+## 2026-08-05 — Displayed temperatures are the air temperature; "feels like" is stated, never implied (§6.2, §9.3) [design]
+
+**What**: every temperature the app renders is now `tempC`. The Right now
+card states `apparentTempC` beside it as a labelled "Feels like N°",
+emphasised when the gap reaches `FEELS_LIKE_DIVERGENCE_C`, and adds a wind
+figure. Journey Detail's leg badges and Today's journey chips switched from
+`apparentTempC` to `tempC`. The hourly columns gained a per-hour wind speed.
+
+**Why**: §6.2 makes `apparentTempC` the engine's input, and the cards had
+quietly adopted it as the *displayed* figure too. An unlabelled "5°C" is
+read as the air temperature by anyone cross-checking another weather app, so
+the app looked wrong rather than differently informed. Worse, the leg badge
+printed the apparent figure directly above recommendGear()'s note "Feels
+like 8°C, not 12°C" — the badge showed 8 while the note called 12 the number
+it wasn't.
+
+**Resolution**: engine input and display figure are now separate concerns —
+don't "fix" a card back to `apparentTempC` to match the recommendation, as
+the gap is the note's job to state (§9.0.1). `FEELS_LIKE_DIVERGENCE_C` lives
+in weather.ts and `recommend.ts` derives its note threshold from it, so a
+card can never emphasise a gap the engine stayed silent about. Wind is shown
+unconditionally on the Right now card and per hour, but stays gated at
+`HIGH_WIND_KPH` on leg badges where a column of twelve would be noise.
 
 ---

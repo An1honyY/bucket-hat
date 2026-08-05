@@ -4,7 +4,7 @@
 // handling added in Phase 6 (their inputs — EnvironmentAnnotation matching
 // and recentPrecipMm6h — exist from Phase 6's wiring in §5.5).
 import { clamp } from "./utils";
-import { acFeelsCold, classifyWeather, getSeason, resolveWarmthOffset } from "./weather";
+import { acFeelsCold, classifyWeather, FEELS_LIKE_DIVERGENCE_C, getSeason, resolveWarmthOffset } from "./weather";
 import type {
   AdvancedWarmthThresholds,
   CarryPreference,
@@ -73,7 +73,10 @@ const WIND_TUNNEL_MULTIPLIER = 1.5; // felt-wind multiplier for a leg flagged wi
 export const WIND_SHELTERED_MULTIPLIER = 0.5;
 export const PUDDLE_RISK_PRECIP_MM_6H = 5; // cumulative mm over the past 6h at/above which puddle risk is flagged for footwear (§7.8) — exported for planJourney's fetch-time leg stamping (§3.4)
 const WIND_SENSITIVITY_OFFSET_CLAMP = 1; // §7.5.2 — clamps windSensitivityOffset to ±1; only ever nudges the annotation-gated wind-chill bump, never the base warmthLevel
-const APPARENT_TEMP_DIVERGENCE_NOTE_C = 2;
+// Re-exported name kept for the call site below; the figure itself lives in
+// weather.ts so the cards that *display* the gap emphasise exactly the gap
+// this note fires on (§6.2).
+const APPARENT_TEMP_DIVERGENCE_NOTE_C = FEELS_LIKE_DIVERGENCE_C;
 const STATIONARY_WAIT_MIN_MINUTES = 10;
 const STATIONARY_WAIT_WINDY_MIN_MINUTES = 5;
 const ITEM_WARMTH_SCALE_MAX = 10; // §3.6 — ClothingItem.warmth's 1-10 range; pickLayer()'s targetWarmth math below depends on this directly

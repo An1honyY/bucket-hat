@@ -1,6 +1,6 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import type { RightNowState } from "../../lib/useRightNow";
-import { classifyWeather } from "../../lib/weather";
+import { classifyWeather, feelsLikeDiverges, formatWindKph } from "../../lib/weather";
 import { conditionColorForIcon } from "../../theme/conditionColor";
 import useWeatherTheme from "../../theme/useWeatherTheme";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
@@ -55,6 +55,9 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
 
   const condition = classifyWeather(weather.weatherCode, weather.precipMm, weather.windKph);
   const heroIcon = weatherIconKindFor(condition, weather.isDaylight);
+  // Emphasised only when the gap is big enough that the engine also said
+  // something about it — see FEELS_LIKE_DIVERGENCE_C.
+  const diverges = feelsLikeDiverges(weather.tempC, weather.apparentTempC);
   // When the reading was fetched, not the forecast hour it describes. These
   // are the same instant on a fresh load, but they diverge as soon as the card
   // keeps showing a stored reading — which is the whole point of the "as of"
@@ -78,13 +81,34 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
             badge and made this card's hero icon *dimmer* than the plain
             textPrimary it replaced — the opposite of the intent. */}
         <WeatherIcon kind={heroIcon} size={26} color={conditionColorForIcon(theme, heroIcon)} />
-        <Text style={styles.temp}>{Math.round(weather.apparentTempC)}°C</Text>
+        {/* The air temperature, not the apparent one. This card showed
+            `apparentTempC` here unlabelled for its whole life, which is the
+            one number a bare "5°C" must not be: every other weather app
+            people cross-check against puts the air temperature in this slot,
+            so the card looked simply wrong rather than differently informed.
+            The figure the engine actually dressed for is still here — it's
+            the line below, where it can be named. */}
+        <Text style={styles.temp}>{Math.round(weather.tempC)}°C</Text>
         <Text style={styles.conditionLabel}>{condition.label}</Text>
         {weather.uvIndex >= 6 && (
           <View style={styles.uvBadge}>
             <Text style={styles.uvBadgeText}>UV {Math.round(weather.uvIndex)}</Text>
           </View>
         )}
+      </View>
+
+      {/* Feels-like and wind, always shown rather than threshold-gated. On a
+          still day at face value both still answer a question the user came
+          with ("is it as cold as it looks?", "do I need something windproof?")
+          — and a figure that only appears in bad weather teaches people not to
+          look for it. The compact per-hour cells and leg badges stay gated,
+          where a row of twelve is genuinely noise. */}
+      <View style={styles.detailRow}>
+        <Text style={[styles.detail, diverges && styles.detailEmphasis]}>
+          Feels like {Math.round(weather.apparentTempC)}°
+        </Text>
+        <Text style={styles.detailSeparator}>·</Text>
+        <Text style={styles.detail}>Wind {formatWindKph(weather.windKph)}</Text>
       </View>
 
       {/* The picks used to be a bare wrapped row directly under the
@@ -140,6 +164,13 @@ function getStyles(theme: ReturnType<typeof useWeatherTheme>) {
     conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     temp: { fontSize: 24, fontWeight: "700", color: theme.textPrimary },
     conditionLabel: { ...TYPE.body, fontWeight: "600", color: theme.textSecondary },
+    detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, flexWrap: "wrap", marginTop: -2 },
+    detail: { ...TYPE.caption, color: theme.textSecondary },
+    // §9.6 — the emphasis is weight and colour together, never colour alone,
+    // and the line states the figure either way; nothing here is conveyed by
+    // the styling on its own.
+    detailEmphasis: { fontWeight: "700", color: theme.textPrimary },
+    detailSeparator: { ...TYPE.caption, color: theme.textSecondary },
     uvBadge: { marginLeft: "auto", paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, borderRadius: RADIUS.pill, backgroundColor: theme.uvBadge },
     uvBadgeText: { ...TYPE.micro, color: "#FFFFFF", fontWeight: "700" },
     picksSection: { gap: SPACING.sm, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.md, marginTop: 2 },

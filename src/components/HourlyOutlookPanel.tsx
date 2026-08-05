@@ -70,7 +70,7 @@ export default function HourlyOutlookPanel({ outlooks, onClose }: Props) {
             ))}
 
             <View style={[styles.block, styles.keyBlock]}>
-              <WeatherKey rainBuckets={rainBuckets} skyKinds={skyKinds} />
+              <WeatherKey rainBuckets={rainBuckets} skyKinds={skyKinds} showsWind />
             </View>
           </ScrollView>
         </View>

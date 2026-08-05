@@ -112,7 +112,7 @@ export default function LocalForecastPanel({ suburb, hourly, daily, onClose }: P
                 own top margin is cancelled — the body's gap already spaces
                 it. */}
             <View style={[styles.block, styles.keyBlock]}>
-              <WeatherKey rainBuckets={rainBuckets} skyKinds={skyKinds} />
+              <WeatherKey rainBuckets={rainBuckets} skyKinds={skyKinds} showsWind />
             </View>
           </ScrollView>
         </View>

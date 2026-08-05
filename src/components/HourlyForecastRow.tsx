@@ -91,6 +91,7 @@ export default function HourlyForecastRow({ readings, nowIso }: Props) {
                   rainIntensity={reading.rainIntensity}
                   tempC={reading.tempC}
                   precipMm={reading.precipMm}
+                  windKph={reading.windKph}
                   conditionKind={kind}
                   conditionColor={conditionColorForIcon(theme, kind)}
                   conditionLabel={WEATHER_ICON_LABEL[kind]}

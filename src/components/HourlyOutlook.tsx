@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { collectKeyEntries, formatHourLabel, iconKindFor } from "../lib/outlookDisplay";
+import { formatWindKph } from "../lib/weather";
 import { useLocationOutlooks, type LocationOutlook } from "../lib/useLocationOutlooks";
 import { useRouteEtas } from "../lib/useRouteEtas";
 import { useTimeFormatStore } from "../lib/useTimeFormatStore";
@@ -98,10 +99,14 @@ export default function HourlyOutlook({ origin, waypoints, destination, mode, de
               <View
                 style={styles.rowReading}
                 accessible
-                accessibilityLabel={`${outlook.location.label}, ${ROLE_NOTE[outlook.role]} ${formatHourLabel(outlook.atIso, hour12)}, ${WEATHER_ICON_LABEL[kind]}, ${Math.round(reading.tempC)} degrees${reading.precipMm > 0 ? `, ${reading.precipMm}mm rain` : ""}`}
+                accessibilityLabel={`${outlook.location.label}, ${ROLE_NOTE[outlook.role]} ${formatHourLabel(outlook.atIso, hour12)}, ${WEATHER_ICON_LABEL[kind]}, ${Math.round(reading.tempC)} degrees, wind ${formatWindKph(reading.windKph)}${reading.precipMm > 0 ? `, ${reading.precipMm}mm rain` : ""}`}
               >
                 <WeatherIcon kind={kind} size={16} color={theme.textSecondary} />
                 <Text style={styles.rowTemp}>{Math.round(reading.tempC)}°</Text>
+                {/* Spelled out here, unlike the hourly columns: this is a
+                    one-per-location row with space for the unit, and it's
+                    read without the strip's key nearby to decode a glyph. */}
+                <Text style={styles.rowWind}>{formatWindKph(reading.windKph)}</Text>
                 <RainGauge hour="" rainIntensity={reading.rainIntensity} precipMm={reading.precipMm} />
               </View>
             </View>
@@ -130,7 +135,7 @@ export default function HourlyOutlook({ origin, waypoints, destination, mode, de
         )}
       </View>
 
-      <WeatherKey rainBuckets={rainBuckets} skyKinds={skyKinds} />
+      <WeatherKey rainBuckets={rainBuckets} skyKinds={skyKinds} showsWind={destinationOutlook !== undefined} />
 
       {panelOpen && <HourlyOutlookPanel outlooks={withData} onClose={() => setPanelOpen(false)} />}
     </View>
@@ -157,6 +162,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     roleNote: { ...TYPE.micro, color: theme.textSecondary },
     rowReading: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     rowTemp: { ...TYPE.body, fontWeight: "700", color: theme.textPrimary },
+    rowWind: { ...TYPE.caption, color: theme.textSecondary },
     destinationBlock: { gap: 6, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.sm },
     stripContent: { gap: 12, paddingRight: 4 },
     estimateNote: { fontSize: 11, color: theme.textSecondary, fontStyle: "italic" },

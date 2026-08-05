@@ -37,9 +37,13 @@ const SKY_ORDER: WeatherIconKind[] = [
 interface Props {
   rainBuckets: ReadonlySet<RainIntensity>;
   skyKinds: ReadonlySet<WeatherIconKind>;
+  /** Whether the strip this key describes prints a wind figure per hour. The
+   *  hourly columns drop the unit to fit 36px, so the number under the wind
+   *  glyph is unreadable without being told once what it is. */
+  showsWind?: boolean;
 }
 
-export default function WeatherKey({ rainBuckets, skyKinds }: Props) {
+export default function WeatherKey({ rainBuckets, skyKinds, showsWind = false }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
 
@@ -56,7 +60,7 @@ export default function WeatherKey({ rainBuckets, skyKinds }: Props) {
     return true;
   });
 
-  if (rain.length === 0 && sky.length === 0) return null;
+  if (rain.length === 0 && sky.length === 0 && !showsWind) return null;
 
   return (
     <View style={styles.legend}>
@@ -70,6 +74,15 @@ export default function WeatherKey({ rainBuckets, skyKinds }: Props) {
               <Text style={styles.legendItemLabel}>{RAIN_LABEL[bucket]}</Text>
             </View>
           ))}
+        </View>
+      )}
+      {showsWind && (
+        <View style={styles.legendRow}>
+          <Text style={styles.legendLabel}>Wind:</Text>
+          <View style={styles.legendItem}>
+            <WeatherIcon kind="wind" size={16} color={theme.textSecondary} />
+            <Text style={styles.legendItemLabel}>Speed in km/h</Text>
+          </View>
         </View>
       )}
       {sky.length > 0 && (
