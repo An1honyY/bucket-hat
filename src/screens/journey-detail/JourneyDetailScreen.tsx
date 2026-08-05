@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/types";
@@ -42,6 +41,7 @@ import GearRecommendationCard from "./GearRecommendationCard";
 import JourneySummary from "./JourneySummary";
 import LegRow, { type LegState } from "./LegRow";
 import StepList from "./StepList";
+import ScreenSurface from "../../components/ScreenSurface";
 import ActionIcon from "../../components/ActionIcon";
 import AppButton from "../../components/AppButton";
 import EffectIcon from "../../components/EffectIcon";
@@ -254,21 +254,21 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
 
   if (journey === undefined) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenSurface>
         <View style={styles.content}>
           <ActivityIndicator />
         </View>
-      </SafeAreaView>
+      </ScreenSurface>
     );
   }
 
   if (!journey) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenSurface>
         <View style={styles.content}>
           <Text style={styles.empty}>This journey was deleted.</Text>
         </View>
-      </SafeAreaView>
+      </ScreenSurface>
     );
   }
 
@@ -492,7 +492,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenSurface>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={[styles.mapContainer, following && styles.mapContainerJourney]}>
           <JourneyMap
@@ -848,13 +848,12 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg },
     // §9.2 — one readable column, centred, rather than a screen that keeps
     // stretching: at web/tablet widths the map became a letterbox strip and
     // every banner a full-width rule. Capping the scroll content (map

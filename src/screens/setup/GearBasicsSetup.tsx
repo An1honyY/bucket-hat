@@ -10,6 +10,7 @@ import { createShoe } from "../../db/repositories/shoes";
 import { createUmbrella } from "../../db/repositories/umbrellas";
 import { newId } from "../../db/rowMapping";
 import { withTimeout } from "../../lib/withTimeout";
+import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
@@ -209,47 +210,49 @@ export default function GearBasicsSetup({ onDone }: Props) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Add a few gear basics</Text>
+      <ScreenSurface edges={["bottom"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Add a few gear basics</Text>
 
-      {!selfReportDone ? (
-        <View style={styles.selfReport}>
-          <Text style={styles.question}>Do you tend to run warm, cold, or about average?</Text>
-          <Text style={styles.body}>
-            Helps us get your first few recommendations right — you can fine-tune this anytime from how
-            a trip actually felt.
-          </Text>
-          <View style={styles.selfReportButtons}>
-            {SELF_REPORT_OPTIONS.map((option) => (
-              <Pressable key={option.label} onPress={() => selectSelfReport(option.offset)} style={styles.selfReportButton}>
-                <Text style={styles.selfReportLabel}>{option.label}</Text>
-              </Pressable>
-            ))}
+        {!selfReportDone ? (
+          <View style={styles.selfReport}>
+            <Text style={styles.question}>Do you tend to run warm, cold, or about average?</Text>
+            <Text style={styles.body}>
+              Helps us get your first few recommendations right — you can fine-tune this anytime from how
+              a trip actually felt.
+            </Text>
+            <View style={styles.selfReportButtons}>
+              {SELF_REPORT_OPTIONS.map((option) => (
+                <Pressable key={option.label} onPress={() => selectSelfReport(option.offset)} style={styles.selfReportButton}>
+                  <Text style={styles.selfReportLabel}>{option.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable onPress={() => setSelfReportDone(true)}>
+              <Text style={styles.entrySkipLabel}>Skip</Text>
+            </Pressable>
           </View>
-          <Pressable onPress={() => setSelfReportDone(true)}>
-            <Text style={styles.entrySkipLabel}>Skip</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <>
-          <WarmthEntry title="Jacket" clothingType="jacket" showSubstitutesToggle onSaved={() => {}} />
-          <SimpleEntry title="Shoes" kind="shoes" onSaved={() => {}} />
-          <SimpleEntry title="Umbrella" kind="umbrella" onSaved={() => {}} />
-          <Text style={styles.optionalLabel}>Optional</Text>
-          <WarmthEntry title="Bottoms/trousers" clothingType="bottoms" showSubstitutesToggle={false} onSaved={() => {}} />
+        ) : (
+          <>
+            <WarmthEntry title="Jacket" clothingType="jacket" showSubstitutesToggle onSaved={() => {}} />
+            <SimpleEntry title="Shoes" kind="shoes" onSaved={() => {}} />
+            <SimpleEntry title="Umbrella" kind="umbrella" onSaved={() => {}} />
+            <Text style={styles.optionalLabel}>Optional</Text>
+            <WarmthEntry title="Bottoms/trousers" clothingType="bottoms" showSubstitutesToggle={false} onSaved={() => {}} />
 
-          <View style={styles.doneAction}>
-            <AppButton label="Done" onPress={onDone} />
-          </View>
-        </>
-      )}
-    </ScrollView>
+            <View style={styles.doneAction}>
+              <AppButton label="Done" onPress={onDone} />
+            </View>
+          </>
+        )}
+      </ScrollView>
+      </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: SPACING.xxl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    container: { padding: SPACING.xxl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     title: { ...TYPE.title, marginBottom: SPACING.lg, color: theme.textPrimary },
     selfReport: { gap: SPACING.md },
     question: { ...TYPE.subtitle, color: theme.textPrimary },

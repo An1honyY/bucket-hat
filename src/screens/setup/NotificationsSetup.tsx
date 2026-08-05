@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LEAVE_BY_LEAD_MINUTES, requestNotificationPermission } from "../../lib/notifications";
 import AppButton from "../../components/AppButton";
+import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { SPACING, TYPE } from "../../theme/typography";
@@ -32,17 +33,19 @@ export default function NotificationsSetup({ onDone }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Get a heads-up before you leave?</Text>
-      <Text style={styles.body}>
-        We&apos;ll send a reminder about {LEAVE_BY_LEAD_MINUTES} minutes before you need to leave, with a quick
-        reminder of what to grab.
-      </Text>
-      <View style={styles.actions}>
-        <AppButton label={requesting ? "Requesting…" : "Allow notifications"} onPress={allow} disabled={requesting} />
-        <AppButton label="Not now" variant="ghost" size="sm" onPress={onDone} />
+    <ScreenSurface edges={["bottom"]}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Get a heads-up before you leave?</Text>
+        <Text style={styles.body}>
+          We&apos;ll send a reminder about {LEAVE_BY_LEAD_MINUTES} minutes before you need to leave, with a quick
+          reminder of what to grab.
+        </Text>
+        <View style={styles.actions}>
+          <AppButton label={requesting ? "Requesting…" : "Allow notifications"} onPress={allow} disabled={requesting} />
+          <AppButton label="Not now" variant="ghost" size="sm" onPress={onDone} />
+        </View>
       </View>
-    </View>
+    </ScreenSurface>
   );
 }
 
@@ -53,7 +56,6 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       justifyContent: "center",
       padding: SPACING.xxl,
       gap: SPACING.md,
-      backgroundColor: theme.bg,
       width: "100%",
       maxWidth: CONTENT_MAX_WIDTH,
       alignSelf: "center",

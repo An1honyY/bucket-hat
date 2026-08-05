@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlanIntent, RootStackParamList } from "../../navigation/types";
 import { deleteSavedRoute, listSavedRoutes, touchSavedRoute, updateSavedRoute } from "../../db/repositories/savedRoutes";
 import { listLocations } from "../../db/repositories/locations";
 import { showAlert } from "../../lib/crossPlatformAlert";
+import ScreenSurface from "../../components/ScreenSurface";
 import ActionIcon from "../../components/ActionIcon";
 import AppButton from "../../components/AppButton";
 import ModeIcon from "../../components/ModeIcon";
@@ -118,7 +118,7 @@ export default function SavedJourneysScreen() {
 
   if (routes !== null && routes.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenSurface>
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>
             No saved journeys yet — plan a trip and turn on &quot;Save this journey&quot; to reuse it later.
@@ -129,14 +129,14 @@ export default function SavedJourneysScreen() {
             style={styles.emptyAction}
           />
         </View>
-      </SafeAreaView>
+      </ScreenSurface>
     );
   }
 
   const firstNonFavoriteIndex = (routes ?? []).findIndex((r) => !r.isFavorite);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenSurface>
       <FlatList
         data={routes ?? []}
         keyExtractor={(item) => item.id}
@@ -264,13 +264,12 @@ export default function SavedJourneysScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg },
     listContent: {
       padding: SPACING.xl,
       paddingBottom: SPACING.xxl * 2,

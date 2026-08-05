@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, SectionList, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/types";
 import { listPastJourneys } from "../../db/repositories/journeys";
 import { groupJourneysByDay, type HistorySection } from "../../lib/historyGrouping";
 import HistoryRow from "./HistoryRow";
+import ScreenSurface from "../../components/ScreenSurface";
 import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
@@ -57,29 +57,29 @@ export default function HistoryScreen({ navigation }: Props) {
 
   if (journeys === undefined) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenSurface>
         <View style={styles.content}>
           <ActivityIndicator />
         </View>
-      </SafeAreaView>
+      </ScreenSurface>
     );
   }
 
   if (journeys.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenSurface>
         <View style={styles.content}>
           <Text style={styles.title}>History</Text>
           <Text style={styles.empty}>No past journeys yet — plan one from the Plan tab</Text>
         </View>
-      </SafeAreaView>
+      </ScreenSurface>
     );
   }
 
   const sections: HistorySection[] = groupJourneysByDay(journeys, new Date(nowIso).getTime());
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenSurface>
       <SectionList
         sections={sections}
         keyExtractor={(journey) => journey.id}
@@ -103,13 +103,12 @@ export default function HistoryScreen({ navigation }: Props) {
           ) : null
         }
       />
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg },
     content: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
     title: { ...TYPE.title, color: theme.textPrimary },
     empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center", paddingHorizontal: SPACING.xl },

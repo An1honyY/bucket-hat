@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   deleteAnnotation,
@@ -11,6 +10,7 @@ import type { EnvironmentAnnotation } from "../../types";
 import AnnotationForm, { type AnnotationFormValues } from "./AnnotationForm";
 import { EFFECT_META } from "./effectMeta";
 import EffectIcon from "../../components/EffectIcon";
+import ScreenSurface from "../../components/ScreenSurface";
 import ActionIcon from "../../components/ActionIcon";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
@@ -55,7 +55,7 @@ export default function LocalKnowledgeScreen() {
 
   if (mode.kind === "edit") {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenSurface>
         <AnnotationForm
           initial={mode.annotation}
           showCoordinateFields
@@ -63,12 +63,12 @@ export default function LocalKnowledgeScreen() {
           onCancel={() => setMode({ kind: "list" })}
           onDelete={() => handleDelete(mode.annotation.id)}
         />
-      </SafeAreaView>
+      </ScreenSurface>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenSurface>
       {loaded && annotations.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.title}>Local knowledge</Text>
@@ -106,13 +106,12 @@ export default function LocalKnowledgeScreen() {
           )}
         />
       )}
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg },
     emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: SPACING.sm, paddingHorizontal: SPACING.xxl },
     title: { ...TYPE.title, color: theme.textPrimary },
     empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center", lineHeight: 21 },

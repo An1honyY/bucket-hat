@@ -172,7 +172,10 @@ export default function ShoeList({ autoOpenAdd }: Props) {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg },
+    // Transparent, rather than the theme background: this list renders
+    // inside GearScreen's ScreenSurface, and an opaque fill here would
+    // paint over the shared background pattern behind it.
+    container: { flex: 1 },
     emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
     empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },
     listContent: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.sm, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },

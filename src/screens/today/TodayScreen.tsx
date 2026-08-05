@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { materializeTodaysJourneys } from "../../lib/materializeToday";
@@ -12,9 +11,8 @@ import RightNowCard from "./RightNowCard";
 import LocalForecastCard from "./LocalForecastCard";
 import JourneyCard from "./JourneyCard";
 import SetupChecklist from "./SetupChecklist";
-import ScreenPattern from "../../components/ScreenPattern";
+import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
-import useWeatherTheme from "../../theme/useWeatherTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { SPACING, TYPE } from "../../theme/typography";
 
@@ -26,11 +24,11 @@ export default function TodayScreen() {
   const styles = getStyles(theme);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [journeys, setJourneys] = useState<Journey[] | null>(null);
-  // §9.1 (2026-07-21) — fetched once here rather than inside RightNowCard,
-  // so its weather reading can also drive JourneyCard's weather-reactive
-  // theme below — one screen-wide mood, not each card resolving its own.
+  // §9.1 (2026-07-21) — fetched once here rather than inside RightNowCard.
+  // Since 2026-08-05 this is also what publishes the app-wide ambient mood
+  // (useRightNow → useAmbientWeatherStore), so `theme` above already *is*
+  // this reading's mood — no separate screen-level weather theme needed.
   const rightNow = useRightNow();
-  const weatherTheme = useWeatherTheme(rightNow.weather);
   // Date.now() is impure to call during render — a useState lazy
   // initializer (react-hooks/purity) only runs once at mount.
   const [nowMs] = useState(() => Date.now());
@@ -65,8 +63,7 @@ export default function TodayScreen() {
     .sort((a, b) => new Date(a.departTime).getTime() - new Date(b.departTime).getTime())[0]?.id;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScreenPattern tint={weatherTheme.patternTint} />
+    <ScreenSurface>
       <ScrollView
         contentContainerStyle={styles.content}
         // Manual refresh for when the "as of" stamp looks older than the user
@@ -79,7 +76,7 @@ export default function TodayScreen() {
             refreshing={rightNow.refreshing}
             onRefresh={rightNow.refresh}
             tintColor={theme.textSecondary}
-            colors={[weatherTheme.accentWalk]}
+            colors={[theme.accentWalk]}
           />
         }
       >
@@ -113,7 +110,7 @@ export default function TodayScreen() {
                   key={journey.id}
                   journey={journey}
                   isNextUp={journey.id === nextUpId}
-                  theme={weatherTheme}
+                  theme={theme}
                   onPress={() => openJourney(journey.id)}
                   onLeavingNow={() => startJourney(journey.id)}
                 />
@@ -122,13 +119,12 @@ export default function TodayScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg },
     content: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     journeysSection: { marginTop: SPACING.sm },
     sectionLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary, marginBottom: SPACING.sm },

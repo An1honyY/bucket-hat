@@ -49,7 +49,12 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderRadius: 15,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: theme.isLight ? "#FBE7F0" : theme.surfaceRaised,
+      // Was a hardcoded pink in light mode, picked back when `accentWalk` was
+      // always pink. Now that the accent moves with the weather mood
+      // (§9.1.3), a fixed tint stranded a pink chip on a cold-blue header —
+      // so the wash is derived from the accent itself, as the tab bar's
+      // active pill is.
+      backgroundColor: theme.isLight ? `${theme.accentWalk}1F` : theme.surfaceRaised,
     },
     label: { fontSize: 16, color: theme.accentWalk, fontWeight: "500" },
   });

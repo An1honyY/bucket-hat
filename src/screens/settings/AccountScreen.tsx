@@ -22,6 +22,7 @@ import { syncNow } from "../../lib/sync/runSyncNow";
 import { clearRemotePhotoCache } from "../../lib/sync/remotePhotoCache";
 import { showAlert } from "../../lib/crossPlatformAlert";
 import { AUTH_ERROR_COPY } from "../../lib/auth/errorCopy";
+import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { cardElevationStyle } from "../../theme/tokens";
@@ -89,51 +90,55 @@ export default function AccountScreen() {
 
   if (!isAuthConfigured()) {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.sectionTitle}>Sync</Text>
-        <View style={styles.sectionCard}>
-          <Text style={styles.body}>
-            Sync isn&apos;t configured in this build. Everything still works — your data is stored on this device.
-          </Text>
-          <Text style={styles.hint}>Set EXPO_PUBLIC_SYNC_API_URL to enable it. See worker/SETUP.md.</Text>
-        </View>
-      </ScrollView>
+      <ScreenSurface edges={["bottom"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <Text style={styles.sectionTitle}>Sync</Text>
+          <View style={styles.sectionCard}>
+            <Text style={styles.body}>
+              Sync isn&apos;t configured in this build. Everything still works — your data is stored on this device.
+            </Text>
+            <Text style={styles.hint}>Set EXPO_PUBLIC_SYNC_API_URL to enable it. See worker/SETUP.md.</Text>
+          </View>
+        </ScrollView>
+      </ScreenSurface>
     );
   }
 
   if (session) {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.sectionCard}>
-          <Text style={styles.email}>{session.email}</Text>
-          <Text style={styles.body}>{formatLastSynced(lastSynced)}</Text>
-          <Text style={styles.hint}>
-            Your gear, places and journeys sync to your other devices. This device works normally offline — changes
-            sync when you&apos;re back online.
-          </Text>
+      <ScreenSurface edges={["bottom"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <View style={styles.sectionCard}>
+            <Text style={styles.email}>{session.email}</Text>
+            <Text style={styles.body}>{formatLastSynced(lastSynced)}</Text>
+            <Text style={styles.hint}>
+              Your gear, places and journeys sync to your other devices. This device works normally offline — changes
+              sync when you&apos;re back online.
+            </Text>
 
-          <View style={styles.buttonRow}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleSyncNow}
-              disabled={busy}
-              style={[styles.button, styles.rowButton, busy && styles.buttonDisabled]}
-            >
-              {busy ? <ActivityIndicator /> : <Text style={styles.buttonLabel}>Sync now</Text>}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleSignOut}
-              disabled={busy}
-              style={[styles.button, styles.rowButton, busy && styles.buttonDisabled]}
-            >
-              <Text style={styles.buttonLabel}>Sign out</Text>
-            </Pressable>
+            <View style={styles.buttonRow}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleSyncNow}
+                disabled={busy}
+                style={[styles.button, styles.rowButton, busy && styles.buttonDisabled]}
+              >
+                {busy ? <ActivityIndicator /> : <Text style={styles.buttonLabel}>Sync now</Text>}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleSignOut}
+                disabled={busy}
+                style={[styles.button, styles.rowButton, busy && styles.buttonDisabled]}
+              >
+                <Text style={styles.buttonLabel}>Sign out</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.hint}>Signing out leaves everything on this device — nothing is deleted.</Text>
           </View>
-          <Text style={styles.hint}>Signing out leaves everything on this device — nothing is deleted.</Text>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </ScreenSurface>
     );
   }
 
@@ -142,41 +147,43 @@ export default function AccountScreen() {
   // two drift apart. What's left here is the part that's specific to
   // Settings: what an account is for, and the way in.
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.sectionTitle}>Sync across devices</Text>
-      <View style={styles.sectionCard}>
-        <Text style={styles.body}>
-          Sign in to keep your gear, places and journeys in step across your phone and computer. Everything keeps
-          working on this device either way.
-        </Text>
+      <ScreenSurface edges={["bottom"]}>
+        <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.sectionTitle}>Sync across devices</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.body}>
+            Sign in to keep your gear, places and journeys in step across your phone and computer. Everything keeps
+            working on this device either way.
+          </Text>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate("Auth", { context: "settings", mode: "sign-in" })}
-          style={[styles.button, styles.primaryButton]}
-        >
-          <Text style={styles.primaryButtonLabel}>Sign in</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate("Auth", { context: "settings", mode: "sign-up" })}
-          style={styles.button}
-        >
-          <Text style={styles.buttonLabel}>Create an account</Text>
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.navigate("Auth", { context: "settings", mode: "sign-in" })}
+            style={[styles.button, styles.primaryButton]}
+          >
+            <Text style={styles.primaryButtonLabel}>Sign in</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.navigate("Auth", { context: "settings", mode: "sign-up" })}
+            style={styles.button}
+          >
+            <Text style={styles.buttonLabel}>Create an account</Text>
+          </Pressable>
 
-        <Text style={styles.hint}>
-          Signing in merges what&apos;s on this device with whatever the account already holds — nothing here is
-          overwritten or uploaded until you do.
-        </Text>
-      </View>
-    </ScrollView>
+          <Text style={styles.hint}>
+            Signing in merges what&apos;s on this device with whatever the account already holds — nothing here is
+            overwritten or uploaded until you do.
+          </Text>
+        </View>
+      </ScrollView>
+      </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, backgroundColor: theme.bg, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
+    container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     sectionTitle: { ...TYPE.subtitle, fontSize: 16, marginBottom: SPACING.sm, color: theme.textPrimary },
     sectionCard: {
       backgroundColor: theme.surface,

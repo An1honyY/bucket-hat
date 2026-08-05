@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import ClothingList from "./ClothingList";
 import ShoeList from "./ShoeList";
 import UmbrellaList from "./UmbrellaList";
+import ScreenSurface from "../../components/ScreenSurface";
 import VehicleList from "./VehicleList";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
@@ -54,7 +54,7 @@ export default function GearScreen({ route, navigation }: Props) {
   }, [route.params?.openAdd, navigation]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenSurface>
       <View style={styles.tabBar}>
         {SUB_TABS.map((tab) => (
           <Pressable
@@ -74,13 +74,12 @@ export default function GearScreen({ route, navigation }: Props) {
       {activeTab === "Shoes" && <ShoeList autoOpenAdd={openAdd?.kind === "shoe"} />}
       {activeTab === "Umbrellas" && <UmbrellaList autoOpenAdd={openAdd?.kind === "umbrella"} />}
       {activeTab === "Vehicles" && <VehicleList />}
-    </SafeAreaView>
+    </ScreenSurface>
   );
 }
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg },
     // §9.6 — the sub-tab strip is the first control on this screen and was
     // the one place a tap target depended entirely on its text height.
     tabBar: {
