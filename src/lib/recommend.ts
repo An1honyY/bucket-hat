@@ -4,7 +4,7 @@
 // handling added in Phase 6 (their inputs — EnvironmentAnnotation matching
 // and recentPrecipMm6h — exist from Phase 6's wiring in §5.5).
 import { clamp } from "./utils";
-import { acFeelsCold, classifyWeather, getSeason, resolveWarmthOffset } from "./weather";
+import { acFeelsCold, classifyWeather, FEELS_LIKE_DIVERGENCE_C, getSeason, resolveWarmthOffset } from "./weather";
 import type {
   AdvancedWarmthThresholds,
   CarryPreference,
@@ -73,7 +73,10 @@ const WIND_TUNNEL_MULTIPLIER = 1.5; // felt-wind multiplier for a leg flagged wi
 export const WIND_SHELTERED_MULTIPLIER = 0.5;
 export const PUDDLE_RISK_PRECIP_MM_6H = 5; // cumulative mm over the past 6h at/above which puddle risk is flagged for footwear (§7.8) — exported for planJourney's fetch-time leg stamping (§3.4)
 const WIND_SENSITIVITY_OFFSET_CLAMP = 1; // §7.5.2 — clamps windSensitivityOffset to ±1; only ever nudges the annotation-gated wind-chill bump, never the base warmthLevel
-const APPARENT_TEMP_DIVERGENCE_NOTE_C = 2;
+// Re-exported name kept for the call site below; the figure itself lives in
+// weather.ts so the cards that *display* the gap emphasise exactly the gap
+// this note fires on (§6.2).
+const APPARENT_TEMP_DIVERGENCE_NOTE_C = FEELS_LIKE_DIVERGENCE_C;
 const STATIONARY_WAIT_MIN_MINUTES = 10;
 const STATIONARY_WAIT_WINDY_MIN_MINUTES = 5;
 const ITEM_WARMTH_SCALE_MAX = 10; // §3.6 — ClothingItem.warmth's 1-10 range; pickLayer()'s targetWarmth math below depends on this directly
@@ -185,14 +188,37 @@ function genericLayerText(type: LayerType, warmthLevel: 0 | 1 | 2 | 3 | 4): stri
   if (type === "midlayer") return cold ? "Midlayer" : "Light midlayer";
   return cold ? "Warm base layer" : "Base layer";
 }
-// Gear is set up, but nothing in this category currently fits (none owned,
-// or what's owned is unavailable/doesn't match) — name the gap and suggest
-// a practical workaround, same pattern the umbrella fallback already used.
-const WORKAROUND_LAYER_TEXT: Record<LayerType, string> = {
-  jacket: "No available jacket for these conditions — layer up or pick up the pace to stay warm",
-  midlayer: "No available midlayer for these conditions — an extra top layer or a brisker pace will help",
-  base: "No available base layer for these conditions — a regular top is fine, just add another layer over it",
+const LAYER_NOUN: Record<LayerType, string> = { jacket: "Jacket", midlayer: "Midlayer", base: "Base layer" };
+
+// What to do instead, when the slot can't be filled from the wardrobe.
+const LAYER_WORKAROUND: Record<LayerType, string> = {
+  jacket: "layer up or pick up the pace to stay warm",
+  midlayer: "an extra top layer or a brisker pace will help",
+  base: "a regular top is fine, just add another layer over it",
 };
+
+// Why a slot couldn't be filled. The distinction matters because only one of
+// these is a statement about the user's wardrobe:
+//
+//  - `none-owned` — nothing of this type has ever been added. Saying "no
+//    available jacket" here asserts something the user never told us; owning
+//    one midlayer does not mean they own no jacket, it means they haven't
+//    entered one. This falls back to plain generic advice.
+//  - `none-available` — they own some and have marked them all unavailable
+//    (laundry, repair). This is the only case where "none available" is a
+//    fact rather than an assumption, because the user set it themselves.
+//  - `none-suitable` — owned and available, but nothing matched the
+//    requirements (currently only the packable filter).
+type LayerGap = "none-owned" | "none-available" | "none-suitable";
+
+// ClothingType rather than LayerType: bottoms need the identical reasoning,
+// and the check is purely "what does the wardrobe hold of this type".
+function layerGapFor(inventory: Inventory, type: ClothingType, departTime: string): LayerGap {
+  const owned = inventory.clothing.filter((c) => c.type === type);
+  if (owned.length === 0) return "none-owned";
+  if (!owned.some((c) => isAvailable(c, departTime))) return "none-available";
+  return "none-suitable";
+}
 
 function pickLayer(
   inventory: Inventory,
@@ -201,16 +227,20 @@ function pickLayer(
   needsWaterproof: boolean,
   requirePackable: boolean,
   departTime: string,
-  hasNoGearSetup: boolean,
   warmthLevel: 0 | 1 | 2 | 3 | 4,
   preferTags: string[] = []
 ): LayerPick {
   const picked = pickCandidate(inventory, type, targetWarmth, needsWaterproof, requirePackable, departTime, preferTags);
   if (picked) return picked;
+
+  const gap = layerGapFor(inventory, type, departTime);
+  if (gap === "none-owned") {
+    return { fallbackText: genericLayerText(type, warmthLevel), layerType: type, isGenericAssumption: true };
+  }
+  const reason = gap === "none-available" ? "none available" : "nothing suitable";
   return {
-    fallbackText: hasNoGearSetup ? genericLayerText(type, warmthLevel) : WORKAROUND_LAYER_TEXT[type],
+    fallbackText: `${LAYER_NOUN[type]} — ${reason}, ${LAYER_WORKAROUND[type]}`,
     layerType: type,
-    isGenericAssumption: hasNoGearSetup || undefined,
   };
 }
 
@@ -227,7 +257,7 @@ function applySunProtection(
   const maxEffectiveUv = Math.max(...outdoorLegs.map(effectiveUv));
   if (maxEffectiveUv < HIGH_UV_INDEX) return;
   const sunglasses = available.find((c) => c.tags?.includes("sunglasses"));
-  accessories.push(sunglasses ?? { fallbackText: "UV is high — sunglasses/a hat recommended", layerType: "accessory" });
+  accessories.push(sunglasses ?? { fallbackText: "Sunglasses or a hat", layerType: "accessory" });
   const anyReflective = outdoorLegs.some((l) => l.highReflection);
   notes.push(
     anyReflective
@@ -282,11 +312,11 @@ export function recommendGear(
     (l) => l.puddleRisk || (l.weather!.recentPrecipMm6h ?? 0) >= PUDDLE_RISK_PRECIP_MM_6H
   );
   const anyRainCovered = outdoorLegs.some((l) => l.rainCovered);
-  // Never-added-any-gear-in-this-category, distinct from "set up but
-  // nothing currently fits" — see GENERIC_LAYER_TEXT/WORKAROUND_LAYER_TEXT
-  // above and the umbrella/shoes fallback logic below.
-  const hasNoClothingSetup = inventory.clothing.length === 0;
-  const hasNoShoesSetup = inventory.shoes.length === 0;
+  // Clothing and shoes ask `layerGapFor` per category instead — this used to
+  // be a wardrobe-wide `clothing.length === 0`, which meant adding a single
+  // midlayer made the card assert "no available jacket" about someone who had
+  // simply never entered a jacket. Umbrellas keep the flat check because they
+  // are one category, so "owns none" and "category empty" are the same fact.
   const hasNoUmbrellaSetup = inventory.umbrellas.length === 0;
 
   const notes: string[] = [];
@@ -364,10 +394,17 @@ export function recommendGear(
       // but warmthLevel isn't final until the environment deltas below have
       // been applied. Flagged here, worded once the number settles.
       needsGenericShoeText = true;
-    } else if (hasNoShoesSetup) {
-      shoes = { fallbackText: "Waterproof shoes recommended", isGenericAssumption: true };
     } else {
-      shoes = { fallbackText: "No waterproof shoes owned or available — mind the puddles" };
+      // Same three-state reasoning as the layers, scoped to waterproofing
+      // rather than to the category: owning trainers says nothing about
+      // whether you own wellies, so "none available" is only honest when
+      // waterproof shoes exist and are all marked unavailable.
+      const ownsWaterproof = inventory.shoes.some((s) => s.waterproof);
+      const allWaterproofUnavailable =
+        ownsWaterproof && !inventory.shoes.some((s) => s.waterproof && isAvailable(s, journey.departTime));
+      shoes = allWaterproofUnavailable
+        ? { fallbackText: "Waterproof shoes — none available, mind the puddles" }
+        : { fallbackText: "Waterproof shoes — mind the puddles", isGenericAssumption: !ownsWaterproof || undefined };
     }
   }
   if (puddleRisk && !needsWaterproof) {
@@ -486,11 +523,23 @@ export function recommendGear(
       needsWaterproof,
       requirePackable,
       journey.departTime,
-      hasNoClothingSetup,
       warmthLevel,
       preferTags
     )
   );
+
+  // The laundry toggle is the only thing that produces a "none available"
+  // slot, so when one shows up it's worth saying where it came from —
+  // otherwise the card reports a gap with no hint that the user created it
+  // and can undo it.
+  const unavailableTypes = layerTypes.filter((type) => layerGapFor(inventory, type, journey.departTime) === "none-available");
+  if (unavailableTypes.length > 0) {
+    // Plural throughout: this fires when *every* item of the type is marked
+    // unavailable, which may well be several — "your jacket is marked
+    // unavailable" would misdescribe a wardrobe of three.
+    const list = unavailableTypes.map((t) => `${LAYER_NOUN[t].toLowerCase()}s`).join(" and ");
+    notes.push(`All your ${list} are marked unavailable — mark one back in from Gear`);
+  }
   // §7.12 — dual-purpose jacket
   const pickedJacket = layers.find((l, i) => layerTypes[i] === "jacket");
   const midlayerIndex = layerTypes.indexOf("midlayer");
@@ -530,10 +579,10 @@ export function recommendGear(
     shoes = {
       fallbackText:
         warmthLevel >= COLD_STACK_LEVEL
-          ? "Warm socks and any shoes"
+          ? "Warm socks, any shoes"
           : isHot
             ? "Breathable shoes"
-            : "Any regular shoes fine",
+            : "Any shoes",
     };
   }
 
@@ -558,25 +607,31 @@ export function recommendGear(
   let bottoms: Recommendation["bottoms"];
   if (pickedBottoms) {
     bottoms = pickedBottoms;
-  } else if (hasNoClothingSetup) {
-    bottoms = {
-      fallbackText: needsThermalBottoms
-        ? "Thicker trousers or leggings help"
-        : needsWaterproofBottoms
-          ? "Waterproof or thicker trousers if you've got them"
-          : "Trousers or shorts, whatever suits the day",
-      layerType: "bottoms",
-      isGenericAssumption: true,
-    };
   } else {
-    bottoms = {
-      fallbackText: needsThermalBottoms
-        ? "No available bottoms for these conditions — thicker trousers or leggings if you have them"
-        : needsWaterproofBottoms
-          ? "No available bottoms for these conditions — expect damp cuffs, or tuck them into boots"
-          : "No available bottoms for these conditions — whatever you'd normally wear works fine",
-      layerType: "bottoms",
-    };
+    // Per-category, exactly as the layers above: owning a midlayer tells us
+    // nothing about whether any bottoms have been added, so "none available"
+    // must not be inferred from the wardrobe being non-empty.
+    const bottomsGap = layerGapFor(inventory, "bottoms", journey.departTime);
+    const workaround = needsThermalBottoms
+      ? "thicker trousers or leggings if you have them"
+      : needsWaterproofBottoms
+        ? "expect damp cuffs, or tuck them into boots"
+        : "whatever you'd normally wear works fine";
+    bottoms =
+      bottomsGap === "none-owned"
+        ? {
+            fallbackText: needsThermalBottoms
+              ? "Thicker trousers or leggings help"
+              : needsWaterproofBottoms
+                ? "Waterproof or thicker trousers if you've got them"
+                : "Trousers or shorts, whatever suits the day",
+            layerType: "bottoms",
+            isGenericAssumption: true,
+          }
+        : {
+            fallbackText: `Bottoms — ${bottomsGap === "none-available" ? "none available" : "nothing suitable"}, ${workaround}`,
+            layerType: "bottoms",
+          };
   }
   if (needsWaterproofBottoms) {
     notes.push("Wet and windy enough for rain trousers, not just a jacket");
@@ -591,7 +646,7 @@ export function recommendGear(
     if (warm.length > 0) {
       accessories.push(...warm);
     } else {
-      accessories.push({ fallbackText: "Consider gloves/a hat — it's cold out", layerType: "accessory" });
+      accessories.push({ fallbackText: "Gloves and a hat", layerType: "accessory" });
     }
   }
   applySunProtection(accessories, availableAccessories, outdoorLegs, notes);

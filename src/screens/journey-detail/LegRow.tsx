@@ -3,7 +3,7 @@ import useTheme from "../../theme/useTheme";
 import { conditionColorForSeverity , cardElevationStyle } from "../../theme/tokens";
 
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
-import { classifyWeather } from "../../lib/weather";
+import { classifyWeather, feelsLikeDiverges, formatWindKph } from "../../lib/weather";
 import { HIGH_WIND_KPH } from "../../lib/recommend";
 import type { EnvironmentEffectType, JourneyLeg } from "../../types";
 import ModeIcon from "../../components/ModeIcon";
@@ -66,7 +66,15 @@ export default function LegRow({ leg, state = "upcoming", progressFraction = 0, 
     isCompleted ? "Completed" : isCurrent ? "Currently on" : undefined,
     leg.label,
     isCurrent && remainingMin !== undefined ? `${Math.max(1, Math.round(remainingMin))} minutes left` : `${leg.durationMin} minutes`,
-    leg.weather ? `${Math.round(leg.weather.apparentTempC)} degrees` : undefined,
+    // Both figures when they diverge: the badge can lean on the note below
+    // for the gap, but a row read aloud is self-contained by §9.6 and has no
+    // "below" to lean on.
+    leg.weather
+      ? feelsLikeDiverges(leg.weather.tempC, leg.weather.apparentTempC)
+        ? `${Math.round(leg.weather.tempC)} degrees, feels like ${Math.round(leg.weather.apparentTempC)}`
+        : `${Math.round(leg.weather.tempC)} degrees`
+      : undefined,
+    leg.weather && leg.weather.windKph > HIGH_WIND_KPH ? `wind ${formatWindKph(leg.weather.windKph)}` : undefined,
     condition?.label,
   ]
     .filter(Boolean)
@@ -116,9 +124,16 @@ export default function LegRow({ leg, state = "upcoming", progressFraction = 0, 
         {leg.outdoor && leg.weather && condition && (
           <View style={[styles.badge, { backgroundColor: conditionColorForSeverity(theme, condition.severity) }]}>
             <WeatherIcon kind={weatherIconKindFor(condition)} size={12} color="#FFFFFF" />
+            {/* The air temperature. This badge showed `apparentTempC` while
+                the recommendation note directly below it reads "Feels like
+                8°C, not 12°C — dressed for that" — so the badge printed 8
+                and the note called 12 the figure it *wasn't*. The two now
+                agree: the badge is the air temperature the note contrasts
+                against, and the note remains the only place the gap is
+                spelled out, which is what §9.0.1 wants of a note. */}
             <Text style={styles.badgeText}>
-              {Math.round(leg.weather.apparentTempC)}°C
-              {leg.weather.windKph > HIGH_WIND_KPH ? ` · ${Math.round(leg.weather.windKph)} km/h` : ""}
+              {Math.round(leg.weather.tempC)}°C
+              {leg.weather.windKph > HIGH_WIND_KPH ? ` · ${formatWindKph(leg.weather.windKph)}` : ""}
             </Text>
           </View>
         )}

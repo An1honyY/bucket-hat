@@ -16,6 +16,9 @@ import { ScrollView, type StyleProp, type ViewStyle } from "react-native";
 interface Props {
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /** Style for the scroll container itself, not its content — used to cancel
+   *  a card's padding so the strip can bleed to its edges. */
+  style?: StyleProp<ViewStyle>;
 }
 
 // Below this the pointer is treated as a click, not a drag, so a stray
@@ -28,7 +31,7 @@ const DRAG_THRESHOLD_PX = 3;
 // claiming the wheel, and the page underneath would not scroll on past it.
 const EDGE_TOLERANCE_PX = 1;
 
-export default function HorizontalStrip({ children, contentContainerStyle }: Props) {
+export default function HorizontalStrip({ children, contentContainerStyle, style }: Props) {
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -109,6 +112,7 @@ export default function HorizontalStrip({ children, contentContainerStyle }: Pro
       ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={style}
       contentContainerStyle={contentContainerStyle}
     >
       {children}

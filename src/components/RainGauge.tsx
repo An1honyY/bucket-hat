@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import Svg, { ClipPath, Defs, Path, Rect } from "react-native-svg";
 import useTheme from "../theme/useTheme";
 import { hourlyCellPalette, hourlyIconColor } from "../theme/hourlyPalette";
-import type { RainIntensity } from "../lib/weather";
+import { formatWindKph, type RainIntensity } from "../lib/weather";
 import WeatherIcon, { type WeatherIconKind } from "./WeatherIcon";
 
 // docs/09-design-system.md §9.5 — a vertical "droplet fill": a droplet-
@@ -57,6 +57,12 @@ interface Props {
   // Rendered only when > 0 — a 12-hour row of "0mm" is noise, and the empty
   // droplet already says "dry" on its own.
   precipMm?: number;
+  // Wind speed for the hour, in km/h. Unlike precipMm this renders at every
+  // value including 0: "how windy is it" is a question with a meaningful
+  // answer on a still day ("not at all"), whereas "0mm of rain" is just a
+  // wordier empty droplet. Omitted entirely (not zero) by the key's swatches,
+  // which have no reading behind them.
+  windKph?: number;
   // §9.5 (2026-08-03) — the strip breaks into day and night blocks at
   // sunrise and sunset, the two times that actually matter to someone
   // deciding when to head out. *Both* get a wash: leaving daylight hours
@@ -71,7 +77,19 @@ interface Props {
   // is continuous instead of striped. Only the hourly row wants this; the
   // key's swatches and the compact Plan strip keep the bare 36px column.
   padded?: boolean;
+  // Legend swatch: just the droplet, sized to sit level with the key's 16px
+  // condition icons. A full-size gauge is a 36×40 column built to head a
+  // stack of readings, so in the key it towered over the sky row beside it
+  // and made the three rows visibly uneven — the thing this prop exists to
+  // fix. Same droplet and the same fill maths, so a swatch can never drift
+  // from the column it explains.
+  swatch?: boolean;
 }
+
+// Matches WeatherKey's condition icons; the droplet is drawn a touch larger
+// because its silhouette is narrower than a sun or cloud at the same box size.
+const SWATCH_SIZE = 18;
+const FULL_SIZE = 28;
 
 export default function RainGauge({
   hour,
@@ -81,10 +99,12 @@ export default function RainGauge({
   conditionLabel,
   conditionColor,
   precipMm,
+  windKph,
   isNight = false,
   runStart = false,
   runEnd = false,
   padded = false,
+  swatch = false,
 }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
@@ -123,6 +143,9 @@ export default function RainGauge({
     conditionLabel,
     tempC !== undefined ? `${Math.round(tempC)} degrees` : undefined,
     rainDescription,
+    // Spoken in full — "18 km/h" is read as a unit, where the visual column
+    // can lean on the glyph beside it to say "wind".
+    windKph !== undefined ? `wind ${formatWindKph(windKph)}` : undefined,
   ]
     .filter(Boolean)
     .join(", ");
@@ -131,6 +154,7 @@ export default function RainGauge({
     <View
       style={[
         styles.container,
+        swatch && styles.swatch,
         padded && styles.padded,
         cell && { backgroundColor: cell.bg },
         padded && runStart && styles.runStart,
@@ -149,7 +173,10 @@ export default function RainGauge({
           color={cell ? hourlyIconColor(cell, conditionKind) : (conditionColor ?? theme.textSecondary)}
         />
       )}
-      <Svg width={28} height={28} viewBox="0 0 28 28">
+      {/* The viewBox stays 28-wide whatever the rendered size, so the droplet
+          path and the fill rectangle below keep one coordinate space and a
+          swatch is a true scale model of the column it explains. */}
+      <Svg width={swatch ? SWATCH_SIZE : FULL_SIZE} height={swatch ? SWATCH_SIZE : FULL_SIZE} viewBox="0 0 28 28">
         <Defs>
           <ClipPath id={clipId}>
             <Path d={DROPLET_PATH} />
@@ -184,6 +211,17 @@ export default function RainGauge({
       {tempC !== undefined && (
         <Text style={[styles.temp, cell && { color: cell.text }]}>{Math.round(tempC)}°</Text>
       )}
+      {/* The glyph carries the unit so the number doesn't have to: "km/h"
+          spelled out is wider than the 36px column and would force either a
+          wrap or a smaller size than the millimetres above it. The wind icon
+          is already the strip's vocabulary for "windy" (it's one of the sky
+          kinds), so it needs no separate introduction — the key names it. */}
+      {windKph !== undefined && (
+        <View style={styles.windRow}>
+          <WeatherIcon kind="wind" size={9} color={cell ? cell.muted : theme.textSecondary} />
+          <Text style={[styles.wind, cell && { color: cell.muted }]}>{Math.round(windKph)}</Text>
+        </View>
+      )}
       <Text style={[styles.label, cell && { color: cell.muted }]}>{hour}</Text>
     </View>
   );
@@ -193,6 +231,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     // 36, not 32 — wide enough for "0.4mm" without wrapping.
     container: { width: 36, alignItems: "center", gap: 3, paddingVertical: 6 },
+    // No column width and no vertical padding: in the key this is one inline
+    // item in a wrapped row, not a column heading a stack of readings.
+    swatch: { width: SWATCH_SIZE, gap: 0, paddingVertical: 0 },
     padded: { width: 48, paddingHorizontal: 6 },
     runStart: { borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
     runEnd: { borderTopRightRadius: 10, borderBottomRightRadius: 10 },
@@ -201,6 +242,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // outranks the hour beneath it — previously both were 11px and the row
     // read as an undifferentiated grid of small text.
     temp: { fontSize: 13, fontWeight: "700", color: theme.textPrimary },
+    // Quieter than the temperature and the millimetres: wind is context for
+    // the hour, not the number anyone scans the row for.
+    windRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+    wind: { fontSize: 10, color: theme.textSecondary },
     label: { fontSize: 10, color: theme.textSecondary },
   });
 }

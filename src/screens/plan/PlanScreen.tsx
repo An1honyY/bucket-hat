@@ -439,7 +439,7 @@ export default function PlanScreen() {
   // goes straight to the form, exactly as before.
   if (savedRoutes.length > 0 && chooser === "auto") {
     return (
-      <ScreenSurface edges={["bottom"]}>
+      <ScreenSurface>
         <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.chooserCard}>
             <Text style={styles.chooserTitle}>Take a saved journey</Text>
@@ -497,7 +497,7 @@ export default function PlanScreen() {
   }
 
   return (
-      <ScreenSurface edges={["bottom"]}>
+      <ScreenSurface>
         <ScrollView contentContainerStyle={styles.container}>
         <FormSection title="Route">
           <View style={styles.timelineRow}>

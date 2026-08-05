@@ -11,11 +11,14 @@ import { ScrollView, type StyleProp, type ViewStyle } from "react-native";
 interface Props {
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /** Style for the scroll container itself, not its content — used to cancel
+   *  a card's padding so the strip can bleed to its edges. */
+  style?: StyleProp<ViewStyle>;
 }
 
-export default function HorizontalStrip({ children, contentContainerStyle }: Props) {
+export default function HorizontalStrip({ children, contentContainerStyle, style }: Props) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={contentContainerStyle}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={style} contentContainerStyle={contentContainerStyle}>
       {children}
     </ScrollView>
   );

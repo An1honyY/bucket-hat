@@ -18,6 +18,28 @@ export function classifyWeather(code: number, mm: number, windKph: number): Weat
   return { label: "Dry", icon: "☀", severity: 0 };
 }
 
+// §6.2 — how far apparent temperature has to sit from the air temperature
+// before the gap is worth putting in front of the user. Same figure the
+// engine uses to decide whether to emit its divergence note
+// (APPARENT_TEMP_DIVERGENCE_NOTE_C in recommend.ts); kept in step on purpose,
+// so a card never emphasises a gap the recommendation stayed silent about, or
+// the reverse.
+export const FEELS_LIKE_DIVERGENCE_C = 2;
+
+/** True when "feels like" is far enough from the air temperature to be worth
+ *  emphasising rather than merely stating. Absolute: a day that feels 4°
+ *  *warmer* than it is matters as much as one that feels 4° colder. */
+export function feelsLikeDiverges(tempC: number, apparentTempC: number): boolean {
+  return Math.abs(tempC - apparentTempC) >= FEELS_LIKE_DIVERGENCE_C;
+}
+
+/** The app's one wind phrasing. Rounded to whole km/h — an hourly forecast
+ *  doesn't carry a decimal of wind speed, and the extra glyphs don't fit the
+ *  36px hourly column. */
+export function formatWindKph(windKph: number): string {
+  return `${Math.round(windKph)} km/h`;
+}
+
 export type RainIntensity = "none" | "low" | "med" | "high";
 
 // §6, §9.5 — the hourly rain-intensity gauge's bucket, distinct from

@@ -134,6 +134,11 @@ one by date — don't edit the old entry.
 - 2026-08-04 — Per-location gear picks and notes are displayed, not fed to recommendGear() (§3.4, §7)
 - 2026-08-05 — `ScreenSurface` puts the sky background on every screen; the weather tint stays Today's (§9.1, §9.2) [design]
 - 2026-08-05 — Weather mood goes app-wide via `useTheme()`, from a published reading rather than per-screen fetches (§9.1.3) [supersedes the 2026-07-21 Today-only scoping]
+- 2026-08-05 — `ScreenSurface` derives its safe-area edges from the navigation chrome, correcting the 2026-07-30 call (§9.2) [bug fix]
+- 2026-08-05 — Displayed temperatures are the air temperature; "feels like" is stated, never implied (§6.2, §9.3) [design]
+- 2026-08-05 — One `SidePanel` shell: slides from the right, widens with the viewport (§9.3, §9.5) [bug fix, design]
+- 2026-08-05 — "None available" is a per-category fact, never inferred from the wardrobe being non-empty (§7) [bug fix]
+- 2026-08-05 — Tab back gesture walks tab history; recommended picks open a read-only gear detail dialog (§4, §9.3) [bug fix, design]
 
 ---
 
@@ -2467,5 +2472,136 @@ survives for cards showing weather that isn't here-and-now, and falls back to
 ambient rather than to base so a loading card never disagrees with the screen
 behind it. Don't add a weather fetch to a screen to get its mood — publish to
 the store instead.
+
+---
+
+## 2026-08-05 — `ScreenSurface` derives its safe-area edges from the navigation chrome, correcting the 2026-07-30 call (§9.2) [bug fix]
+
+**What**: `ScreenSurface` now computes `edges` itself from
+`HeaderShownContext` and `BottomTabBarHeightContext` — skipping "top" when a
+header is drawn above and "bottom" when a tab bar sits below — and all 25
+per-screen `edges` props are gone. The top inset had been applied twice on
+every header'd screen, showing as a fixed band under the header that could
+not be scrolled away.
+
+**Why**: the 2026-07-30 entry claimed React Navigation hands each screen a
+context already reduced by header and tab-bar heights. It does not; nothing
+in these packages overrides `SafeAreaInsetsContext`. That entry's instinct
+was still right — hand-picking edges per screen duplicates the arithmetic
+and goes stale when a screen's header option changes — so the fix keeps its
+principle and repairs its mechanism, rather than reversing it outright.
+
+**Resolution**: screens pass no `edges`; the prop survives only as an escape
+hatch for a screen deliberately drawing under chrome the contexts cannot
+see. The derivation is a pure exported `chromeAwareEdges()` covered by
+`ScreenSurface.test.ts`, because the web build reports every inset as 0 and
+so can never distinguish a right edge set from a wrong one — that is exactly
+how the original bug shipped "verified". Never treat a green web check as
+safe-area verification. Chrome insets are also not the tail whitespace at
+the end of a scroll: that is `scrollContent`'s `paddingBottom`, lives inside
+the ScrollView, and is deliberate — don't reach for an inset to get it.
+
+---
+
+## 2026-08-05 — Displayed temperatures are the air temperature; "feels like" is stated, never implied (§6.2, §9.3) [design]
+
+**What**: every temperature the app renders is now `tempC`. The Right now
+card states `apparentTempC` beside it as a labelled "Feels like N°",
+emphasised when the gap reaches `FEELS_LIKE_DIVERGENCE_C`, and adds a wind
+figure. Journey Detail's leg badges and Today's journey chips switched from
+`apparentTempC` to `tempC`. The hourly columns gained a per-hour wind speed.
+
+**Why**: §6.2 makes `apparentTempC` the engine's input, and the cards had
+quietly adopted it as the *displayed* figure too. An unlabelled "5°C" is
+read as the air temperature by anyone cross-checking another weather app, so
+the app looked wrong rather than differently informed. Worse, the leg badge
+printed the apparent figure directly above recommendGear()'s note "Feels
+like 8°C, not 12°C" — the badge showed 8 while the note called 12 the number
+it wasn't.
+
+**Resolution**: engine input and display figure are now separate concerns —
+don't "fix" a card back to `apparentTempC` to match the recommendation, as
+the gap is the note's job to state (§9.0.1). `FEELS_LIKE_DIVERGENCE_C` lives
+in weather.ts and `recommend.ts` derives its note threshold from it, so a
+card can never emphasise a gap the engine stayed silent about. Wind is shown
+unconditionally on the Right now card and per hour, but stays gated at
+`HIGH_WIND_KPH` on leg badges where a column of twelve would be noise.
+
+---
+
+## 2026-08-05 — One `SidePanel` shell: slides from the right, widens with the viewport (§9.3, §9.5) [bug fix, design]
+
+**What**: new `src/components/SidePanel.tsx` owns the shell both reference
+panels were building identically — backdrop, header, scroll body, block
+style. It slides in from the right and its width grows with the viewport
+(760px max, up from a flat 420). The hourly strip gained a `bleed` prop so it
+runs to its card's edges, and `WeatherKey`'s rows share one swatch box and a
+label column.
+
+**Why**: three reports at once, all consequences of the same duplication.
+`animationType="slide"` on Modal only ever translates up from the bottom, so
+a panel laid out against the right edge flew in from the floor; React Native
+offers no right-hand variant, so the animation has to be hand-driven. The
+420px cap left a narrow ribbon on desktop. The strip's tinted day/night runs,
+inset inside an already-rounded card, read as a card drawn inside a card —
+loudest on a phone, where the card is nearly the whole screen.
+
+**Resolution**: don't add a fourth copy of the shell — extend `SidePanel`.
+`sidePanelWidth()` is exported and unit-tested specifically for monotonicity:
+the obvious `viewport < breakpoint ? 0.86 : 0.55` shrinks the panel by 200px
+as the window crosses the breakpoint, which only shows up while actively
+dragging a window edge. Bottom sheets (`SavedLocationPicker`,
+`UnavailabilitySheet`) stay sheets — they interrupt to take an answer, where
+these are read alongside what they cover.
+
+---
+
+## 2026-08-05 — "None available" is a per-category fact, never inferred from the wardrobe being non-empty (§7) [bug fix]
+
+**What**: `layerGapFor()` replaces the wardrobe-wide `clothing.length === 0`
+check with three per-category states — `none-owned` (generic advice),
+`none-available` (owned but all marked unavailable) and `none-suitable`.
+Copy leads with the slot: "Jacket — none available, layer up or pick up the
+pace to stay warm". A `none-available` category also adds a note naming the
+toggle that caused it. Bottoms and waterproof shoes take the same treatment.
+
+**Why**: the old flag was global, so adding a single midlayer flipped it for
+every slot and the card began asserting "No available jacket for these
+conditions" to someone who had never entered a jacket. That reverses the
+burden of proof: only the user marking gear unavailable can make "none
+available" true, and everything else is the app inventing a wardrobe it was
+never told about. The previous behaviour was deliberate — a test asserted it
+by name — but it conflated "you own none" with "yours are all in the wash".
+
+**Resolution**: never widen a gap check back to the whole wardrobe; owning
+one category says nothing about another. `isGenericAssumption` stays tied to
+`none-owned` only, so the "generic picks" note still means what it says. Both
+states are pinned by their own tests. Umbrellas keep a flat check because
+they are a single category, where the two questions genuinely coincide.
+
+---
+
+## 2026-08-05 — Tab back gesture walks tab history; recommended picks open a read-only gear detail dialog (§4, §9.3) [bug fix, design]
+
+**What**: `MainTabs` sets `backBehavior="history"`. Today's pick chips render
+the §3.3 40px thumbnail (was 20px), cap their width and let their label wrap,
+and an owned pick is now tappable, opening `GearDetailSheet` — a centred
+read-only dialog with a large photo and the item's properties.
+
+**Why**: React Navigation's tab default is `firstRoute`, which sent every
+Android back gesture to Today from wherever you were, so back never meant
+"back". Separately, a 20px photo is too small to recognise your own jacket
+by, which is the entire reason the card shows a photo instead of a category
+glyph — and a chip with no width cap pushed long fallback copy past the
+card's edge.
+
+**Resolution**: the dialog is deliberately read-only. Editing stays in the
+Gear tab's forms, which own validation, photo replacement and the
+unavailability sheet — duplicating any of that here would mean two places to
+keep correct. It is a centred dialog rather than a `SidePanel` because it
+details the chip you just tapped; side panels are for reference material read
+alongside a screen. Case enum values with `sentenceCase()` at the data level,
+never `textTransform: "capitalize"`, which is per-word and renders composed
+values as "8 Of 10".
 
 ---

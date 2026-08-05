@@ -204,7 +204,7 @@ export default function SettingsScreen() {
   const hasSeasonalSamples = seasonalSampleCounts && Object.values(seasonalSampleCounts).some((n) => n > 0);
 
   return (
-      <ScreenSurface edges={["bottom"]}>
+      <ScreenSurface>
         <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.sectionTitle}>Appearance</Text>
         <View style={styles.sectionCard}>

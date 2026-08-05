@@ -68,7 +68,7 @@ export default function LocalForecastCard({ suburb, hourly, daily, weather }: Pr
         </Pressable>
       </View>
 
-      <HourlyForecastRow readings={onCard} />
+      <HourlyForecastRow readings={onCard} bleed={SPACING.lg} />
 
       {panelOpen && (
         <LocalForecastPanel suburb={suburb} hourly={hourly} daily={daily} onClose={() => setPanelOpen(false)} />

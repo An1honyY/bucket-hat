@@ -309,6 +309,13 @@ export default function MainTabs() {
   return (
     <Tab.Navigator
       initialRouteName="Today"
+      // React Navigation's default here is `firstRoute`, which sends the
+      // Android back gesture straight to the initial tab from wherever you
+      // are — so every single back swipe landed on Today no matter how you
+      // got where you were. `history` walks back through the tabs actually
+      // visited, which is what a back gesture means everywhere else in the
+      // app (and what the stack above already does for pushed screens).
+      backBehavior="history"
       // TabBar renders the bar, its icons, its labels and the travelling
       // indicator, so the tabBar* style/tint options are all dead config —
       // it reads what it needs from the theme directly.

@@ -33,7 +33,7 @@ export default function NotificationsSetup({ onDone }: Props) {
   }
 
   return (
-    <ScreenSurface edges={["bottom"]}>
+    <ScreenSurface>
       <View style={styles.container}>
         <Text style={styles.title}>Get a heads-up before you leave?</Text>
         <Text style={styles.body}>

@@ -47,7 +47,13 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
             key: leg.id,
             indoor: false,
             iconKind: weatherIconKindFor(classifyWeather(leg.weather.weatherCode, leg.weather.precipMm, leg.weather.windKph)),
-            tempC: Math.round(leg.weather.apparentTempC),
+            // Air temperature, matching the Right now card above it and the
+            // leg badges on Journey Detail. A chip is one number wide, so it
+            // can't caveat itself — and two cards on the same screen showing
+            // different temperatures for the same day is worse than either
+            // choice on its own. Journey Detail is where the feels-like gap
+            // gets stated, via recommendGear()'s note.
+            tempC: Math.round(leg.weather.tempC),
           }
         : { key: leg.id, indoor: true }
     );

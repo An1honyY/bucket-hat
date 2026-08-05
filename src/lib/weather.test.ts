@@ -1,8 +1,11 @@
 import {
   acFeelsCold,
   classifyWeather,
+  FEELS_LIKE_DIVERGENCE_C,
+  feelsLikeDiverges,
   findRainWindowNear,
   forecastConfidence,
+  formatWindKph,
   getSeason,
   rainIntensityBucket,
   resolveWeatherMood,
@@ -247,5 +250,33 @@ describe("findRainWindowNear", () => {
     ];
     const result = findRainWindowNear(readings, "2026-07-23T16:30:00.000Z", 2);
     expect(result).toEqual({ startIso: reading(16, "med").time, endIso: "2026-07-23T17:00:00.000Z" });
+  });
+});
+
+// §6.2 — the display side of the apparent-temperature gap. These back the
+// "actual vs feels like" figures the Right now card states outright and the
+// leg badges leave to recommendGear()'s note.
+describe("feelsLikeDiverges", () => {
+  it("is false when the two readings agree", () => {
+    expect(feelsLikeDiverges(12, 12)).toBe(false);
+  });
+
+  it("is false just inside the threshold and true at it", () => {
+    expect(feelsLikeDiverges(12, 12 - (FEELS_LIKE_DIVERGENCE_C - 0.1))).toBe(false);
+    expect(feelsLikeDiverges(12, 12 - FEELS_LIKE_DIVERGENCE_C)).toBe(true);
+  });
+
+  // A humid Auckland day that feels warmer than the air temperature is as
+  // worth flagging as a wind-chilled one that feels colder — the card
+  // emphasises the gap, not the direction.
+  it("is symmetric: warmer-than-air diverges too", () => {
+    expect(feelsLikeDiverges(20, 20 + FEELS_LIKE_DIVERGENCE_C)).toBe(true);
+  });
+});
+
+describe("formatWindKph", () => {
+  it("rounds to whole km/h", () => {
+    expect(formatWindKph(17.6)).toBe("18 km/h");
+    expect(formatWindKph(0)).toBe("0 km/h");
   });
 });

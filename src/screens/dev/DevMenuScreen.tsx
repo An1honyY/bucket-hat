@@ -149,7 +149,7 @@ export default function DevMenuScreen() {
   }
 
   return (
-      <ScreenSurface edges={["bottom"]}>
+      <ScreenSurface>
         <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.heading}>Force API errors</Text>
         <Text style={styles.hint}>Exercises §5.1&apos;s offline fallback UX without a real outage or rate limit.</Text>
