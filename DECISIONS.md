@@ -137,6 +137,8 @@ one by date — don't edit the old entry.
 - 2026-08-05 — `ScreenSurface` derives its safe-area edges from the navigation chrome, correcting the 2026-07-30 call (§9.2) [bug fix]
 - 2026-08-05 — Displayed temperatures are the air temperature; "feels like" is stated, never implied (§6.2, §9.3) [design]
 - 2026-08-05 — One `SidePanel` shell: slides from the right, widens with the viewport (§9.3, §9.5) [bug fix, design]
+- 2026-08-05 — "None available" is a per-category fact, never inferred from the wardrobe being non-empty (§7) [bug fix]
+- 2026-08-05 — Tab back gesture walks tab history; recommended picks open a read-only gear detail dialog (§4, §9.3) [bug fix, design]
 
 ---
 
@@ -2551,5 +2553,55 @@ as the window crosses the breakpoint, which only shows up while actively
 dragging a window edge. Bottom sheets (`SavedLocationPicker`,
 `UnavailabilitySheet`) stay sheets — they interrupt to take an answer, where
 these are read alongside what they cover.
+
+---
+
+## 2026-08-05 — "None available" is a per-category fact, never inferred from the wardrobe being non-empty (§7) [bug fix]
+
+**What**: `layerGapFor()` replaces the wardrobe-wide `clothing.length === 0`
+check with three per-category states — `none-owned` (generic advice),
+`none-available` (owned but all marked unavailable) and `none-suitable`.
+Copy leads with the slot: "Jacket — none available, layer up or pick up the
+pace to stay warm". A `none-available` category also adds a note naming the
+toggle that caused it. Bottoms and waterproof shoes take the same treatment.
+
+**Why**: the old flag was global, so adding a single midlayer flipped it for
+every slot and the card began asserting "No available jacket for these
+conditions" to someone who had never entered a jacket. That reverses the
+burden of proof: only the user marking gear unavailable can make "none
+available" true, and everything else is the app inventing a wardrobe it was
+never told about. The previous behaviour was deliberate — a test asserted it
+by name — but it conflated "you own none" with "yours are all in the wash".
+
+**Resolution**: never widen a gap check back to the whole wardrobe; owning
+one category says nothing about another. `isGenericAssumption` stays tied to
+`none-owned` only, so the "generic picks" note still means what it says. Both
+states are pinned by their own tests. Umbrellas keep a flat check because
+they are a single category, where the two questions genuinely coincide.
+
+---
+
+## 2026-08-05 — Tab back gesture walks tab history; recommended picks open a read-only gear detail dialog (§4, §9.3) [bug fix, design]
+
+**What**: `MainTabs` sets `backBehavior="history"`. Today's pick chips render
+the §3.3 40px thumbnail (was 20px), cap their width and let their label wrap,
+and an owned pick is now tappable, opening `GearDetailSheet` — a centred
+read-only dialog with a large photo and the item's properties.
+
+**Why**: React Navigation's tab default is `firstRoute`, which sent every
+Android back gesture to Today from wherever you were, so back never meant
+"back". Separately, a 20px photo is too small to recognise your own jacket
+by, which is the entire reason the card shows a photo instead of a category
+glyph — and a chip with no width cap pushed long fallback copy past the
+card's edge.
+
+**Resolution**: the dialog is deliberately read-only. Editing stays in the
+Gear tab's forms, which own validation, photo replacement and the
+unavailability sheet — duplicating any of that here would mean two places to
+keep correct. It is a centred dialog rather than a `SidePanel` because it
+details the chip you just tapped; side panels are for reference material read
+alongside a screen. Case enum values with `sentenceCase()` at the data level,
+never `textTransform: "capitalize"`, which is per-word and renders composed
+values as "8 Of 10".
 
 ---

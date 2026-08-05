@@ -272,7 +272,7 @@ describe("recommendGear — unavailable-gear filtering (§7.7)", () => {
     });
     const journey = journeyWithLegs([walkLeg({ weather: weather({ apparentTempC: 10 }) })]); // level 2 -> jacket only
     const result = recommendGear(journey, inventory({ clothing: [unavailableJacket] }), NO_CALIBRATION, "no-preference");
-    expect(result.layers[0]).toMatchObject({ fallbackText: expect.stringContaining("No available jacket") });
+    expect(result.layers[0]).toMatchObject({ fallbackText: expect.stringContaining("Jacket — none available") });
   });
 
   it("an available jacket is picked normally", () => {
@@ -503,7 +503,7 @@ describe("recommendGear — sun and darkness accessories (§7.6)", () => {
   it("high UV with no sunglasses owned falls back to a text suggestion", () => {
     const journey = journeyWithLegs([walkLeg({ weather: weather({ uvIndex: 7, isDaylight: true }) })]);
     const result = recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference");
-    expect(result.accessories.some((a) => "fallbackText" in a && a.fallbackText.includes("sunglasses"))).toBe(true);
+    expect(result.accessories.some((a) => "fallbackText" in a && a.fallbackText.toLowerCase().includes("sunglasses"))).toBe(true);
   });
 
   it("a dark leg picks a tagged reflective item", () => {
@@ -698,7 +698,7 @@ describe("recommendGear — puddle risk & rain cover (§7.8, Phase 6)", () => {
   it("a stamped leg.puddleRisk flag triggers the same path without the snapshot field", () => {
     const journey = journeyWithLegs([walkLeg({ puddleRisk: true })]);
     const result = recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference");
-    expect(result.shoes).toMatchObject({ fallbackText: "No waterproof shoes owned or available — mind the puddles" });
+    expect(result.shoes).toMatchObject({ fallbackText: "Waterproof shoes — mind the puddles" });
   });
 
   it("below the 6h threshold nothing changes", () => {
@@ -734,7 +734,7 @@ describe("recommendGear — never-set-up vs. genuinely-unavailable gear copy", (
     const layerText = (type: string) => result.layers.find((l) => "layerType" in l && l.layerType === type) as { fallbackText: string };
     expect(layerText("base").fallbackText).toBe("Warm base layer");
     expect(layerText("jacket").fallbackText).toBe("Warm jacket");
-    expect(result.shoes).toMatchObject({ fallbackText: "Warm socks and any shoes" });
+    expect(result.shoes).toMatchObject({ fallbackText: "Warm socks, any shoes" });
   });
 
   it("hot weather says a single layer and breathable shoes", () => {
@@ -746,15 +746,31 @@ describe("recommendGear — never-set-up vs. genuinely-unavailable gear copy", (
     expect(result.shoes).toMatchObject({ fallbackText: "Breathable shoes" });
   });
 
-  it("gear set up but this category empty gives a workaround, not a generic assumption", () => {
+  // The distinction this pair pins is the whole point of layerGapFor(): owning
+  // something in one category must never be read as a claim about another.
+  it("a category with nothing in it stays a generic assumption, whatever else is owned", () => {
     const cold = journeyWithLegs([walkLeg({ weather: weather({ apparentTempC: 6 }) })]);
-    // Only a jacket is set up — midlayer category is genuinely empty.
+    // A jacket is set up; the midlayer category is genuinely empty. Owning the
+    // jacket says nothing about midlayers, so the card must not report one as
+    // unavailable — it was never entered.
     const result = recommendGear(cold, inventory({ clothing: [clothingItem({ type: "jacket", warmth: 8 })] }), NO_CALIBRATION, "no-preference");
     const midlayerPick = result.layers.find((l) => "layerType" in l && l.layerType === "midlayer");
+    expect(midlayerPick).toMatchObject({ fallbackText: "Midlayer" });
+    expect((midlayerPick as { isGenericAssumption?: boolean }).isGenericAssumption).toBe(true);
+    expect(result.notes.some((n) => n.includes("marked unavailable"))).toBe(false);
+  });
+
+  it("a category whose every item is marked unavailable says so, and says where to undo it", () => {
+    const cold = journeyWithLegs([walkLeg({ weather: weather({ apparentTempC: 6 }) })]);
+    const inLaundry = clothingItem({ type: "midlayer", warmth: 6, unavailableUntil: "2099-01-01T00:00:00.000Z" });
+    const result = recommendGear(cold, inventory({ clothing: [inLaundry] }), NO_CALIBRATION, "no-preference");
+    const midlayerPick = result.layers.find((l) => "layerType" in l && l.layerType === "midlayer");
     expect(midlayerPick).toMatchObject({
-      fallbackText: "No available midlayer for these conditions — an extra top layer or a brisker pace will help",
+      fallbackText: "Midlayer — none available, an extra top layer or a brisker pace will help",
     });
     expect((midlayerPick as { isGenericAssumption?: boolean }).isGenericAssumption).toBeFalsy();
+    // The state is user-created, so the note points at the toggle that made it.
+    expect(result.notes.some((n) => n.includes("marked unavailable"))).toBe(true);
   });
 
   it("umbrella fallback substitutes an owned rain-shell combo when one exists", () => {
