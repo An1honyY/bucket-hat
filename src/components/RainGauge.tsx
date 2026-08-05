@@ -77,7 +77,19 @@ interface Props {
   // is continuous instead of striped. Only the hourly row wants this; the
   // key's swatches and the compact Plan strip keep the bare 36px column.
   padded?: boolean;
+  // Legend swatch: just the droplet, sized to sit level with the key's 16px
+  // condition icons. A full-size gauge is a 36×40 column built to head a
+  // stack of readings, so in the key it towered over the sky row beside it
+  // and made the three rows visibly uneven — the thing this prop exists to
+  // fix. Same droplet and the same fill maths, so a swatch can never drift
+  // from the column it explains.
+  swatch?: boolean;
 }
+
+// Matches WeatherKey's condition icons; the droplet is drawn a touch larger
+// because its silhouette is narrower than a sun or cloud at the same box size.
+const SWATCH_SIZE = 18;
+const FULL_SIZE = 28;
 
 export default function RainGauge({
   hour,
@@ -92,6 +104,7 @@ export default function RainGauge({
   runStart = false,
   runEnd = false,
   padded = false,
+  swatch = false,
 }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
@@ -141,6 +154,7 @@ export default function RainGauge({
     <View
       style={[
         styles.container,
+        swatch && styles.swatch,
         padded && styles.padded,
         cell && { backgroundColor: cell.bg },
         padded && runStart && styles.runStart,
@@ -159,7 +173,10 @@ export default function RainGauge({
           color={cell ? hourlyIconColor(cell, conditionKind) : (conditionColor ?? theme.textSecondary)}
         />
       )}
-      <Svg width={28} height={28} viewBox="0 0 28 28">
+      {/* The viewBox stays 28-wide whatever the rendered size, so the droplet
+          path and the fill rectangle below keep one coordinate space and a
+          swatch is a true scale model of the column it explains. */}
+      <Svg width={swatch ? SWATCH_SIZE : FULL_SIZE} height={swatch ? SWATCH_SIZE : FULL_SIZE} viewBox="0 0 28 28">
         <Defs>
           <ClipPath id={clipId}>
             <Path d={DROPLET_PATH} />
@@ -214,6 +231,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     // 36, not 32 — wide enough for "0.4mm" without wrapping.
     container: { width: 36, alignItems: "center", gap: 3, paddingVertical: 6 },
+    // No column width and no vertical padding: in the key this is one inline
+    // item in a wrapped row, not a column heading a stack of readings.
+    swatch: { width: SWATCH_SIZE, gap: 0, paddingVertical: 0 },
     padded: { width: 48, paddingHorizontal: 6 },
     runStart: { borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
     runEnd: { borderTopRightRadius: 10, borderBottomRightRadius: 10 },

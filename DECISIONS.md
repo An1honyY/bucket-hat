@@ -136,6 +136,7 @@ one by date — don't edit the old entry.
 - 2026-08-05 — Weather mood goes app-wide via `useTheme()`, from a published reading rather than per-screen fetches (§9.1.3) [supersedes the 2026-07-21 Today-only scoping]
 - 2026-08-05 — `ScreenSurface` derives its safe-area edges from the navigation chrome, correcting the 2026-07-30 call (§9.2) [bug fix]
 - 2026-08-05 — Displayed temperatures are the air temperature; "feels like" is stated, never implied (§6.2, §9.3) [design]
+- 2026-08-05 — One `SidePanel` shell: slides from the right, widens with the viewport (§9.3, §9.5) [bug fix, design]
 
 ---
 
@@ -2523,5 +2524,32 @@ in weather.ts and `recommend.ts` derives its note threshold from it, so a
 card can never emphasise a gap the engine stayed silent about. Wind is shown
 unconditionally on the Right now card and per hour, but stays gated at
 `HIGH_WIND_KPH` on leg badges where a column of twelve would be noise.
+
+---
+
+## 2026-08-05 — One `SidePanel` shell: slides from the right, widens with the viewport (§9.3, §9.5) [bug fix, design]
+
+**What**: new `src/components/SidePanel.tsx` owns the shell both reference
+panels were building identically — backdrop, header, scroll body, block
+style. It slides in from the right and its width grows with the viewport
+(760px max, up from a flat 420). The hourly strip gained a `bleed` prop so it
+runs to its card's edges, and `WeatherKey`'s rows share one swatch box and a
+label column.
+
+**Why**: three reports at once, all consequences of the same duplication.
+`animationType="slide"` on Modal only ever translates up from the bottom, so
+a panel laid out against the right edge flew in from the floor; React Native
+offers no right-hand variant, so the animation has to be hand-driven. The
+420px cap left a narrow ribbon on desktop. The strip's tinted day/night runs,
+inset inside an already-rounded card, read as a card drawn inside a card —
+loudest on a phone, where the card is nearly the whole screen.
+
+**Resolution**: don't add a fourth copy of the shell — extend `SidePanel`.
+`sidePanelWidth()` is exported and unit-tested specifically for monotonicity:
+the obvious `viewport < breakpoint ? 0.86 : 0.55` shrinks the panel by 200px
+as the window crosses the breakpoint, which only shows up while actively
+dragging a window edge. Bottom sheets (`SavedLocationPicker`,
+`UnavailabilitySheet`) stay sheets — they interrupt to take an answer, where
+these are read alongside what they cover.
 
 ---

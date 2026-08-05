@@ -124,7 +124,7 @@ export default function HourlyOutlook({ origin, waypoints, destination, mode, de
                 {destinationOutlook.readings.length} hours
               </Text>
             </View>
-            <HourlyForecastRow readings={destinationOutlook.readings} nowIso={departTimeIso} />
+            <HourlyForecastRow readings={destinationOutlook.readings} nowIso={departTimeIso} bleed={SPACING.md} />
           </View>
         )}
 

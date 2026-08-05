@@ -26,6 +26,20 @@ interface Props {
   // Anchors "Today"/"Tomorrow". Defaults to the real clock; passed explicitly
   // by the Plan screen, where the row can start at a future departure time.
   nowIso?: string;
+  // The horizontal padding of the card this row sits in, cancelled so the
+  // strip runs to the card's own edges.
+  //
+  // Without it the tinted day/night runs are a rounded block inset on all four
+  // sides of a rounded card — a card drawn inside a card, which on a phone
+  // (where the card is nearly the full screen) is the dominant thing you see
+  // and reads as a rendering fault rather than as grouping. Bleeding the strip
+  // to the edges makes the tint read as banding *within* the card, which is
+  // what it was always meant to be: a background for the hours, not a
+  // container around them.
+  //
+  // The padding is added back inside the scroll content, so the first column
+  // still lines up with the card's heading and the last one clears the edge.
+  bleed?: number;
 }
 
 interface DayGroup {
@@ -50,7 +64,7 @@ function groupByDay(readings: HourlyReading[], nowIso?: string): DayGroup[] {
   return groups;
 }
 
-export default function HourlyForecastRow({ readings, nowIso }: Props) {
+export default function HourlyForecastRow({ readings, nowIso, bleed = 0 }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
@@ -59,7 +73,10 @@ export default function HourlyForecastRow({ readings, nowIso }: Props) {
   if (groups.length === 0) return null;
 
   return (
-    <HorizontalStrip contentContainerStyle={styles.content}>
+    <HorizontalStrip
+      style={bleed ? { marginHorizontal: -bleed } : undefined}
+      contentContainerStyle={[styles.content, bleed ? { paddingLeft: bleed, paddingRight: bleed } : null]}
+    >
       {groups.map((group, groupIndex) => (
         <View key={group.key} style={styles.group}>
           <Text style={styles.dayLabel} numberOfLines={1}>
