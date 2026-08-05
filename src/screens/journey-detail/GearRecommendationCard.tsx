@@ -288,14 +288,13 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // thumbnails sit on, so the two variants of this card don't wander.
     glyphSlot: { width: 40, alignItems: "center", justifyContent: "center" },
     itemName: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary, flexShrink: 1 },
-    hint: {
-      gap: SPACING.xs,
-      padding: SPACING.md,
-      borderRadius: RADIUS.pill,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderStyle: "dashed",
-    },
+    // No box. The dashed outline that used to wrap this block was doing the
+    // same job as the "SUGGESTED" heading above it and the hairline below,
+    // only louder — and once the notes became separate callouts it was one
+    // more bordered rectangle competing with them. The padding goes with it,
+    // so the hairline runs the full width of the card's content and reads as
+    // a section separator rather than a rule inset inside a container.
+    hint: { gap: SPACING.xs },
     hintTitle: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 },
     hintRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 28 },
     hintText: { ...TYPE.caption, color: theme.textSecondary, flexShrink: 1 },
