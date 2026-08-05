@@ -20,15 +20,34 @@ interface Props {
   photoUri: string | undefined;
   kind: ClothingIconKind;
   dimmed?: boolean; // §9.4.3 — unavailable items dim to 60% opacity
-  /** Edge length in points. 40 is the list-row size from §3.3; the Today
-   *  card's pick chips ask for a smaller one so the chip stays a chip. */
+  /** Edge length in points. 40 is the list-row size from §3.3. */
   size?: number;
+  /** When the item has no photo, render the bare type glyph at this size
+   *  instead of a `size`×`size` tile.
+   *
+   *  The Today card's pick chips want a large photo but *not* a large empty
+   *  box: a 40px tile is the right frame for a photograph and the wrong one
+   *  for a 20px glyph floating in the middle of it, which is what a photoless
+   *  item looked like once the chips went from 20px to 40px. With this the
+   *  chip keeps its usual compact glyph until there is a photo worth the
+   *  space. Omitted by the gear lists, where a uniform tile per row is what
+   *  keeps the column aligned. */
+  bareIconSize?: number;
+  /** Colour for the fallback glyph. Defaults to `textSecondary`. */
+  iconColor?: string;
 }
 
-export default function GearThumbnail({ itemId, photoUri, kind, dimmed, size = 40 }: Props) {
+export default function GearThumbnail({ itemId, photoUri, kind, dimmed, size = 40, bareIconSize, iconColor }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const uri = useGearPhoto(itemId, photoUri);
+
+  // No photo and the caller asked for a bare glyph — no tile, no background,
+  // just the icon at the size the surrounding layout already uses.
+  if (!uri && bareIconSize !== undefined) {
+    return <ClothingTypeIcon kind={kind} size={bareIconSize} color={iconColor ?? theme.textSecondary} />;
+  }
+
   return (
     <View
       style={[
@@ -44,7 +63,7 @@ export default function GearThumbnail({ itemId, photoUri, kind, dimmed, size = 4
         // shows rather than an empty box.
         <Image source={{ uri }} style={styles.image} />
       ) : (
-        <ClothingTypeIcon kind={kind} size={Math.round(size / 2)} color={theme.textSecondary} />
+        <ClothingTypeIcon kind={kind} size={Math.round(size / 2)} color={iconColor ?? theme.textSecondary} />
       )}
     </View>
   );

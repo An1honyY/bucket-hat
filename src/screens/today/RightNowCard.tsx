@@ -27,6 +27,10 @@ import type { LayerPick } from "../../lib/recommend";
 // at that size a photo of your own jacket was a smudge, which defeats the
 // point of showing the photo rather than a category glyph.
 const PICK_PHOTO_SIZE = 40;
+// What a chip's glyph measures when there's no photo to show — the size the
+// chips used before photos were enlarged, so a photoless pick still reads as a
+// chip rather than as a mostly-empty tile.
+const PICK_ICON_SIZE = 15;
 
 function pickLabel(pick: { name: string } | { fallbackText: string }): { text: string; isFallback: boolean } {
   return "name" in pick ? { text: pick.name, isFallback: false } : { text: pick.fallbackText, isFallback: true };
@@ -145,9 +149,16 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
               const content = (
                 <>
                   {item ? (
-                    <GearThumbnail itemId={item.id} photoUri={item.photoUri} kind={icon} size={PICK_PHOTO_SIZE} />
+                    <GearThumbnail
+                      itemId={item.id}
+                      photoUri={item.photoUri}
+                      kind={icon}
+                      size={PICK_PHOTO_SIZE}
+                      bareIconSize={PICK_ICON_SIZE}
+                      iconColor={theme.accentWalk}
+                    />
                   ) : (
-                    <ClothingTypeIcon kind={icon} size={15} color={isFallback ? theme.textSecondary : theme.accentWalk} />
+                    <ClothingTypeIcon kind={icon} size={PICK_ICON_SIZE} color={isFallback ? theme.textSecondary : theme.accentWalk} />
                   )}
                   {/* flexShrink lets a long line wrap inside the chip instead
                       of pushing the chip past the card's edge — fallback copy

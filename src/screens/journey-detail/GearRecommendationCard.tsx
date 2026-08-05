@@ -251,20 +251,24 @@ export default function GearRecommendationCard({ recommendation, snapshot, onAdd
   );
 }
 
-// The §7 reasoning — warmup discount, AC contrast, UV/darkness — kept as its
-// own accented callout so it reads as context rather than more picks.
+// The §7 reasoning — warmup discount, AC contrast, UV/darkness — kept as
+// accented callouts so it reads as context rather than more picks.
+//
+// One callout per note, not one callout holding every note. They are
+// independent observations ("Walking will warm you up", "Bus/train AC will
+// feel cold", "UV index reaching 7") and stacking them inside a single
+// bordered box ran them together as one paragraph, so a reader had to work
+// out where one hint ended and the next began.
 function Notes({ notes, styles }: { notes: string[]; styles: ReturnType<typeof getStyles> }) {
   if (notes.length === 0) return null;
   return (
-    <View style={styles.notesCallout}>
-      <View style={styles.notesAccentBar} />
-      <View style={styles.notesTextCol}>
-        {notes.map((note, i) => (
-          <Text key={i} style={styles.note}>
-            {note}
-          </Text>
-        ))}
-      </View>
+    <View style={styles.notesList}>
+      {notes.map((note, i) => (
+        <View key={i} style={styles.notesCallout}>
+          <View style={styles.notesAccentBar} />
+          <Text style={styles.note}>{note}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -295,10 +299,27 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     hintTitle: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 },
     hintRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 28 },
     hintText: { ...TYPE.caption, color: theme.textSecondary, flexShrink: 1 },
-    hintFooter: { ...TYPE.micro, color: theme.textSecondary, lineHeight: 16, marginTop: SPACING.xs },
+    // Deliberately the quietest text in the card: it explains an app
+    // limitation, not anything about this journey, so it should be findable
+    // without competing with the hints above it. Separated by a hairline and
+    // dimmed rather than shrunk further — TYPE.micro is already the smallest
+    // step, and going below it would be an accessibility problem instead of a
+    // hierarchy one (§9.6).
+    hintFooter: {
+      ...TYPE.micro,
+      color: theme.textSecondary,
+      opacity: 0.7,
+      lineHeight: 16,
+      marginTop: SPACING.sm,
+      paddingTop: SPACING.sm,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    notesList: { gap: SPACING.sm },
+    // `alignItems: stretch` (the default) is what lets the 3px bar take the
+    // height of its own note, so each callout is visibly its own hint.
     notesCallout: { flexDirection: "row", gap: SPACING.sm, backgroundColor: theme.bg, borderRadius: RADIUS.pill, padding: SPACING.sm },
     notesAccentBar: { width: 3, borderRadius: 2, backgroundColor: theme.accentWalk },
-    notesTextCol: { flex: 1, gap: 4 },
-    note: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18 },
+    note: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18, flex: 1 },
   });
 }
