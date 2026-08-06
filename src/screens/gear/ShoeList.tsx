@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { showAlert } from "../../lib/crossPlatformAlert";
-import { useFocusEffect } from "@react-navigation/native";
-import { createShoe, deleteShoe, listShoes, updateShoe } from "../../db/repositories/shoes";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { listShoes, updateShoe } from "../../db/repositories/shoes";
 import type { ShoeItem } from "../../types";
-import ShoeForm from "./ShoeForm";
+import type { GearStackParamList } from "../../navigation/types";
 import GearThumbnail from "../../components/GearThumbnail";
 import GearRowBadges from "../../components/GearRowBadges";
 import UnavailabilitySheet from "../../components/UnavailabilitySheet";
@@ -13,30 +14,16 @@ import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 
-type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; item: ShoeItem };
-
-interface Props {
-  // §9.6 — set when GearRecommendationCard's fallback text sent the user
-  // here to add shoes; opens straight into the add form.
-  autoOpenAdd?: boolean;
-}
-
-export default function ShoeList({ autoOpenAdd }: Props) {
+// The list only. Adding and editing are the `GearItem` route on the Gear
+// tab's stack (GearStack.tsx) — see GearItemScreen for why they moved out.
+export default function ShoeList() {
   const theme = useTheme();
   const styles = getStyles(theme);
+  const navigation = useNavigation<NativeStackNavigationProp<GearStackParamList>>();
   const [items, setItems] = useState<ShoeItem[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [mode, setMode] = useState<Mode>(autoOpenAdd ? { kind: "add" } : { kind: "list" });
   const [unavailabilityTarget, setUnavailabilityTarget] = useState<ShoeItem | null>(null);
   const [nowMs] = useState(() => Date.now());
-
-  // "Adjusting state when a prop changes" (render-time, not an effect) —
-  // see ClothingList.tsx for why autoOpenAdd only ever holds true briefly.
-  const [consumedAutoOpenAdd, setConsumedAutoOpenAdd] = useState(autoOpenAdd);
-  if (autoOpenAdd !== consumedAutoOpenAdd) {
-    setConsumedAutoOpenAdd(autoOpenAdd);
-    if (autoOpenAdd) setMode({ kind: "add" });
-  }
 
   const reload = useCallback(() => {
     listShoes().then((rows) => {
@@ -45,24 +32,8 @@ export default function ShoeList({ autoOpenAdd }: Props) {
     });
   }, []);
 
+  // Also what refreshes the list when the add/edit route pops back to it.
   useFocusEffect(reload);
-
-  async function handleSubmit(item: ShoeItem) {
-    if (mode.kind === "edit") {
-      await updateShoe(item);
-    } else {
-      await createShoe(item);
-    }
-    setMode({ kind: "list" });
-    reload();
-  }
-
-  async function handleDelete() {
-    if (mode.kind !== "edit") return;
-    await deleteShoe(mode.item.id);
-    setMode({ kind: "list" });
-    reload();
-  }
 
   async function markAsWashing(item: ShoeItem) {
     const until = new Date();
@@ -84,46 +55,12 @@ export default function ShoeList({ autoOpenAdd }: Props) {
     ]);
   }
 
-  if (mode.kind === "add") {
-    return <ShoeForm onSubmit={handleSubmit} onCancel={() => setMode({ kind: "list" })} />;
-  }
-
-  if (mode.kind === "edit") {
-    return (
-      <>
-        <ShoeForm
-          initial={mode.item}
-          onSubmit={handleSubmit}
-          onCancel={() => setMode({ kind: "list" })}
-          onDelete={handleDelete}
-          onMarkUnavailable={() => setUnavailabilityTarget(mode.item)}
-        />
-        {unavailabilityTarget && (
-          <UnavailabilitySheet
-            key={unavailabilityTarget.id}
-            initialReason={unavailabilityTarget.unavailableReason}
-            onClose={() => setUnavailabilityTarget(null)}
-            onConfirm={({ unavailableUntil, unavailableReason }) => {
-              const laundryReset =
-                unavailableReason === "laundry" ? { wearsSinceClean: 0, needsCleaning: false } : {};
-              const updated = { ...unavailabilityTarget, unavailableUntil, unavailableReason, ...laundryReset };
-              updateShoe(updated).then(() => {
-                setMode({ kind: "edit", item: updated });
-                reload();
-              });
-            }}
-          />
-        )}
-      </>
-    );
-  }
-
   return (
     <View style={styles.container}>
       {loaded && items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No shoes yet — add your first pair</Text>
-          <AppButton label="Add shoes" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
+          <AppButton label="Add shoes" variant="secondary" onPress={() => navigation.navigate("GearItem", { kind: "shoe" })} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -131,12 +68,12 @@ export default function ShoeList({ autoOpenAdd }: Props) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
-            <AppButton label="Add shoes" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
+            <AppButton label="Add shoes" variant="secondary" onPress={() => navigation.navigate("GearItem", { kind: "shoe" })} style={styles.addButton} />
           }
           renderItem={({ item }) => {
             const isUnavailable = !!item.unavailableUntil && new Date(item.unavailableUntil).getTime() > nowMs;
             return (
-              <Pressable onPress={() => setMode({ kind: "edit", item })} style={styles.row}>
+              <Pressable onPress={() => navigation.navigate("GearItem", { kind: "shoe", item })} style={styles.row}>
                 <GearThumbnail itemId={item.id} photoUri={item.photoUri} kind="shoe" dimmed={isUnavailable} />
                 <View style={styles.rowText}>
                   <Text style={[styles.rowLabel, isUnavailable && styles.dimmedText]}>{item.name}</Text>

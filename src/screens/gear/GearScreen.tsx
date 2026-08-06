@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import ClothingList from "./ClothingList";
 import ShoeList from "./ShoeList";
 import UmbrellaList from "./UmbrellaList";
@@ -9,49 +8,24 @@ import VehicleList from "./VehicleList";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { SPACING, TYPE } from "../../theme/typography";
-import type { MainTabParamList } from "../../navigation/types";
 
 // Inventory manager tab, sub-tabbed by Vehicles/Clothing/Shoes/Umbrellas —
 // docs/04-screens-navigation.md item 4. Full add/edit/delete per sub-tab
-// (Phase 2).
+// (Phase 2), with the add/edit form now a pushed route on the Gear stack
+// rather than a mode of the list (GearItemScreen).
+//
+// §9.6's "add the missing item" links from Journey Detail used to arrive
+// here as a route param this screen had to consume and forward down to the
+// right list. They navigate straight to the GearItem route instead, so
+// there's no param to thread, no one-render window to catch it in, and no
+// risk of the form reopening when the tab is focused again.
 const SUB_TABS = ["Vehicles", "Clothing", "Shoes", "Umbrellas"] as const;
 type SubTab = (typeof SUB_TABS)[number];
 
-type Props = BottomTabScreenProps<MainTabParamList, "Gear">;
-
-// §9.6 — GearRecommendationCard's fallback slots navigate here with
-// route.params.openAdd to jump straight into the right sub-tab's add form.
-function subTabFor(openAdd: NonNullable<Props["route"]["params"]>["openAdd"]): SubTab | undefined {
-  if (!openAdd) return undefined;
-  if (openAdd.kind === "clothing") return "Clothing";
-  if (openAdd.kind === "shoe") return "Shoes";
-  return "Umbrellas";
-}
-
-export default function GearScreen({ route, navigation }: Props) {
+export default function GearScreen() {
   const theme = useTheme();
   const styles = getStyles(theme);
-  const openAdd = route.params?.openAdd;
-  const [activeTab, setActiveTab] = useState<SubTab>(subTabFor(openAdd) ?? "Clothing");
-
-  // "Adjusting state when a prop changes" (React's render-time pattern,
-  // not an effect) — jump to the right sub-tab as soon as a new openAdd
-  // target arrives, tracked via the previous-value comparison so this
-  // doesn't refire on every re-render.
-  const [consumedOpenAdd, setConsumedOpenAdd] = useState(openAdd);
-  if (openAdd !== consumedOpenAdd) {
-    setConsumedOpenAdd(openAdd);
-    const target = subTabFor(openAdd);
-    if (target) setActiveTab(target);
-  }
-
-  // Consume openAdd once so re-focusing this tab later (e.g. after adding
-  // the item and navigating back) doesn't reopen the add form again.
-  // navigation.setParams touches state outside this component, so it
-  // belongs in an effect rather than the render-time adjustment above.
-  useEffect(() => {
-    if (route.params?.openAdd) navigation.setParams({ openAdd: undefined });
-  }, [route.params?.openAdd, navigation]);
+  const [activeTab, setActiveTab] = useState<SubTab>("Clothing");
 
   return (
     <ScreenSurface>
@@ -68,11 +42,9 @@ export default function GearScreen({ route, navigation }: Props) {
           </Pressable>
         ))}
       </View>
-      {activeTab === "Clothing" && (
-        <ClothingList autoOpenAddType={openAdd?.kind === "clothing" ? openAdd.clothingType : undefined} />
-      )}
-      {activeTab === "Shoes" && <ShoeList autoOpenAdd={openAdd?.kind === "shoe"} />}
-      {activeTab === "Umbrellas" && <UmbrellaList autoOpenAdd={openAdd?.kind === "umbrella"} />}
+      {activeTab === "Clothing" && <ClothingList />}
+      {activeTab === "Shoes" && <ShoeList />}
+      {activeTab === "Umbrellas" && <UmbrellaList />}
       {activeTab === "Vehicles" && <VehicleList />}
     </ScreenSurface>
   );

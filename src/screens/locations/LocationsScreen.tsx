@@ -1,25 +1,28 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { createLocation, deleteLocation, listLocations, updateLocation } from "../../db/repositories/locations";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { listLocations, updateLocation } from "../../db/repositories/locations";
 import type { SavedLocation } from "../../types";
-import LocationForm, { type LocationFormValues } from "./LocationForm";
-import LocationDetail from "./LocationDetail";
 import ScreenSurface from "../../components/ScreenSurface";
 import ActionIcon from "../../components/ActionIcon";
 import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { SPACING, TYPE } from "../../theme/typography";
+import type { LocationsStackParamList } from "../../navigation/types";
 
-type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; location: SavedLocation };
+// The saved-locations list. Opening one, or adding one, pushes a route on the
+// Locations tab's own stack (LocationsStack.tsx) rather than swapping this
+// screen out for a different mode — so the system back gesture closes it, the
+// header carries the back control, and leaving actually unmounts.
+type Props = NativeStackScreenProps<LocationsStackParamList, "LocationsList">;
 
-export default function LocationsScreen() {
+export default function LocationsScreen({ navigation }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const [locations, setLocations] = useState<SavedLocation[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [mode, setMode] = useState<Mode>({ kind: "list" });
 
   const reload = useCallback(() => {
     listLocations().then((rows) => {
@@ -28,59 +31,13 @@ export default function LocationsScreen() {
     });
   }, []);
 
+  // Also what refreshes the list after a push returns — a location edited or
+  // added on the pushed screen is written there, and this reloads on focus.
   useFocusEffect(reload);
-
-  async function handleSubmit(values: LocationFormValues) {
-    if (mode.kind === "edit") {
-      // Stay on the detail screen with the saved values applied, rather than
-      // bouncing back to the list. Saving a note or a gear pick and being
-      // returned to a row that shows neither gave no confirmation it landed;
-      // the back chip is still there for leaving.
-      const updated = { ...mode.location, ...values };
-      await updateLocation(updated);
-      setMode({ kind: "edit", location: updated });
-      reload();
-      return;
-    }
-    await createLocation(values);
-    setMode({ kind: "list" });
-    reload();
-  }
-
-  async function handleDelete() {
-    if (mode.kind !== "edit") return;
-    await deleteLocation(mode.location.id);
-    setMode({ kind: "list" });
-    reload();
-  }
 
   async function toggleFavorite(location: SavedLocation) {
     await updateLocation({ ...location, isFavorite: !location.isFavorite });
     reload();
-  }
-
-  if (mode.kind === "add") {
-    return (
-      <ScreenSurface>
-        <LocationForm onSubmit={handleSubmit} onCancel={() => setMode({ kind: "list" })} />
-      </ScreenSurface>
-    );
-  }
-
-  if (mode.kind === "edit") {
-    return (
-      <ScreenSurface>
-        {/* Keyed by id so switching locations remounts rather than reusing
-            one screen's forecast state for another suburb. */}
-        <LocationDetail
-          key={mode.location.id}
-          location={mode.location}
-          onSubmit={handleSubmit}
-          onCancel={() => setMode({ kind: "list" })}
-          onDelete={handleDelete}
-        />
-      </ScreenSurface>
-    );
   }
 
   const firstNonFavoriteIndex = locations.findIndex((l) => !l.isFavorite);
@@ -91,7 +48,7 @@ export default function LocationsScreen() {
         <View style={styles.emptyContainer}>
           <Text style={styles.title}>Locations</Text>
           <Text style={styles.empty}>No locations yet — add Home and Work first</Text>
-          <AppButton label="Add a location" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
+          <AppButton label="Add a location" variant="secondary" onPress={() => navigation.navigate("LocationForm")} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -99,7 +56,7 @@ export default function LocationsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
-            <AppButton label="Add a location" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
+            <AppButton label="Add a location" variant="secondary" onPress={() => navigation.navigate("LocationForm")} style={styles.addButton} />
           }
           renderItem={({ item, index }) => (
             <>
@@ -110,7 +67,7 @@ export default function LocationsScreen() {
                   is invalid HTML React warns about on every render. */}
               <View style={styles.row}>
                 <Pressable
-                  onPress={() => setMode({ kind: "edit", location: item })}
+                  onPress={() => navigation.navigate("LocationDetail", { location: item })}
                   style={styles.rowBody}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.label}, ${item.address}. Double tap to open`}

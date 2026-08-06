@@ -23,10 +23,12 @@
       "autoPort": false
     },
     {
+      "comment": "Web preview on a port of its own, so it can run alongside a device Metro on 8081 without either fighting for it. `autoPort` is deliberately false: Expo CLI does not honour the assigned PORT env var and binds its own default 8081 regardless, so the port has to be passed as an explicit --port flag and declared here to match.",
       "name": "expo-web-alt",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["expo", "start", "--web"],
-      "autoPort": true
+      "runtimeArgs": ["expo", "start", "--web", "--port", "8083"],
+      "port": 8083,
+      "autoPort": false
     }
   ]
 }

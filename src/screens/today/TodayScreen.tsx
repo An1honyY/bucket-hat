@@ -86,7 +86,6 @@ export default function TodayScreen() {
           suburb={rightNow.suburb}
           hourly={rightNow.hourly}
           daily={rightNow.daily}
-          weather={rightNow.weather}
         />
 
         <SetupChecklist />

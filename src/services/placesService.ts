@@ -79,9 +79,18 @@ export async function autocompletePlaces(input: string, sessionToken: string): P
       body: JSON.stringify({
         input,
         sessionToken,
-        // §2.1 — v1 is Auckland-only; biasing (not restricting) results to
-        // NZ keeps the advanced/manual lat-lng override usable for anyone
-        // who genuinely needs a non-NZ address.
+        // §2.1 — v1 is Auckland-only. Note this *restricts* rather than
+        // biases: `includedRegionCodes` in the Places API (New) filters
+        // results to the listed regions, so no non-NZ address can be found
+        // by typing. (An earlier comment here called it biasing, which is
+        // wrong.) The way to save somewhere else is the form's Advanced
+        // lat/lng override, which has no such filter.
+        //
+        // Widening this is one line, but it is not sufficient on its own —
+        // `getSeason()` maps months to Southern-Hemisphere seasons with no
+        // latitude input, so a Northern-Hemisphere location would get its
+        // seasons inverted and the recommendation engine would dress you for
+        // the wrong half of the year. See docs/02-external-apis.md §2.1.
         includedRegionCodes: ["nz"],
       }),
     });

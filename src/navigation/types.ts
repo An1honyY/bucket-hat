@@ -1,7 +1,7 @@
 // Navigation param lists — see docs/04-screens-navigation.md §4 for the
 // screen list this mirrors.
 import type { NavigatorScreenParams } from "@react-navigation/native";
-import type { ClothingType } from "../types";
+import type { ClothingType, SavedLocation } from "../types";
 
 // §9.6 — the gear-recommendation card's fallback slots (Journey Detail)
 // navigate here to jump straight into the matching Gear add form, one tab
@@ -20,11 +20,41 @@ export type GearAddTarget =
 // starts on the saved-or-new chooser instead.
 export type PlanIntent = "now" | "schedule" | "repeat";
 
+// The Locations and Gear tabs are each a stack, not a single screen
+// (2026-08-06 — see DECISIONS.md). Their detail/form views used to be
+// `useState` modes of the tab screen, which meant the system back gesture
+// couldn't close them, nothing unmounted when you left, and every one of them
+// had to hand-roll its own back control. As real routes they get the back
+// gesture, the header control and unmount-on-pop for free, and the tab bar
+// stays visible because the stack is nested *inside* the tab.
+export type LocationsStackParamList = {
+  LocationsList: undefined;
+  // The row's own data, passed along rather than re-fetched by id: this is
+  // the same snapshot the list already holds, and the detail screen owns it
+  // from then on (it re-renders from its own state after a save).
+  LocationDetail: { location: SavedLocation };
+  LocationForm: undefined;
+};
+
+// One route for "the add/edit form for a piece of gear", discriminated by
+// kind, rather than four near-identical routes — the four lists differ only
+// in which repository and form component they use.
+export type GearItemParams =
+  | { kind: "clothing"; item?: import("../types").ClothingItem; presetType?: ClothingType }
+  | { kind: "shoe"; item?: import("../types").ShoeItem }
+  | { kind: "umbrella"; item?: import("../types").UmbrellaItem }
+  | { kind: "vehicle"; item?: import("../types").VehicleItem };
+
+export type GearStackParamList = {
+  GearList: undefined;
+  GearItem: GearItemParams;
+};
+
 export type MainTabParamList = {
   Today: undefined;
   Plan: { savedRouteId?: string; intent?: PlanIntent } | undefined;
-  Locations: undefined;
-  Gear: { openAdd?: GearAddTarget } | undefined;
+  Locations: NavigatorScreenParams<LocationsStackParamList> | undefined;
+  Gear: NavigatorScreenParams<GearStackParamList> | undefined;
 };
 
 export type RootStackParamList = {

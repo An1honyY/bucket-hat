@@ -1,23 +1,24 @@
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
-import { createVehicle, deleteVehicle, listVehicles, updateVehicle } from "../../db/repositories/vehicles";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { listVehicles } from "../../db/repositories/vehicles";
 import type { VehicleItem } from "../../types";
-import VehicleForm from "./VehicleForm";
+import type { GearStackParamList } from "../../navigation/types";
 import GearThumbnail from "../../components/GearThumbnail";
 import AppButton from "../../components/AppButton";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 
-type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; item: VehicleItem };
-
+// The list only. Adding and editing are the `GearItem` route on the Gear
+// tab's stack (GearStack.tsx) — see GearItemScreen for why they moved out.
 export default function VehicleList() {
   const theme = useTheme();
   const styles = getStyles(theme);
+  const navigation = useNavigation<NativeStackNavigationProp<GearStackParamList>>();
   const [items, setItems] = useState<VehicleItem[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [mode, setMode] = useState<Mode>({ kind: "list" });
 
   const reload = useCallback(() => {
     listVehicles().then((rows) => {
@@ -26,46 +27,15 @@ export default function VehicleList() {
     });
   }, []);
 
+  // Also what refreshes the list when the add/edit route pops back to it.
   useFocusEffect(reload);
-
-  async function handleSubmit(item: VehicleItem) {
-    if (mode.kind === "edit") {
-      await updateVehicle(item);
-    } else {
-      await createVehicle(item);
-    }
-    setMode({ kind: "list" });
-    reload();
-  }
-
-  async function handleDelete() {
-    if (mode.kind !== "edit") return;
-    await deleteVehicle(mode.item.id);
-    setMode({ kind: "list" });
-    reload();
-  }
-
-  if (mode.kind === "add") {
-    return <VehicleForm onSubmit={handleSubmit} onCancel={() => setMode({ kind: "list" })} />;
-  }
-
-  if (mode.kind === "edit") {
-    return (
-      <VehicleForm
-        initial={mode.item}
-        onSubmit={handleSubmit}
-        onCancel={() => setMode({ kind: "list" })}
-        onDelete={handleDelete}
-      />
-    );
-  }
 
   return (
     <View style={styles.container}>
       {loaded && items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No vehicles yet — add your first one</Text>
-          <AppButton label="Add vehicle" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
+          <AppButton label="Add vehicle" variant="secondary" onPress={() => navigation.navigate("GearItem", { kind: "vehicle" })} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -73,10 +43,10 @@ export default function VehicleList() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
-            <AppButton label="Add vehicle" variant="secondary" onPress={() => setMode({ kind: "add" })} style={styles.addButton} />
+            <AppButton label="Add vehicle" variant="secondary" onPress={() => navigation.navigate("GearItem", { kind: "vehicle" })} style={styles.addButton} />
           }
           renderItem={({ item }) => (
-            <Pressable onPress={() => setMode({ kind: "edit", item })} style={styles.row}>
+            <Pressable onPress={() => navigation.navigate("GearItem", { kind: "vehicle", item })} style={styles.row}>
               <GearThumbnail itemId={item.id} photoUri={item.photoUri} kind="vehicle" />
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>{item.name}</Text>

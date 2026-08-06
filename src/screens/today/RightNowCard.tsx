@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import type { RightNowState } from "../../lib/useRightNow";
 import { classifyWeather, feelsLikeDiverges, formatWindKph } from "../../lib/weather";
 import { conditionColorForIcon } from "../../theme/conditionColor";
-import useWeatherTheme from "../../theme/useWeatherTheme";
+import useTheme from "../../theme/useTheme";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import { cardElevationStyle } from "../../theme/tokens";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
@@ -44,7 +44,14 @@ function layerIconKind(pick: LayerPick): ClothingIconKind {
 }
 
 export default function RightNowCard({ loading, weather, recommendation, suburb, fetchedAt, refreshing }: RightNowState & { refreshing?: boolean }) {
-  const theme = useWeatherTheme(weather);
+  // The app-wide mood, not one resolved from this card's own `weather`.
+  // They're the same reading — Today publishes it as ambient, a saved
+  // location publishes it as the override — but they didn't arrive in the
+  // same commit: the card resolved its mood during render while the chrome
+  // waited for the override, which is published from an effect. Opening a
+  // location in a different mood visibly repainted the content first and the
+  // header, tab bar and background a beat later. One source, one commit.
+  const theme = useTheme();
   const styles = getStyles(theme);
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
   // Which owned pick is open in the detail dialog, if any.
@@ -203,7 +210,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
   );
 }
 
-function getStyles(theme: ReturnType<typeof useWeatherTheme>) {
+function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     card: {
       padding: SPACING.lg,

@@ -15,12 +15,14 @@ import { reverseGeocode } from "../../services/placesService";
 
 // Add/edit form for a SavedLocation — docs/04-screens-navigation.md item 3.
 // Address search uses real Google Places autocomplete (AddressAutocomplete,
-// docs/02-external-apis.md §2) and map pin-drop (LocationPickerMap) — both
-// lat/lng and address can resolve automatically now, so raw coordinates are
-// no longer a primary-UX field; a collapsed "Advanced" section still
-// exposes them as manual overrides for power users or when Places is
-// unconfigured/offline (2026-07-21 onboarding rework; map picker closes
-// the "map pin-drop deferred" half of that decision — see DECISIONS.md).
+// docs/02-external-apis.md §2) and map pin-drop (LocationPickerMap); between
+// them, coordinates always resolve automatically.
+//
+// There is no manual lat/lng field. One existed behind an "Advanced"
+// disclosure until 2026-08-07 and was removed as visual noise — see
+// DECISIONS.md. Note this also removed the only way to save a location
+// outside New Zealand by typing, since address search is region-restricted
+// (placesService.ts); the map picker is now the only route to one.
 type ClimateOverride = "yes" | "no" | "default";
 
 function toClimateOverride(value: boolean | undefined): ClimateOverride {
@@ -63,6 +65,9 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete, em
   const common = useCommonStyles();
   const [label, setLabel] = useState(initial?.label ?? "");
   const [address, setAddress] = useState(initial?.address ?? "");
+  // Internal state, not a field: coordinates are set by the address search or
+  // a dropped map pin and never typed. The manual lat/lng inputs were removed
+  // on 2026-08-07 — see DECISIONS.md.
   const [lat, setLat] = useState(initial ? String(initial.lat) : "");
   const [lng, setLng] = useState(initial ? String(initial.lng) : "");
   const [isFavorite, setIsFavorite] = useState(initial?.isFavorite ?? false);
@@ -70,11 +75,6 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete, em
   const [preferredGearIds, setPreferredGearIds] = useState<string[]>(initial?.preferredGearIds ?? []);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const { options: gearOptions, loaded: gearLoaded } = useGearOptions();
-  // Collapsed by default, same pattern as Settings' "Advanced" threshold
-  // override — auto-expanded when editing an existing location, since its
-  // lat/lng are already meaningful values rather than blank fields waiting
-  // on a Places selection.
-  const [advancedExpanded, setAdvancedExpanded] = useState(!!initial);
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [resolvingPin, setResolvingPin] = useState(false);
 
@@ -90,10 +90,6 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete, em
     setMapPickerOpen(false);
     setLat(String(coords.lat));
     setLng(String(coords.lng));
-    // Surface the coordinates a dropped pin just set, same as the
-    // edit-an-existing-location case above — they're meaningful now, not
-    // blank fields waiting on a selection.
-    setAdvancedExpanded(true);
     // The picker already reverse-geocoded this pin live while it was being
     // dragged — reuse that instead of paying for the same Google Geocoding
     // call twice. Only falls back to a fresh call if the live resolution
@@ -164,29 +160,6 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete, em
           onClose={() => setMapPickerOpen(false)}
         />
 
-        <View>
-          <Pressable onPress={() => setAdvancedExpanded((v) => !v)}>
-            <Text style={styles.disclosure}>{advancedExpanded ? "▾" : "▸"} Advanced — set exact coordinates</Text>
-          </Pressable>
-          {advancedExpanded && (
-            <>
-              <Text style={styles.hint}>
-                Filled in automatically when you pick an address above — only change these if the search didn&apos;t
-                find the right spot.
-              </Text>
-              <View style={styles.row}>
-                <View style={styles.half}>
-                  <Text style={common.fieldLabel}>Latitude</Text>
-                  <TextInput style={common.input} placeholderTextColor={theme.textSecondary} value={lat} onChangeText={setLat} keyboardType="numbers-and-punctuation" placeholder="-36.8485" />
-                </View>
-                <View style={styles.half}>
-                  <Text style={common.fieldLabel}>Longitude</Text>
-                  <TextInput style={common.input} placeholderTextColor={theme.textSecondary} value={lng} onChangeText={setLng} keyboardType="numbers-and-punctuation" placeholder="174.7633" />
-                </View>
-              </View>
-            </>
-          )}
-        </View>
       </FormSection>
 
       <FormSection title="Preferences">
@@ -269,9 +242,6 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete, em
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    row: { flexDirection: "row", gap: SPACING.md },
-    half: { flex: 1 },
-    disclosure: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary, minHeight: 44, textAlignVertical: "center" },
     mapPickerButton: {
       alignSelf: "flex-start",
       minHeight: 44,

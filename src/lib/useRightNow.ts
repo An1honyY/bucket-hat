@@ -234,5 +234,10 @@ export function useRightNow(fixedCoords?: { lat: number; lng: number }): RightNo
     load({ force: true });
   }, [load]);
 
-  return { ...state, refreshing, refresh };
+  // `refreshing` means a background update *over data already on screen* —
+  // exactly what the field's own doc comment above says it is. On a cold
+  // start there is nothing to refresh over: the card renders its own spinner
+  // for `loading`, so letting the pull-to-refresh control spin at the same
+  // time put two spinners on screen at once when opening a saved location.
+  return { ...state, refreshing: refreshing && !state.loading, refresh };
 }

@@ -1,128 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { createBottomTabNavigator, type BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useLinkBuilder, useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Animated, Image, Platform, Pressable, Text, View } from "react-native";
+import { useLinkBuilder } from "@react-navigation/native";
+import { Animated, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import TodayScreen from "../screens/today/TodayScreen";
 import PlanScreen from "../screens/plan/PlanScreen";
-import LocationsScreen from "../screens/locations/LocationsScreen";
-import GearScreen from "../screens/gear/GearScreen";
-import ActionIcon from "../components/ActionIcon";
+import LocationsStack from "./LocationsStack";
+import GearStack from "./GearStack";
 import NavIcon, { type NavIconKind } from "../components/NavIcon";
+import { HeaderLogo, SavedJourneysButton, TodayHeaderButtons } from "./headerParts";
 import useTheme from "../theme/useTheme";
-import type { MainTabParamList, RootStackParamList } from "./types";
+import type { MainTabParamList } from "./types";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
-
-// docs/09-design-system.md §9.1 (2026-07-22) — real iconography for the
-// bottom tab bar and header buttons, closing the gap this file's own
-// comment used to flag ("small text-button header icons stand in... until
-// that pass lands," see DECISIONS.md). Header buttons went icon-only, were
-// corrected to text-only the same day, then back to icon-only again once
-// the "settings" glyph itself was fixed (sliders → an actual cog, per
-// explicit request) — see DECISIONS.md for the full back-and-forth. Header
-// buttons use theme.textPrimary (matching the header title's color, not
-// the accent — accent stays reserved for the active tab / primary
-// interactive emphasis elsewhere in the app).
-const headerButtonRowStyle = { flexDirection: "row" as const, gap: 8, marginRight: 4 };
-
-// A bare 22px stroke glyph on the header was easy to miss — thin lines on a
-// large flat header read as decoration rather than something tappable, and
-// there was nothing marking the 44px target. A tinted disc behind each icon
-// gives the button an edge and lifts the glyph off the background without
-// spending the accent colour, which stays reserved for the active tab and
-// primary actions.
-function headerButtonStyle(theme: ReturnType<typeof useTheme>) {
-  return {
-    minHeight: 44,
-    minWidth: 44,
-    borderRadius: 22,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-  };
-}
-
-function TodayHeaderButtons() {
-  const theme = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  return (
-    <View style={headerButtonRowStyle}>
-      <Pressable
-        onPress={() => navigation.navigate("Settings")}
-        style={headerButtonStyle(theme)}
-        accessibilityRole="button"
-        accessibilityLabel="Settings"
-      >
-        <NavIcon kind="settings" size={22} color={theme.textPrimary} />
-      </Pressable>
-      <Pressable
-        onPress={() => navigation.navigate("History")}
-        style={headerButtonStyle(theme)}
-        accessibilityRole="button"
-        accessibilityLabel="History"
-      >
-        <NavIcon kind="history" size={22} color={theme.textPrimary} />
-      </Pressable>
-    </View>
-  );
-}
-
-// §4.3 — the way in to the saved-journeys list. A bookmark, matching the
-// "Save this journey" control on the Plan screen itself: the icon that
-// files a trip away and the icon that opens the drawer are the same one.
-function SavedJourneysButton() {
-  const theme = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  return (
-    <View style={headerButtonRowStyle}>
-      <Pressable
-        onPress={() => navigation.navigate("SavedJourneys")}
-        style={headerButtonStyle(theme)}
-        accessibilityRole="button"
-        accessibilityLabel="Saved journeys"
-      >
-        <ActionIcon kind="bookmark" size={20} color={theme.textPrimary} />
-      </Pressable>
-    </View>
-  );
-}
-
-function LocalKnowledgeButton() {
-  const theme = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  return (
-    <View style={headerButtonRowStyle}>
-      <Pressable
-        onPress={() => navigation.navigate("LocalKnowledge")}
-        style={headerButtonStyle(theme)}
-        accessibilityRole="button"
-        accessibilityLabel="Local knowledge"
-      >
-        <NavIcon kind="localKnowledge" size={22} color={theme.textPrimary} />
-      </Pressable>
-    </View>
-  );
-}
-
-// The app's bucket-hat mark (docs/09-design-system.md, 2026-07-21 redesign)
-// only ever shipped as OS-level icon assets (app.json's icon/adaptive-icon/
-// favicon) — never actually placed in the app's own UI. Cropped tight to
-// the artwork's real bounding box within android-icon-foreground.png's
-// transparent-background layer (that source has generous padding baked in
-// for Android's adaptive-icon masking, which would otherwise render as a
-// tiny hat lost in a mostly-empty box at header size) and saved as
-// assets/header-logo.png — same source art, no re-drawing. Always shown at
-// the left of the header, across all 4 main tabs, via screenOptions below
-// rather than passed per-Tab.Screen.
-const headerLogoSource = require("../../assets/header-logo.png");
-
-function HeaderLogo() {
-  return <Image source={headerLogoSource} style={{ width: 34, height: 24, marginLeft: 12 }} resizeMode="contain" />;
-}
 
 // §9.6 — "never convey status by color alone... the same rule applies to
 // every other tinted element in this doc regardless of token family." The
@@ -293,6 +183,8 @@ const tabItemStyle = {
 
 // Positioned from the bar's left edge and moved with translateX, so one
 // element travels the whole row instead of four fading in and out.
+// Positioned from the bar's left edge and moved with translateX, so one
+// element travels the whole row instead of four fading in and out.
 const indicatorStyle = {
   position: "absolute" as const,
   left: 0,
@@ -341,19 +233,12 @@ export default function MainTabs() {
           headerRight: SavedJourneysButton,
         }}
       />
-      <Tab.Screen
-        name="Locations"
-        component={LocationsScreen}
-        options={{
-          headerRight: LocalKnowledgeButton,
-        }}
-      />
-      <Tab.Screen
-        name="Gear"
-        component={GearScreen}
-        options={{
-        }}
-      />
+      {/* Locations and Gear are stacks, not single screens (types.ts) —
+          their sub-views are real routes, so the header comes from the
+          inner navigator and the tab must not draw a second one above it.
+          The tab bar still shows: the stack is nested inside the tab. */}
+      <Tab.Screen name="Locations" component={LocationsStack} options={{ headerShown: false }} />
+      <Tab.Screen name="Gear" component={GearStack} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }

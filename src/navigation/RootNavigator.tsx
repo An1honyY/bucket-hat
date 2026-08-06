@@ -16,7 +16,7 @@ import { readResetLink } from "../lib/auth/resetLink";
 import GearBasicsSetup from "../screens/setup/GearBasicsSetup";
 import NotificationsSetup from "../screens/setup/NotificationsSetup";
 import DevMenuScreen from "../screens/dev/DevMenuScreen";
-import HeaderBackButton from "./HeaderBackButton";
+import { backHeaderLeft, themedHeaderOptions } from "./headerOptions";
 import useTheme from "../theme/useTheme";
 import { darkTheme } from "../theme/tokens";
 import type { RootStackParamList } from "./types";
@@ -81,18 +81,10 @@ export default function RootNavigator({ needsOnboarding = false }: Props) {
           // (HeaderBackButton) in place of the bare OS-native arrow, giving
           // the pushed screens a consistent, colourful header rather than
           // the plain black-on-white default (especially in light mode).
-          headerStyle: { backgroundColor: theme.headerBg },
-          headerTitleStyle: { color: theme.textPrimary },
-          headerTintColor: theme.accentWalk,
-          headerShadowVisible: false,
-          headerBackButtonDisplayMode: "minimal" as const,
-          // The default header-left container sits flush against the
-          // screen edge on web/RNW — no built-in inset the way a native
-          // safe-area header usually has. Matches the screen horizontal
-          // margin used everywhere else (§9.2).
-          headerLeftContainerStyle: { paddingLeft: 20 },
-          headerLeft: () =>
-            navigation.canGoBack() ? <HeaderBackButton onPress={() => navigation.goBack()} /> : null,
+          // Shared with the Locations and Gear tab stacks so all three
+          // headers stay identical (headerOptions.tsx).
+          ...themedHeaderOptions(theme),
+          headerLeft: backHeaderLeft(navigation),
         })}
       >
         <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />

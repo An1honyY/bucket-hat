@@ -139,6 +139,9 @@ one by date — don't edit the old entry.
 - 2026-08-05 — One `SidePanel` shell: slides from the right, widens with the viewport (§9.3, §9.5) [bug fix, design]
 - 2026-08-05 — "None available" is a per-category fact, never inferred from the wardrobe being non-empty (§7) [bug fix]
 - 2026-08-05 — Tab back gesture walks tab history; recommended picks open a read-only gear detail dialog (§4, §9.3) [bug fix, design]
+- 2026-08-06 — A saved location repaints the whole app in its mood, and mood changes cross over ~400ms (§9.1.3) [supersedes the 2026-08-05 "a pinned reading never repaints the app"]
+- 2026-08-06 — Locations and Gear are tab-nested stacks; their sub-views are real routes, not `useState` modes (§4, §9.2) [design]
+- 2026-08-07 — Manual lat/lng fields removed; the web map wraps Leaflet's unwrapped longitude (§4, §2) [design, bug fix]
 
 ---
 
@@ -2603,5 +2606,84 @@ details the chip you just tapped; side panels are for reference material read
 alongside a screen. Case enum values with `sentenceCase()` at the data level,
 never `textTransform: "capitalize"`, which is per-word and renders composed
 values as "8 Of 10".
+
+---
+
+## 2026-08-06 — A saved location repaints the whole app in its mood, and mood changes cross rather than cut (§9.1.3)
+
+**What**: `useAmbientWeatherStore` gained an `override` slot that wins over
+the ambient reading; the saved-location detail screen publishes its suburb's
+weather there while open, so the background, sky, header and tab bar take
+that mood alongside the cards. Mood changes now fade — `useMoodTransition.ts`
+slices the crossing 8 ways over ~1.8s and `useTheme()` returns the blend — as does `useWeatherTheme()` for a card whose mood is the one the
+app is crossing to, so the cards don't snap while the chrome fades.
+
+**Why**: this reverses the previous day's explicit call that a pinned reading
+never repaints the app, on request. Tinting only the cards was the worse half
+of both options: two blue rectangles on a warm screen read as a rendering
+fault rather than as "it's cold there". Cutting between two full-screen
+palettes in one frame read as a glitch, hence the cross-fade.
+
+**Resolution**: exactly one override holder at a time, last-writer-wins,
+released on *blur* rather than unmount so leaving the tab releases it too. The
+mood switches in one step: cross-fading it was built twice — a per-frame JS
+blend, then a single `Animated.Value` painting `Animated.View`s — and removed
+both times, on the user's call after testing each on a device. The reason is
+the palette, not the animation: between the dark palettes `bg` moves 11 RGB
+units mild→cold against `accentWalk`'s 251, so the tokens covering large areas
+cannot read as a gradient, and the one that can only appears on text and icons.
+Re-measure that table before rebuilding this; if the mood should read more
+strongly, widen the background tokens in `moodOverrides` instead. Every card
+also reads `useTheme()` now — the per-card `useWeatherTheme()` hook is gone,
+because a card resolving its own mood during render repainted a commit ahead
+of chrome waiting on the override, which lands from an effect.
+
+---
+
+## 2026-08-06 — Locations and Gear are tab-nested stacks; their sub-views are real routes (§4, §9.2)
+
+**What**: the Locations detail/add views and all four Gear add/edit forms were
+`useState` modes that replaced their list in place. They're now routes on a
+native stack nested inside each tab (`LocationsStack`, `GearStack`), with one
+`GearItem` route discriminated by kind serving all four gear types.
+
+**Why**: a mode isn't reachable by the system back gesture, doesn't unmount
+when you leave, and has to hand-roll its own back control — so swiping back
+from an open location or gear item did nothing (or dropped you out of the
+tab), and the weather-mood override only released when the on-screen back
+button was tapped.
+
+**Resolution**: nested inside the tab, not pushed onto the root stack, so the
+tab bar stays and this is still the Locations tab one level down. Header
+chrome comes from one shared `themedHeaderOptions` factory; `headerParts.tsx`
+holds the logo and header buttons because MainTabs ↔ stack imports were a
+cycle. Add a sub-view as a route from now on — the mode pattern is gone from
+these two tabs and shouldn't come back.
+
+---
+
+## 2026-08-07 — Manual lat/lng fields removed; the web map wraps Leaflet's longitude (§4, §2)
+
+**What**: the "Advanced — set exact coordinates" disclosure and its two inputs
+are gone from `LocationForm`; coordinates are now only ever set by address
+search or a dropped map pin, and held as internal state. Separately,
+`LocationPickerMap.web.tsx` wraps the longitude Leaflet hands it, and
+`useRightNow` no longer reports `refreshing` during a cold start.
+
+**Why**: the coordinate fields read as visual noise on a form whose other two
+fields are plain English, and both paths that set them already work. The
+longitude wrap is a real bug: Leaflet reports longitude *unwrapped* across
+world copies, so the short pan west from Auckland to the Americas yields
++286 rather than −73.99 and Google's Geocoding API answers `INVALID_REQUEST`
+— verified against the live API — which read as the web map not recognising
+anywhere in the USA. `react-native-maps` normalises this, so native was fine.
+
+**Resolution**: wrapped where the coordinate enters the app, not where it's
+sent, so an out-of-range longitude can't be stored on a location and break its
+weather fetches later; pinned in `wrapLng.test.ts`. Note the removal leaves the
+map picker as the *only* way to save a location outside New Zealand, since
+address search is region-restricted (`placesService.ts`) — if that becomes a
+problem, widen the region codes rather than restoring the fields, and read the
+`getSeason()` caveat there first.
 
 ---

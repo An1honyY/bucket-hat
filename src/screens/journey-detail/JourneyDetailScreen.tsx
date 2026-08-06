@@ -693,7 +693,21 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
               recommendation && (
                 <GearRecommendationCard
                   recommendation={recommendation}
-                  onAddGear={(target) => navigation.navigate("Main", { screen: "Gear", params: { openAdd: target } })}
+                  // Straight to the Gear tab's add form, one level into its
+                  // stack — so backing out of the form lands on the gear
+                  // list, and backing out again returns here.
+                  onAddGear={(target) =>
+                    navigation.navigate("Main", {
+                      screen: "Gear",
+                      params: {
+                        screen: "GearItem",
+                        params:
+                          target.kind === "clothing"
+                            ? { kind: "clothing", presetType: target.clothingType }
+                            : { kind: target.kind },
+                      },
+                    })
+                  }
                 />
               )
             )}

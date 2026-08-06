@@ -40,6 +40,15 @@ interface Props {
   // The padding is added back inside the scroll content, so the first column
   // still lines up with the card's heading and the last one clears the edge.
   bleed?: number;
+  // The palette of the card hosting this row, for any caller whose card is on
+  // a different palette from the app-wide one.
+  //
+  // Without it this row read the global theme while its container read the
+  // reading's, which stranded the day labels — "TODAY"/"TOMORROW" sit in
+  // `accentWalk`, and that's one of the tokens the mood moves. Opening a cold
+  // suburb left them in the ambient accent, pink on a blue card. Same prop,
+  // same reason, as JourneyCard's.
+  theme?: ThemeTokens;
 }
 
 interface DayGroup {
@@ -64,8 +73,9 @@ function groupByDay(readings: HourlyReading[], nowIso?: string): DayGroup[] {
   return groups;
 }
 
-export default function HourlyForecastRow({ readings, nowIso, bleed = 0 }: Props) {
-  const theme = useTheme();
+export default function HourlyForecastRow({ readings, nowIso, bleed = 0, theme: themeProp }: Props) {
+  const baseTheme = useTheme();
+  const theme = themeProp ?? baseTheme;
   const styles = getStyles(theme);
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
 

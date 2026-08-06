@@ -6,6 +6,16 @@ Navigation lazy-load Locations, Gear, and the History/Settings stack screens
 (`lazy: true`, the default for tab screens not currently focused) so cold
 start only pays for the two screens actually seen first.
 
+The Locations and Gear tabs are each a **native stack nested inside the tab**
+(`LocationsStack` / `GearStack`), not a single screen: opening a saved
+location, or a piece of gear's add/edit form, pushes a route rather than
+swapping the list out for a `useState` mode. That's what gives those views the
+system back gesture, a header back control and unmount-on-leave; nesting the
+stack in the tab rather than pushing onto the root stack keeps the tab bar
+visible, because a location you're looking at is still the Locations tab, one
+level down. See DECISIONS.md 2026-08-06 — don't reintroduce the mode pattern
+for a new sub-view.
+
 1. **Today** (home/dashboard) — a **"Right now" card** pinned above the
    journey list (Section 4.2), then today's saved/upcoming journeys, each as
    a card showing route summary + weather badges + top clothing
@@ -46,7 +56,9 @@ start only pays for the two screens actually seen first.
    the app.
 3. **Locations** — CRUD list of `SavedLocation`s, favorites (`isFavorite`,
    Section 4.3) pinned in their own section at the top, the rest sorted by
-   `lastUsedAt` descending. Add via map pin drop or address search. Each has
+   `lastUsedAt` descending. Add via map pin drop or address search — those
+   are the only two ways coordinates get set; there are no manual lat/lng
+   fields (removed 2026-08-07, see DECISIONS.md). Each has
    a label + optional icon + a star toggle for favoriting, plus a
    **"Reliable AC/heating here?"** three-way control (Yes / No / Don't
    override) in the add/edit form, backed by

@@ -79,10 +79,7 @@ export default function ScreenSurface({ children, edges, style }: Props) {
   const theme = useTheme();
   const derivedEdges = useChromeAwareEdges();
   return (
-    <SafeAreaView
-      style={[styles.surface, { backgroundColor: theme.bg }, style]}
-      edges={edges ?? derivedEdges}
-    >
+    <SafeAreaView style={[styles.surface, { backgroundColor: theme.bg }, style]} edges={edges ?? derivedEdges}>
       <ScreenPattern />
       {children}
     </SafeAreaView>

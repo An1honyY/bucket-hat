@@ -1,7 +1,7 @@
 import { useColorScheme } from "react-native";
 import { useThemeStore } from "./useThemeStore";
-import { useAmbientWeatherStore } from "./useAmbientWeatherStore";
 import { applyWeatherMood } from "./mood";
+import { useTintWeather } from "./useAmbientWeatherStore";
 import { darkTheme, lightTheme, type ThemeTokens } from "./tokens";
 
 // §9.1 — the only sanctioned way for a component to read theme colors.
@@ -10,10 +10,18 @@ import { darkTheme, lightTheme, type ThemeTokens } from "./tokens";
 //
 // Since 2026-08-05 this also carries the weather mood (§9.1.3), which used
 // to be the Today tab's alone: every card, form, header and tab bar in the
-// app now leans cool in the cold and warm on a bright day, because they all
-// read their colours from here. The reading comes from
-// useAmbientWeatherStore — a value `useRightNow` publishes, never a fetch —
-// so this costs no extra API calls. See DECISIONS.md.
+// app leans cool in the cold and warm on a bright day, because they all read
+// their colours from here. The reading comes from useAmbientWeatherStore — a
+// value `useRightNow` publishes, never a fetch — so this costs no extra API
+// calls, and a screen showing somewhere else (a saved location) can take the
+// mood over while it's open. See DECISIONS.md.
+//
+// The mood changes in one step. A cross-fade between moods was built and
+// removed on 2026-08-06 — see DECISIONS.md for the measurements that killed
+// it. The short version: the tokens covering large areas differ by ~11 RGB
+// units between moods, which cannot read as a gradient however it is
+// animated, and the token that does differ (`accentWalk`, 251) only appears
+// on text and icons.
 
 /** The palette before any weather mood — light/dark resolution only. Used by
  *  useWeatherTheme(), which layers a *specific* reading's mood on top. */
@@ -26,6 +34,5 @@ export function useBaseTheme(): ThemeTokens {
 
 export default function useTheme(): ThemeTokens {
   const base = useBaseTheme();
-  const ambient = useAmbientWeatherStore((s) => s.weather);
-  return applyWeatherMood(base, ambient);
+  return applyWeatherMood(base, useTintWeather());
 }

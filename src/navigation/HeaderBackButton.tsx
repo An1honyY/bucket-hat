@@ -41,7 +41,13 @@ export default function HeaderBackButton({ onPress, label = "Back" }: Props) {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    button: { flexDirection: "row", alignItems: "center", gap: 4, paddingRight: 12, paddingVertical: 4 },
+    // The left inset is the button's own, not the header's
+    // `headerLeftContainerStyle`: that option isn't part of native-stack's
+    // type at all, and the default container sits flush against the screen
+    // edge on web/RNW (measured at x=0, chevron disc touching the frame).
+    // 20 is §9.2's screen horizontal margin, so the chip lines up with the
+    // content below it.
+    button: { flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 20, paddingRight: 12, paddingVertical: 4 },
     pressed: { opacity: 0.55 },
     iconWrap: {
       width: 30,

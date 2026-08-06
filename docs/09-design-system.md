@@ -256,19 +256,68 @@ Android, since RN's `shadow*` props are iOS-only. One shared helper so
 every card gets identical elevation rather than each screen inventing its
 own shadow values.
 
-#### 9.1.3 Weather-reactive tint (Today tab only)
+#### 9.1.3 Weather-reactive tint (app-wide)
 
-The Today tab's "Right now" card and journey cards react to the *current*
-conditions rather than sitting on one fixed palette year-round — cool when
-it's cold and wet, the default Paua Pop mid palette otherwise, warm when
-it's genuinely warm and sunny. Scoped to the Today tab specifically
-(`useWeatherTheme()`, `src/theme/useWeatherTheme.ts`) — every other screen
-(Settings, Gear, Locations, Journey Detail, History, ...) stays on the
-fixed `useTheme()` palette; TodayScreen fetches the current-conditions
-`WeatherSnapshot` once (the same read the "Right now" card already needed)
-and shares both the data and the resolved mood with `JourneyCard` below it,
-so the whole screen carries one mood rather than each card resolving its
-own independently.
+The app reacts to the *current* conditions rather than sitting on one fixed
+palette year-round — cool when it's cold and wet, the default Paua Pop mid
+palette otherwise, warm when it's genuinely warm and sunny. Since 2026-08-05
+this is app-wide, not the Today tab's alone: every screen, card, form,
+header and tab bar reads its colours from `useTheme()`, which carries the
+mood. No screen fetches weather to get it — `useRightNow` *publishes* the
+reading it already had to `useAmbientWeatherStore`, and everything else
+reads that. Adding a weather fetch to a screen to give it a mood is the
+wrong move; publish to the store instead.
+
+**Which reading sets the mood.** Normally the ambient one — wherever the
+user actually is. A screen showing somewhere *else* may take over by
+publishing a mood override (`setMoodOverride`), which wins while it is set
+and must be cleared on unmount. Only the saved-location detail screen does
+this today: opening a saved location repaints the whole app in that
+suburb's mood, because "what's it like there?" is the question that screen
+exists to answer, and tinting only its cards left them looking pasted onto
+someone else's screen.
+
+**The mood changes in one step — there is no cross-fade, deliberately.** One
+was built twice and removed twice, and the reason is in the palette rather
+than in any animation code. Measured RGB distance between the dark palettes:
+
+| | `bg` | `surface` | `headerBg` | `patternTint` | `accentWalk` |
+|---|---|---|---|---|---|
+| mild → cold | 11 | 13 | 13 | 131 | 251 |
+| mild → warm | 38 | 49 | 47 | 254 | 154 |
+| cold → warm | 34 | 46 | 42 | 269 | 269 |
+
+The tokens covering large areas move by ~11 units out of 255, which cannot
+read as a gradient however smoothly it is animated. The token that *does* move
+(`accentWalk`) only appears on text and icons — small areas, and expensive to
+animate since each needs `Animated.Text` or animated SVG props. `patternTint`
+looks promising until you account for `ScreenPattern` rendering under ~12%
+alpha, which shrinks its real pixel change to about the same as the
+backgrounds'.
+
+Two implementations died proving this. A per-frame JS blend handed out a new
+palette object per slice: one slice cost ~600ms on a real phone (38 components
+read the theme, 11 render SVG), so four different pacings all failed. Replacing
+it with a single `Animated.Value` driving `backgroundColor` on `Animated.View`s
+fixed the cost — two renders per crossing instead of N — and the result was
+still imperceptible, for the palette reason above. **Before rebuilding this,
+re-measure the table.** If the mood should read more strongly, widen the
+background tokens in `moodOverrides`; that is a palette decision, not an
+animation one.
+
+**One source for the mood, so everything repaints in the same commit.** Every
+card reads `useTheme()`; none resolves a mood from its own reading. A
+per-card `useWeatherTheme(reading)` hook existed and was removed on
+2026-08-06: a card resolved its mood during render while the chrome waited for
+the mood override, which is published from an effect a commit later, so
+opening a location in a different mood visibly repainted the content first and
+the header, tab bar and background a beat behind it.
+
+A component nested inside a card that *is* on a different palette must be
+handed it (`HourlyForecastRow`'s and `JourneyCard`'s `theme` prop) rather than
+reading `useTheme()` itself — otherwise it strands on the app-wide mood while
+its container is on the card's, which is what left the hourly strip's
+"TODAY"/"TOMORROW" labels pink on a cold-blue card.
 
 - **`resolveWeatherMood(apparentTempC, severity)`** (`src/lib/weather.ts`)
   returns `"cold" | "mild" | "warm"`: `apparentTempC <= 8` or
@@ -280,7 +329,8 @@ own independently.
 - **`moodOverrides`** (`src/theme/tokens.ts`) — `"mild"` has no entry (it
   *is* `darkTheme`/`lightTheme` unchanged); `"cold"` and `"warm"` each
   override `bg`/`surface`/`surfaceRaised`/`border`/`textPrimary`/
-  `textSecondary`/`accentWalk` only. Everything else — `condition*` tokens,
+  `textSecondary`/`accentWalk`/`patternTint`/`headerBg`/
+  `surfaceRaisedBorder` only. Everything else — `condition*` tokens,
   `accentTransit`/`accentDrive`, badges — stays fixed, so the per-leg
   chips below (still their own icon + condition + temperature, not mood)
   keep their existing, unrelated meaning regardless of the screen's overall
@@ -289,9 +339,11 @@ own independently.
   - Warm (dark): `bg #241A12` / `accentWalk #FFD23F` (kōwhai gold)
   - Cold (light): `bg #EFF6FB` / `accentWalk #0E86B0`
   - Warm (light): `bg #FBF3EA` / `accentWalk #B8790E`
-- Journey Detail does not (yet) use this — a past/future journey's own
-  leg weather could drive the same mood system there, but that's out of
-  this pass's scope; see DECISIONS.md.
+- Journey Detail does not (yet) pick a mood from its *own* legs — a
+  past/future journey's leg weather could drive the same system there
+  (most naturally the current/nearest-upcoming leg), but "which leg wins"
+  was never put to the user; see DECISIONS.md. It tints with the app-wide
+  mood like every other screen in the meantime.
 
 ### 9.2 Typography & spacing
 

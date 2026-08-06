@@ -39,6 +39,21 @@ const LOCATE_ZOOM = 16;
 // Long enough for the browser's second click of a double-click to arrive.
 const DOUBLE_CLICK_GRACE_MS = 250;
 
+// Leaflet reports longitude *unwrapped* — pan across a world copy and it keeps
+// counting past ±180 rather than wrapping. From Auckland (lng ~174) the short
+// pan west to the Americas crosses the antimeridian, so New York arrives as
+// +286 instead of -73.99, and Google's Geocoding API answers `INVALID_REQUEST`
+// (verified against the live API). The pin then never resolves a label, which
+// reads as the map simply not recognising anywhere in the USA — a web-only
+// symptom, since react-native-maps normalises this for us on native.
+//
+// Wrapped at the point the coordinate enters the app, not at the point it is
+// sent: an out-of-range longitude would otherwise be stored on the location
+// and break its weather fetches too, long after the map is closed.
+function wrapLng(lng: number): number {
+  return ((((lng + 180) % 360) + 360) % 360) - 180;
+}
+
 // A plain click moves the pin (the mouse substitute for native's tap), but
 // Leaflet fires `click` for *each* click of a double-click — so
 // double-clicking to zoom in, the most ordinary map gesture there is, also
@@ -57,7 +72,7 @@ function ClickToMove({ onMove }: { onMove: (coords: PickerCoords) => void }) {
       const { lat, lng } = e.latlng;
       pendingRef.current = setTimeout(() => {
         pendingRef.current = null;
-        onMove({ lat, lng });
+        onMove({ lat, lng: wrapLng(lng) });
       }, DOUBLE_CLICK_GRACE_MS);
     },
     dblclick() {

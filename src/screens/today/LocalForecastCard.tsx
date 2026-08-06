@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { DailyReading, HourlyReading } from "../../services/weatherService";
-import type { WeatherSnapshot } from "../../types";
 import { cardElevationStyle, type ThemeTokens } from "../../theme/tokens";
-import useWeatherTheme from "../../theme/useWeatherTheme";
+import useTheme from "../../theme/useTheme";
 import { RADIUS, SPACING , TYPE } from "../../theme/typography";
 
 import HourlyForecastRow from "../../components/HourlyForecastRow";
@@ -28,20 +27,11 @@ interface Props {
   suburb: string | null;
   hourly: HourlyReading[];
   daily: DailyReading[];
-  // The same snapshot the Right now card renders, used only to resolve the
-  // weather-reactive mood.
-  //
-  // Resolved here rather than accepted pre-computed from TodayScreen, which is
-  // what JourneyCard does. Taking the prop rendered this card in the *dark*
-  // mood palette while the light theme was active and every neighbouring card
-  // was white — reproduced by measuring the DOM, not just eyeballed. Calling
-  // the hook here, exactly as RightNowCard does, gives the same mood for the
-  // same weather and tracks the light/dark switch correctly.
-  weather: WeatherSnapshot | null;
 }
 
-export default function LocalForecastCard({ suburb, hourly, daily, weather }: Props) {
-  const theme = useWeatherTheme(weather);
+export default function LocalForecastCard({ suburb, hourly, daily }: Props) {
+  // App-wide mood — see RightNowCard for why it isn't resolved per-card.
+  const theme = useTheme();
   const styles = getStyles(theme);
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -68,7 +58,7 @@ export default function LocalForecastCard({ suburb, hourly, daily, weather }: Pr
         </Pressable>
       </View>
 
-      <HourlyForecastRow readings={onCard} bleed={SPACING.lg} />
+      <HourlyForecastRow readings={onCard} bleed={SPACING.lg} theme={theme} />
 
       {panelOpen && (
         <LocalForecastPanel suburb={suburb} hourly={hourly} daily={daily} onClose={() => setPanelOpen(false)} />
