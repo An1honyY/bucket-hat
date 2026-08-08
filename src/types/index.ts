@@ -185,6 +185,19 @@ export interface JourneyLeg {
   // rather than a placeholder.
   steps?: NavigationStep[];
   delayMinutes?: number; // Phase 7 — AT GTFS Realtime scheduled-vs-actual delta for a bus/train leg's specific departure, Section 5.6; only set once live data is fetched, drives the live-delay pill (Section 9.3) and the preceding wait leg's durationMin
+  // Where a bus/train leg boards and alights (Section 9.3's map). Bus and
+  // train legs only, and absent on anything planned before this shipped —
+  // another `legs` JSON addition, so no migration. Mirrors routesService's
+  // RouteTransitStop for the same reason NavigationStep is redeclared here:
+  // the persisted model doesn't depend on a service module's shape.
+  transitStops?: TransitStop[];
+}
+
+export interface TransitStop {
+  name: string;
+  lat: number;
+  lng: number;
+  kind: "board" | "alight";
 }
 
 // Phase 22 — one turn within a leg. Mirrors routesService's

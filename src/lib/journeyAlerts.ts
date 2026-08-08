@@ -18,6 +18,7 @@ import { classifyWeather } from "./weather";
 import { WARM_OUTDOOR_C } from "./recommend";
 import type { EnvironmentAnnotation, JourneyLeg } from "../types";
 import type { JourneyProgress } from "./journeyProgress";
+import { formatDuration } from "./formatDuration";
 
 // ---- Named thresholds — tune these, don't touch control flow below ----
 
@@ -61,7 +62,9 @@ function minutesUntilLeg(legs: JourneyLeg[], progress: JourneyProgress, targetIn
 function inMinutes(minutes: number): string {
   const rounded = Math.round(minutes);
   if (rounded <= 1) return "now";
-  return `in ${rounded} min`;
+  // "in 373 min" is not a lead time anyone can act on — an overnight journey
+  // waiting for the first morning service produces exactly that.
+  return `in ${formatDuration(rounded)}`;
 }
 
 /**
@@ -229,5 +232,9 @@ export function topAlert(alerts: JourneyAlert[]): JourneyAlert | null {
 // it for the user.
 function legShortLabel(leg: JourneyLeg): string {
   const match = /\b(?:to|at|for)\s+(.+)$/i.exec(leg.label);
-  return match ? match[1] : leg.label;
+  const tail = match ? match[1] : leg.label;
+  // Every caller reads "on the <this> leg", so a label that already starts
+  // with an article stutters: "Waiting for the 15" became "on the the 15
+  // leg". The article belongs to the sentence, not to the fragment.
+  return tail.replace(/^(?:the|a|an)\s+/i, "");
 }

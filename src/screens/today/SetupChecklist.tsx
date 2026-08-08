@@ -48,6 +48,7 @@ export default function SetupChecklist() {
   const [hasGear, setHasGear] = useState(true);
   const [notificationsGranted, setNotificationsGranted] = useState(true);
   const [loaded, setLoaded] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -125,8 +126,29 @@ export default function SetupChecklist() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Get more personalized results</Text>
-      {visible.map((task) => (
+      {/* Same disclosure idiom as LocationDetail's "Location & preferences"
+          row and Settings' threshold overrides, and collapsed by default for
+          the same reason: Today's job is what the weather is doing right now,
+          and a stack of setup prompts sitting above that pushes the actual
+          answer down the screen every visit. The count stays in the header so
+          collapsed doesn't mean hidden — you can still see there's something
+          in there without it costing you the fold. */}
+      <Pressable
+        onPress={() => setOpen((v) => !v)}
+        style={styles.disclosureRow}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={
+          open
+            ? "Hide suggestions to personalize"
+            : `Show ${visible.length} suggestion${visible.length === 1 ? "" : "s"} to personalize`
+        }
+      >
+        <Text style={styles.heading}>
+          {open ? "▾" : "▸"} Suggestions to personalize ({visible.length})
+        </Text>
+      </Pressable>
+      {open && visible.map((task) => (
         <View key={task.id} style={styles.card}>
           <View style={styles.textCol}>
             <Text style={styles.title}>{task.title}</Text>
@@ -154,7 +176,8 @@ export default function SetupChecklist() {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { gap: SPACING.sm, marginBottom: SPACING.lg },
-    heading: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary, marginBottom: 2 },
+    disclosureRow: { minHeight: 44, justifyContent: "center" },
+    heading: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
     card: {
       padding: SPACING.lg,
       borderRadius: RADIUS.card,

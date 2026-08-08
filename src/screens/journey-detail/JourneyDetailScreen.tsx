@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/types";
@@ -10,6 +10,15 @@ import { getAnnotationAlertMode, type AnnotationAlertMode } from "../../db/repos
 import { applyAnnotationsToLegs, decodePolyline } from "../../lib/annotations";
 import { useJourneyProgress } from "../../lib/useJourneyProgress";
 import { splitPath } from "../../lib/journeyProgress";
+import {
+  bearingBetween,
+  CONDITION_MARKER_OFFSET_M,
+  CONDITION_MARKER_STOP_CLEARANCE_M,
+  metersBetween,
+  MIN_CONDITION_MARKER_SPACING_M,
+  offsetMeters,
+  thinBySpacing,
+} from "../../lib/mapGeometry";
 import {
   annotationAlerts,
   gearTimingAlerts,
@@ -26,12 +35,14 @@ import { checkForecastDrift } from "../../lib/forecastDrift";
 import { dominantMode } from "../../lib/journeyMode";
 import { classifyWeather } from "../../lib/weather";
 import { formatTime } from "../../lib/formatTime";
+import { formatDuration } from "../../lib/formatDuration";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import JourneyMap, {
   type ConditionMarker,
   type MapAnnotation,
   type MapCircle,
   type MapFollowMode,
+  type MapTransitStop,
   type MapUserPuck,
 } from "../../components/JourneyMap";
 import type { ModeIconKind } from "../../components/modeIconPaths";
@@ -41,6 +52,9 @@ import GearRecommendationCard from "./GearRecommendationCard";
 import JourneySummary from "./JourneySummary";
 import LegRow, { type LegState } from "./LegRow";
 import StepList from "./StepList";
+import JourneyDirections from "./JourneyDirections";
+import FullScreenMapModal from "./FullScreenMapModal";
+import BottomSheet from "../../components/BottomSheet";
 import ScreenSurface from "../../components/ScreenSurface";
 import ActionIcon from "../../components/ActionIcon";
 import AppButton from "../../components/AppButton";
@@ -82,7 +96,10 @@ function journeyStatusLine(tracking: ReturnType<typeof useJourneyProgress>): str
   if (tracking.status === "denied") return "Location is off — the route below still works";
   if (tracking.untrackable) return "No mapped route to follow for this journey";
   if (tracking.status === "requesting" || !tracking.progress) return "Finding you…";
-  if (tracking.progress.isOffRoute) return "Looks like you're off the route";
+  // Off-route is deliberately *not* reported here. The banner directly below
+  // this bar already says it, in stronger terms and with the Re-plan action
+  // attached — two lines of chrome saying the same thing, one of which you
+  // can't act on, is how a screen stops being read.
   return "Following your journey";
 }
 
@@ -92,28 +109,62 @@ function formatDate(iso: string): string {
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// §9.3 item 1 — one marker per outdoor leg with weather, at its polyline's
-// midpoint, colored/labeled from classifyWeather() via the active theme's
-// condition* tokens (§9.1). Legs without a polyline (or without weather —
-// Section 5.1's "conditions unknown" degrade) simply contribute no marker,
-// same "omit, don't placeholder" pattern used elsewhere in this screen.
-function conditionMarkersFor(legs: JourneyLeg[], theme: ReturnType<typeof useTheme>): ConditionMarker[] {
-  return legs.flatMap((leg) => {
+// §9.3 item 1 — the weather along the route, colored/labeled from
+// classifyWeather() via the active theme's condition* tokens (§9.1). Legs
+// without a polyline (or without weather — §5.1's "conditions unknown"
+// degrade) contribute no marker, same "omit, don't placeholder" pattern used
+// elsewhere in this screen.
+//
+// Three rules, all of them about legibility rather than data — the legs are
+// still each individually weathered and the list below the map still shows
+// every one of them:
+//
+//  1. One per suburb, or per change in the weather. A routed walk is one leg
+//     *per turn*, so a walk across town produced a dozen pucks a block apart
+//     all saying the same thing. thinBySpacing() collapses them at
+//     suburb-scale spacing, keyed on the condition so a clear→rain crossing
+//     always survives however close it falls.
+//  2. Never on top of a transit stop. Where to get on the bus beats what the
+//     sky is doing, and near a stop the puck is redundant anyway.
+//  3. Offset perpendicular to the route rather than centred on it, so the
+//     pucks sit beside the line they describe instead of covering it. Right
+//     of the direction of travel, consistently, so they read as a ribbon
+//     alongside the route rather than a scatter.
+function conditionMarkersFor(
+  legs: JourneyLeg[],
+  theme: ReturnType<typeof useTheme>,
+  stopPoints: { lat: number; lng: number }[]
+): ConditionMarker[] {
+  const all = legs.flatMap((leg) => {
     if (!leg.outdoor || !leg.weather || !leg.polyline) return [];
     const points = decodePolyline(leg.polyline);
     if (points.length === 0) return [];
-    const mid = points[Math.floor(points.length / 2)];
+    const midIndex = Math.floor(points.length / 2);
+    const mid = points[midIndex];
+    // The route's own direction at this point, taken across the midpoint so a
+    // single sharp turn doesn't decide which side the puck lands on. A leg
+    // with one point has no direction; it gets no offset.
+    const before = points[Math.max(0, midIndex - 1)];
+    const after = points[Math.min(points.length - 1, midIndex + 1)];
+    const heading = before === after ? undefined : bearingBetween(before, after);
+    const placed = heading === undefined ? mid : offsetMeters(mid, heading + 90, CONDITION_MARKER_OFFSET_M);
     const condition = classifyWeather(leg.weather.weatherCode, leg.weather.precipMm, leg.weather.windKph);
     return [
       {
-        lat: mid.lat,
-        lng: mid.lng,
+        lat: placed.lat,
+        lng: placed.lng,
         color: conditionColorForSeverity(theme, condition.severity),
         emoji: condition.icon,
         label: `${leg.label}, ${condition.label}, ${Math.round(leg.weather.tempC)} degrees`,
       },
     ];
   });
+
+  const thinned = thinBySpacing(all, MIN_CONDITION_MARKER_SPACING_M, (m) => `${m.emoji}:${m.color}`);
+  if (stopPoints.length === 0) return thinned;
+  return thinned.filter((marker) =>
+    stopPoints.every((stop) => metersBetween(marker, stop) > CONDITION_MARKER_STOP_CLEARANCE_M)
+  );
 }
 
 export default function JourneyDetailScreen({ route, navigation }: Props) {
@@ -129,6 +180,11 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
   // affected radius previewed live on the map underneath.
   const [annotationCoordinate, setAnnotationCoordinate] = useState<{ lat: number; lng: number } | null>(null);
   const [previewCircle, setPreviewCircle] = useState<MapCircle | null>(null);
+  // The map, given the whole screen with the turns floating over it — see
+  // FullScreenMapModal. Available whether or not a journey is being followed:
+  // it's most useful mid-walk, but "let me actually see this route" is a
+  // reasonable thing to want of a 280pt map at any time.
+  const [mapExpanded, setMapExpanded] = useState(false);
   // §4.5 — all saved local-knowledge spots, shown on the map as badges so
   // the user can see them alongside the route (not only the one being added).
   const [annotations, setAnnotations] = useState<EnvironmentAnnotation[]>([]);
@@ -284,7 +340,27 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
   // combined line still reads as continuous rather than broken.
   const routePath = journey.legs.flatMap((leg) => (leg.polyline ? decodePolyline(leg.polyline) : []));
   const accentColor = modeAccent(dominantMode(journey.legs), theme);
-  const conditionMarkers = conditionMarkersFor(journey.legs, theme);
+  // Every board/alight point on the journey's transit legs. Unthinned, unlike
+  // the condition badges: there are at most a handful even on a multi-transfer
+  // trip, and each one is a distinct instruction rather than a repeat of the
+  // one before it. Each carries its leg's mode, so the marker shows a bus or a
+  // train rather than leaving you to work out which one you're waiting for.
+  const transitStopMarkers: MapTransitStop[] = journey.legs.flatMap((leg) =>
+    (leg.transitStops ?? []).map((stop) => ({
+      lat: stop.lat,
+      lng: stop.lng,
+      kind: stop.kind,
+      mode: leg.mode === "train" ? ("train" as const) : ("bus" as const),
+      color: theme.accentTransit,
+      label:
+        stop.kind === "board"
+          ? `Board the ${leg.mode === "train" ? "train" : "bus"} at ${stop.name}`
+          : `Get off at ${stop.name}`,
+    }))
+  );
+  // Computed after the stops, because it has to know where they are to stay
+  // out of their way.
+  const conditionMarkers = conditionMarkersFor(journey.legs, theme, transitStopMarkers);
   const annotationMarkers: MapAnnotation[] = annotations.map((a) => ({
     lat: a.lat,
     lng: a.lng,
@@ -491,43 +567,78 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
     }
   }
 
+  // "Zoom to me and keep the map there." One handler for both maps, and it
+  // covers the two states the control has: mid-journey it just re-locks the
+  // camera that a pan let go of; before departure it *starts* the tracking
+  // that gives the camera something to lock to, which is the only way a
+  // recentre button can mean anything on a journey you haven't set off on.
+  //
+  // Withheld entirely when there's no route to follow (tracking.untrackable)
+  // or location is off — a control that can only fail isn't worth offering.
+  const canRecentre = !tracking.untrackable && tracking.status !== "denied" && !route.params.readOnly;
+  function recentreOnMe() {
+    if (!journeyMode) setJourneyMode(true);
+    setCameraLocked(true);
+  }
+
+  // One set of map props, rendered twice — embedded here and again inside the
+  // full-screen modal. Spread rather than duplicated so the two can't drift
+  // into showing different markers for the same journey.
+  const mapProps = {
+    stops,
+    routePath,
+    accentColor,
+    // The origin marker carries the mode you're travelling by (the same glyph
+    // the live puck uses), so "where I set off" and "what I'm on" are one
+    // marker rather than a generic place-pin.
+    originMode: dominantMode(journey.legs),
+    onLongPress: openAnnotationSheet,
+    previewCircle,
+    conditionMarkers,
+    transitStops: transitStopMarkers,
+    annotations: annotationMarkers,
+    previewColor: theme.annotationPin,
+    traveledPath: traveled,
+    remainingPath: remaining,
+    userPuck,
+    followMode,
+    onUserPan: () => setCameraLocked(false),
+  };
+
   return (
     <ScreenSurface>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={[styles.mapContainer, following && styles.mapContainerJourney]}>
-          <JourneyMap
-            stops={stops}
-            routePath={routePath}
-            accentColor={accentColor}
-            // The origin marker carries the mode you're travelling by (the
-            // same glyph the live puck uses), so "where I set off" and "what
-            // I'm on" are one marker rather than a generic place-pin.
-            originMode={dominantMode(journey.legs)}
-            onLongPress={openAnnotationSheet}
-            previewCircle={previewCircle}
-            conditionMarkers={conditionMarkers}
-            annotations={annotationMarkers}
-            previewColor={theme.annotationPin}
-            traveledPath={traveled}
-            remainingPath={remaining}
-            userPuck={userPuck}
-            followMode={followMode}
-            onUserPan={() => setCameraLocked(false)}
-          />
+          <JourneyMap {...mapProps} />
           {/* Re-locking the camera is the one control that has to sit on the
-              map itself — it's about the map's own state, and it appears
-              exactly when the user has panned away from the puck. */}
-          {following && !cameraLocked && (
+              map itself — it's about the map's own state. Same handler as the
+              full-screen map's, so the two can't disagree about what the
+              button does: mid-journey it re-locks after a pan, and before
+              departure it starts following in the first place. */}
+          {canRecentre && !(following && cameraLocked) && (
             <Pressable
-              onPress={() => setCameraLocked(true)}
+              onPress={recentreOnMe}
               style={styles.recenterChip}
               accessibilityRole="button"
-              accessibilityLabel="Re-centre the map on your location"
+              accessibilityLabel={
+                following ? "Re-centre the map on your location" : "Follow your location on the map"
+              }
             >
               <ActionIcon kind="crosshair" size={15} color={theme.textPrimary} />
-              <Text style={styles.recenterChipLabel}>Re-centre</Text>
+              <Text style={styles.recenterChipLabel}>{following ? "Re-centre" : "Follow me"}</Text>
             </Pressable>
           )}
+          {/* Top-right, clear of the re-centre chip below it and of the
+              "hold to mark a spot" hint in the opposite corner. */}
+          <Pressable
+            onPress={() => setMapExpanded(true)}
+            style={styles.expandChip}
+            accessibilityRole="button"
+            accessibilityLabel="Open the map full screen with directions"
+          >
+            <ActionIcon kind="expand" size={15} color={theme.textPrimary} />
+            <Text style={styles.recenterChipLabel}>Full screen</Text>
+          </Pressable>
         </View>
 
         {following && (
@@ -538,7 +649,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
               {progress && (
                 <Text style={styles.journeyBarEta}>
                   Arrive {formatTime(new Date(progress.etaMs).toISOString(), hour12)} ·{" "}
-                  {Math.max(1, Math.round(progress.remainingMin))} min left
+                  {formatDuration(progress.remainingMin)} left
                 </Text>
               )}
               <Text style={styles.journeyBarStatus}>{journeyStatusLine(tracking)}</Text>
@@ -720,7 +831,11 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
           )}
 
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Step by step</Text>
+            {/* "Route", not "Step by step": the turn-by-turn instructions are
+                the "Directions" list below, and two sections both calling
+                themselves steps was the reason it wasn't obvious which one
+                held what. */}
+            <Text style={styles.sectionLabel}>Route</Text>
             {/* Phase 22 — finished legs fold away so the leg you're on is the
                 one you see. §9.6 requires the list to stay a complete summary
                 of the journey with nothing hidden behind an unlabelled
@@ -744,29 +859,38 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
                 </Text>
               </Pressable>
             )}
-            {journey.legs.map((leg, i) => {
-              const state = legStateFor(i);
-              if (state === "completed" && !showCompletedLegs) return null;
-              return (
-                <View key={leg.id}>
+            {/* One surface for the whole itinerary, so the timeline rail
+                running through the rows is unbroken. Boxing each leg again
+                would cut the thread the rail exists to draw. */}
+            <View style={styles.timeline}>
+              {(() => {
+                const shown = journey.legs
+                  .map((leg, i) => ({ leg, state: legStateFor(i) }))
+                  .filter((entry) => entry.state !== "completed" || showCompletedLegs);
+                return shown.map(({ leg, state }, i) => (
                   <LegRow
+                    key={leg.id}
                     leg={leg}
                     state={state}
+                    isFirst={i === 0}
+                    isLast={i === shown.length - 1}
                     progressFraction={progress?.currentLegFraction}
                     remainingMin={
                       state === "current" && progress ? leg.durationMin * (1 - progress.currentLegFraction) : undefined
                     }
                   />
-                  {/* The turns within this leg, on a journey you're reading
-                      rather than walking. While following, the current leg's
-                      steps are already pinned under the map (with the next
-                      one highlighted), so repeating every turn here would be
-                      a second copy of the same instructions. */}
-                  {!following && leg.steps && leg.steps.length > 0 && <StepList steps={leg.steps} nested />}
-                </View>
-              );
-            })}
+                ));
+              })()}
+            </View>
           </View>
+
+          {/* One directions list for the whole journey, below the leg list
+              rather than a separate disclosure hanging off each walking leg.
+              Absent while following, where the current leg's next turns are
+              already pinned under the map with the next one highlighted —
+              repeating every turn of every leg here would be a second copy of
+              the same instructions, and a longer one. */}
+          {!following && <JourneyDirections legs={journey.legs} />}
 
           {/* The prompt now sits above the footer actions rather than below
               "Delete journey," which put the one thing the app is asking the
@@ -841,27 +965,44 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
         </View>
       </ScrollView>
 
-      <Modal
-        visible={annotationCoordinate !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={closeAnnotationSheet}
+      <FullScreenMapModal
+        visible={mapExpanded}
+        onClose={() => setMapExpanded(false)}
+        journey={journey}
+        totalDurationMin={totalDurationMin}
+        following={following}
+        currentLegIndex={progress?.currentLegIndex}
+        currentLegFraction={progress?.currentLegFraction}
+        etaMs={progress?.etaMs}
+        remainingMin={progress?.remainingMin}
+        onRecentre={canRecentre ? recentreOnMe : undefined}
+        cameraLocked={following && cameraLocked}
       >
-        <View style={styles.sheetBackdrop}>
-          <Pressable style={styles.sheetDismissArea} onPress={closeAnnotationSheet} />
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Mark this spot</Text>
-            {annotationCoordinate && (
-              <AnnotationForm
-                initialCoordinate={annotationCoordinate}
-                onSave={saveAnnotation}
-                onCancel={closeAnnotationSheet}
-                onPreviewChange={setPreviewCircle}
-              />
-            )}
-          </View>
-        </View>
-      </Modal>
+        {/* Long-press annotation capture is deliberately not passed through:
+            the sheet it opens can't render over a full-screen modal on
+            either platform, and marking a spot is a planning action, not one
+            you take with the map filling the screen mid-walk. */}
+        <JourneyMap {...mapProps} onLongPress={undefined} />
+      </FullScreenMapModal>
+
+      {/* Not `padded`: AnnotationForm scrolls and brings its own container
+          padding, and doubling it strands the save button off the bottom. */}
+      <BottomSheet
+        visible={annotationCoordinate !== null}
+        onClose={closeAnnotationSheet}
+        closeLabel="Cancel marking this spot"
+        padded={false}
+      >
+        <Text style={styles.sheetTitle}>Mark this spot</Text>
+        {annotationCoordinate && (
+          <AnnotationForm
+            initialCoordinate={annotationCoordinate}
+            onSave={saveAnnotation}
+            onCancel={closeAnnotationSheet}
+            onPreviewChange={setPreviewCircle}
+          />
+        )}
+      </BottomSheet>
     </ScreenSurface>
   );
 }
@@ -877,6 +1018,16 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // margin and one vertical rhythm for the lot.
     body: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.xxl * 2, gap: SPACING.lg },
     section: { gap: SPACING.sm },
+    timeline: {
+      paddingTop: SPACING.lg,
+      paddingHorizontal: SPACING.md,
+      // The last row's own bottom padding is the rail's run-off, so the
+      // surface stops short of it rather than adding a second gap.
+      paddingBottom: 0,
+      borderRadius: RADIUS.card,
+      backgroundColor: theme.surface,
+      ...cardElevationStyle(theme),
+    },
     sectionLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
     footerActions: { gap: SPACING.sm, marginTop: SPACING.sm },
     content: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
@@ -904,6 +1055,25 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       ...cardElevationStyle(theme),
     },
     recenterChipLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
+    // Same chip as re-centre, opposite corner. `zIndex` is what keeps it
+    // above Leaflet's own control panes on the web build (400–1000).
+    expandChip: {
+      position: "absolute",
+      right: 12,
+      top: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      minHeight: 44,
+      borderRadius: RADIUS.circle,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      zIndex: 1200,
+      ...cardElevationStyle(theme),
+    },
     journeyBar: {
       flexDirection: "row",
       alignItems: "center",
@@ -982,17 +1152,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     feedbackLabel: { ...TYPE.micro, textAlign: "center", color: theme.textPrimary },
     calibrationToast: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.pill, backgroundColor: theme.surfaceRaised },
     calibrationToastText: { ...TYPE.caption, color: theme.textPrimary },
-    sheetBackdrop: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.35)" },
-    sheetDismissArea: { flex: 1 },
-    sheet: {
-      maxHeight: "75%",
-      backgroundColor: theme.surfaceRaised,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      paddingTop: 12,
-      borderWidth: theme.surfaceRaisedBorder === "transparent" ? 0 : 1,
-      borderColor: theme.surfaceRaisedBorder,
-    },
+    // Sheet chrome lives in BottomSheet; this is just its heading.
     sheetTitle: { ...TYPE.subtitle, textAlign: "center", color: theme.textPrimary },
   });
 }

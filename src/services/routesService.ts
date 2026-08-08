@@ -12,6 +12,7 @@
 // backend) before wide release. That hardening is explicitly Phase 12
 // scope, not something to half-do here.
 import { getDevOverrides } from "../lib/devOverrides";
+import { decodePolyline, encodePolyline } from "../lib/annotations";
 import type { ServiceResult } from "./types";
 
 export type RouteTravelMode = "walk" | "drive" | "bus" | "train" | "cycle";
@@ -26,6 +27,18 @@ export interface RouteNavigationStep {
   distanceM: number;
   durationMin: number;
   polyline: string;
+}
+
+// A boarding or alighting point on a transit step, with the coordinates
+// Google already returns for it. Kept as route data rather than left to the
+// basemap: Google's and CARTO's own station pucks only appear at high zoom,
+// so on a map framed to the whole commute the two moments that actually
+// matter — where you get on, where you get off — were invisible.
+export interface RouteTransitStop {
+  name: string;
+  lat: number;
+  lng: number;
+  kind: "board" | "alight";
 }
 
 export interface RouteStep {
@@ -49,6 +62,8 @@ export interface RouteStep {
   // instructions (and on every journey planned before Phase 22 shipped), so
   // every consumer has to treat it as optional.
   steps?: RouteNavigationStep[];
+  /** Where this transit step boards and alights. Transit steps only. */
+  transitStops?: RouteTransitStop[];
 }
 
 export interface RoutePoint {
@@ -95,6 +110,7 @@ interface GooglePolyline {
 }
 interface GoogleTransitStop {
   name?: string;
+  location?: { latLng?: { latitude?: number; longitude?: number } };
 }
 interface GoogleTransitDetails {
   stopDetails?: {
@@ -147,6 +163,24 @@ function toNavigationSteps(steps: GoogleRouteStep[] | undefined): RouteNavigatio
   return mapped.length > 0 ? mapped : undefined;
 }
 
+// The board/alight points of one TRANSIT step. Google gives each stop a
+// `location` alongside its name (already inside the `transitDetails` subtree
+// the field mask requests, so this costs no extra fields), but a stop with no
+// usable coordinate is dropped rather than pinned at Null Island.
+function toTransitStops(details: GoogleTransitDetails): RouteTransitStop[] | undefined {
+  const pairs: { stop: GoogleTransitStop | undefined; kind: "board" | "alight" }[] = [
+    { stop: details.stopDetails?.departureStop, kind: "board" },
+    { stop: details.stopDetails?.arrivalStop, kind: "alight" },
+  ];
+  const stops = pairs.flatMap(({ stop, kind }) => {
+    const lat = stop?.location?.latLng?.latitude;
+    const lng = stop?.location?.latLng?.longitude;
+    if (typeof lat !== "number" || typeof lng !== "number" || !Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+    return [{ name: stop?.name ?? (kind === "board" ? "Stop" : "Destination stop"), lat, lng, kind }];
+  });
+  return stops.length > 0 ? stops : undefined;
+}
+
 // WALK/BICYCLE/DRIVE: one Google "leg" per hop between consecutive stops
 // (origin→wp1, wp1→wp2, …, wpN→destination) — maps 1:1 onto our per-hop
 // leg model, no further expansion needed.
@@ -162,11 +196,38 @@ function parseSimpleLegs(route: GoogleRoute, params: ComputeRouteParams): RouteS
   }));
 }
 
+// Where a run of walking actually takes you: the stop the next ride leaves
+// from, or — if there's no ride after it — the journey's destination. Google
+// names neither, so without this every walk in a transit journey was labelled
+// "Walk to stop", and a journey with three of them said it three times.
+function walkDestinationName(
+  steps: GoogleRouteStep[],
+  fromIndex: number,
+  params: ComputeRouteParams
+): string | undefined {
+  for (let i = fromIndex; i < steps.length; i++) {
+    if (steps[i].travelMode === "TRANSIT") {
+      return steps[i].transitDetails?.stopDetails?.departureStop?.name;
+    }
+  }
+  // Nothing but walking left — this is the last stretch, so it ends where the
+  // journey does.
+  return params.destination.label;
+}
+
 // TRANSIT: Google returns one leg with a flat steps[] mixing WALK and
 // TRANSIT sub-segments — expanded into our walk/wait/transit leg triple
 // per hop. A wait step is only synthesized when Google's own scheduled
 // departure time leaves a gap after our running cursor; otherwise the
 // transit step follows immediately with no separate wait leg.
+//
+// Consecutive WALK steps are merged into a single leg. Google splits one
+// continuous walk into several steps whenever the geometry changes — a real
+// journey came back with six in a row, which the app rendered as six
+// identical "Walk to stop" rows for what is, to the person walking it, one
+// walk. They're one leg with one label, the summed duration, the joined
+// geometry, and every turn instruction from all of them (which is what makes
+// the directions list right, since those turns are the walk's actual detail).
 function parseTransitSteps(route: GoogleRoute, params: ComputeRouteParams): RouteStep[] {
   const steps = route.legs?.[0]?.steps ?? [];
   const result: RouteStep[] = [];
@@ -192,36 +253,49 @@ function parseTransitSteps(route: GoogleRoute, params: ComputeRouteParams): Rout
     cursorMs = firstTransitDepartMs - leadingWalkSeconds * 1000;
   }
 
-  steps.forEach((step, i) => {
-    const durationSeconds = parseDurationSeconds(step.staticDuration);
+  let i = 0;
+  while (i < steps.length) {
+    const step = steps[i];
 
     if (step.travelMode === "WALK") {
-      // Name the stop when the very next step is the transit leg it leads
-      // into — reads far better than a bare "Walk to stop" when we already
-      // know exactly which stop that is.
-      const nextTransit = steps[i + 1];
-      const walkTargetName =
-        nextTransit?.travelMode === "TRANSIT" ? nextTransit.transitDetails?.stopDetails?.departureStop?.name : undefined;
+      // Swallow the whole run of walking, not just this step.
+      const run: GoogleRouteStep[] = [];
+      while (i < steps.length && steps[i].travelMode === "WALK") {
+        run.push(steps[i]);
+        i += 1;
+      }
+      const durationSeconds = run.reduce((sum, s) => sum + parseDurationSeconds(s.staticDuration), 0);
+      // Decoded and re-encoded rather than string-concatenated: an encoded
+      // polyline is delta-encoded against its predecessor, so joining two of
+      // them as text puts the second half somewhere off the coast.
+      const points = run.flatMap((s) => decodePolyline(s.polyline?.encodedPolyline ?? ""));
+      const target = walkDestinationName(steps, i, params);
       result.push({
         mode: "walk",
-        label: walkTargetName ? `Walk to ${walkTargetName}` : "Walk to stop",
+        label: target ? `Walk to ${target}` : "Walk to your stop",
         durationMin: toMinutes(durationSeconds),
-        polyline: step.polyline?.encodedPolyline ?? "",
-        // A transit response's WALK step carries its own single
-        // instruction rather than a nested list, so it becomes a one-step
-        // leg where Google gave us text for it.
-        steps: toNavigationSteps([step]),
+        polyline: points.length > 0 ? encodePolyline(points) : "",
+        steps: toNavigationSteps(run),
       });
       cursorMs += durationSeconds * 1000;
-      return;
+      continue;
     }
+
+    i += 1;
+    const durationSeconds = parseDurationSeconds(step.staticDuration);
 
     if (step.travelMode === "TRANSIT" && step.transitDetails) {
       const vehicleType = step.transitDetails.transitLine?.vehicle?.type ?? "BUS";
       const mode: RouteTravelMode = vehicleType === "BUS" ? "bus" : "train";
       const departureIso = step.transitDetails.stopDetails?.departureTime;
       const arrivalStopName = step.transitDetails.stopDetails?.arrivalStop?.name ?? params.destination.label;
-      const routeName = step.transitDetails.transitLine?.nameShort ?? step.transitDetails.transitLine?.name;
+      // Buses are known by their route number, which is what `nameShort`
+      // holds ("15"). Trains are known by their line name — and AT's
+      // `nameShort` for those is a bare code ("WEST"), which rendered as
+      // "Waiting for the West" as though West were a place. Full name first
+      // for rail, short code first for road.
+      const line = step.transitDetails.transitLine;
+      const routeName = mode === "bus" ? (line?.nameShort ?? line?.name) : (line?.name ?? line?.nameShort);
 
       if (departureIso) {
         const departureMs = new Date(departureIso).getTime();
@@ -247,10 +321,11 @@ function parseTransitSteps(route: GoogleRoute, params: ComputeRouteParams): Rout
         routeId: routeName,
         stopId: step.transitDetails.stopDetails?.departureStop?.name,
         scheduledDepartTime: departureIso,
+        transitStops: toTransitStops(step.transitDetails),
       });
       cursorMs += durationSeconds * 1000;
     }
-  });
+  }
 
   return result;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { autocompletePlaces, getPlaceLocation, hasPlacesApiKey, newSessionToken, type PlaceSuggestion } from "../services/placesService";
 import type { ServiceError } from "../services/types";
@@ -25,9 +25,41 @@ interface Props {
   onChangeText: (text: string) => void;
   onSelectPlace: (result: { address: string; lat: number; lng: number }) => void;
   placeholder?: string;
+  /**
+   * Take the caret on mount.
+   *
+   * Set by anything that opens *in order to be typed into* — a picker sheet
+   * whose whole content is this field. Without it, opening the sheet and
+   * then clicking its input are two separate clicks to do one thing.
+   */
+  autoFocus?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  /** Select the existing text on focus, so the first keystroke replaces it
+   *  instead of appending to it. */
+  selectTextOnFocus?: boolean;
+  /**
+   * Rows to show above the Places results, in the same dropdown.
+   *
+   * The web picker puts the user's saved locations here, so "somewhere I've
+   * saved" and "anywhere else" are one list under one input rather than two
+   * separate things to aim at. Present rows keep the dropdown open even with
+   * no Places suggestions yet.
+   */
+  extraRows?: ReactNode;
 }
 
-export default function AddressAutocomplete({ value, onChangeText, onSelectPlace, placeholder }: Props) {
+export default function AddressAutocomplete({
+  value,
+  onChangeText,
+  onSelectPlace,
+  placeholder,
+  autoFocus = false,
+  onFocus,
+  onBlur,
+  selectTextOnFocus = false,
+  extraRows,
+}: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -106,11 +138,16 @@ export default function AddressAutocomplete({ value, onChangeText, onSelectPlace
           onChangeText={handleChangeText}
           placeholder={placeholder ?? "Start typing an address…"}
           placeholderTextColor={theme.textSecondary}
+          autoFocus={autoFocus}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          selectTextOnFocus={selectTextOnFocus}
         />
         {(searching || resolving) && <ActivityIndicator size="small" color={theme.textSecondary} style={styles.spinner} />}
       </View>
-      {suggestions.length > 0 && (
+      {(extraRows || suggestions.length > 0) && (
         <View style={styles.dropdown}>
+          {extraRows}
           {suggestions.map((s) => (
             <Pressable key={s.placeId} onPress={() => selectSuggestion(s)} style={styles.suggestion}>
               <Text style={styles.suggestionPrimary}>{s.primaryText}</Text>

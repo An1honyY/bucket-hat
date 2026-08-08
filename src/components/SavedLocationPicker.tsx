@@ -1,12 +1,13 @@
 import { useCallback, useState } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { listLocations } from "../db/repositories/locations";
 import { newId } from "../db/rowMapping";
+import { shortAddressLabel } from "../lib/placeLabel";
 import AddressAutocomplete from "./AddressAutocomplete";
 import ActionIcon from "./ActionIcon";
+import BottomSheet from "./BottomSheet";
 import useTheme from "../theme/useTheme";
-import { CONTENT_MAX_WIDTH } from "../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../theme/typography";
 import type { SavedLocation } from "../types";
 
@@ -28,11 +29,6 @@ import type { SavedLocation } from "../types";
 // that 30-day route-reuse cache (a fresh id every time can't match a prior
 // plan) — an honest limitation of not having a stable saved identity, not
 // a bug.
-function shortLabel(address: string): string {
-  const first = address.split(",")[0]?.trim();
-  return first && first.length > 0 ? first : address;
-}
-
 interface Props {
   label: string;
   value: SavedLocation | undefined;
@@ -64,7 +60,7 @@ export default function SavedLocationPicker({ label, value, onChange, placeholde
   }
 
   function selectPlace(result: { address: string; lat: number; lng: number }) {
-    onChange({ id: newId(), label: shortLabel(result.address), address: result.address, lat: result.lat, lng: result.lng });
+    onChange({ id: newId(), label: shortAddressLabel(result.address), address: result.address, lat: result.lat, lng: result.lng });
     closeAndReset();
   }
 
@@ -88,44 +84,42 @@ export default function SavedLocationPicker({ label, value, onChange, placeholde
         <Text style={value ? styles.valueText : styles.placeholderText}>{value?.label ?? placeholder}</Text>
       </Pressable>
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={closeAndReset}>
-        <Pressable style={styles.backdrop} onPress={closeAndReset}>
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.sheetTitle}>{label}</Text>
-            <AddressAutocomplete
-              value={query}
-              onChangeText={setQuery}
-              onSelectPlace={selectPlace}
-              placeholder="Search saved places or type an address"
-            />
-            {filteredLocations.length === 0 ? (
-              <Text style={styles.empty}>
-                {locations.length === 0
-                  ? "No saved places yet — search for an address above, or add some in the Locations tab"
-                  : "No saved places match — search for an address above"}
-              </Text>
-            ) : (
-              <FlatList
-                data={filteredLocations}
-                keyExtractor={(item) => item.id}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => selectSaved(item)}
-                    style={styles.option}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.label}, ${item.address}${item.isFavorite ? ", favorite" : ""}`}
-                  >
-                    {item.isFavorite && <ActionIcon kind="star" size={14} color={theme.favoriteStar} filled />}
-                    <Text style={styles.optionLabel}>{item.label}</Text>
-                    <Text style={styles.optionAddress}>{item.address}</Text>
-                  </Pressable>
-                )}
-              />
+      <BottomSheet visible={open} onClose={closeAndReset} title={label} closeLabel={`Close ${label}`}>
+        {/* Focused on open: the sheet exists to be typed into, so opening it
+            and then tapping its one field is two taps to do one thing. */}
+        <AddressAutocomplete
+          value={query}
+          onChangeText={setQuery}
+          onSelectPlace={selectPlace}
+          placeholder="Search saved places or type an address"
+          autoFocus
+        />
+        {filteredLocations.length === 0 ? (
+          <Text style={styles.empty}>
+            {locations.length === 0
+              ? "No saved places yet — search for an address above, or add some in the Locations tab"
+              : "No saved places match — search for an address above"}
+          </Text>
+        ) : (
+          <FlatList
+            data={filteredLocations}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => selectSaved(item)}
+                style={styles.option}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.label}, ${item.address}${item.isFavorite ? ", favorite" : ""}`}
+              >
+                {item.isFavorite && <ActionIcon kind="star" size={14} color={theme.favoriteStar} filled />}
+                <Text style={styles.optionLabel}>{item.label}</Text>
+                <Text style={styles.optionAddress}>{item.address}</Text>
+              </Pressable>
             )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+          />
+        )}
+      </BottomSheet>
     </View>
   );
 }
@@ -136,19 +130,6 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     field: { borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44, justifyContent: "center" },
     valueText: { ...TYPE.body, color: theme.textPrimary },
     placeholderText: { ...TYPE.body, color: theme.textSecondary },
-    backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end", alignItems: "center" },
-    // Centred and capped, so on a wide viewport the sheet stays a sheet
-    // rather than a full-bleed strip across the bottom of the window.
-    sheet: {
-      width: "100%",
-      maxWidth: CONTENT_MAX_WIDTH,
-      backgroundColor: theme.surfaceRaised,
-      borderTopLeftRadius: RADIUS.card,
-      borderTopRightRadius: RADIUS.card,
-      padding: SPACING.xl,
-      maxHeight: "70%",
-    },
-    sheetTitle: { ...TYPE.subtitle, marginBottom: SPACING.md, color: theme.textPrimary },
     empty: { ...TYPE.body, color: theme.textSecondary, paddingVertical: SPACING.xl, textAlign: "center", lineHeight: 21 },
     option: { minHeight: 48, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: theme.border, flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap" },
     optionLabel: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },

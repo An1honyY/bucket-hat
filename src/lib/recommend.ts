@@ -5,6 +5,7 @@
 // and recentPrecipMm6h — exist from Phase 6's wiring in §5.5).
 import { clamp } from "./utils";
 import { acFeelsCold, classifyWeather, FEELS_LIKE_DIVERGENCE_C, getSeason, resolveWarmthOffset } from "./weather";
+import { formatDuration } from "./formatDuration";
 import type {
   AdvancedWarmthThresholds,
   CarryPreference,
@@ -461,8 +462,8 @@ export function recommendGear(
     envDelta += 1;
     notes.push(
       stationaryLegWindy
-        ? `${stationaryMinutes} min waiting in the wind — dressing warmer for it`
-        : `${stationaryMinutes} min waiting outdoors — dressing warmer for it`
+        ? `${formatDuration(stationaryMinutes)} waiting in the wind — dressing warmer for it`
+        : `${formatDuration(stationaryMinutes)} waiting outdoors — dressing warmer for it`
     );
   }
   warmthLevel = Math.max(0, Math.min(4, warmthLevel + envDelta)) as typeof warmthLevel;

@@ -1,11 +1,13 @@
 import { useCallback, useState } from "react";
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlanIntent, RootStackParamList } from "../../navigation/types";
 import { deleteSavedRoute, listSavedRoutes, touchSavedRoute, updateSavedRoute } from "../../db/repositories/savedRoutes";
 import { listLocations } from "../../db/repositories/locations";
 import { showAlert } from "../../lib/crossPlatformAlert";
+import { defaultRouteLabel } from "../../lib/placeLabel";
+import BottomSheet from "../../components/BottomSheet";
 import ScreenSurface from "../../components/ScreenSurface";
 import ActionIcon from "../../components/ActionIcon";
 import AppButton from "../../components/AppButton";
@@ -70,7 +72,7 @@ export default function SavedJourneysScreen() {
     const to = placeLabel(route.destinationId);
     if (!from || !to) return "A place on this trip has been deleted";
     const stops = route.waypointIds?.length ?? 0;
-    const line = `${from} → ${to}`;
+    const line = defaultRouteLabel(from, to);
     if (stops > 0) return `${line} · ${stops} stop${stops === 1 ? "" : "s"}`;
     // The default label *is* the route, so a journey that was never renamed
     // would otherwise print the same line twice. Fall back to the mode.
@@ -94,10 +96,23 @@ export default function SavedJourneysScreen() {
     reload();
   }
 
+  // The default label the route falls back to when it has no name of its
+  // own — the same one Plan gives a newly saved journey. Undefined only if a
+  // place on the trip has since been deleted, in which case there's nothing
+  // to derive a name from and the existing label has to stand.
+  function defaultLabelFor(route: SavedRoute): string | undefined {
+    const from = placeLabel(route.originId);
+    const to = placeLabel(route.destinationId);
+    return from && to ? defaultRouteLabel(from, to) : undefined;
+  }
+
+  // Clearing the field is a rename back to the default, not an invalid entry
+  // — the journey already has a perfectly good name in its two endpoints, so
+  // there's no reason to make the user keep one they've decided against.
   async function saveRename() {
     if (!renaming) return;
-    const label = draftLabel.trim();
-    if (label.length > 0) await updateSavedRoute({ ...renaming, label });
+    const label = draftLabel.trim() || defaultLabelFor(renaming);
+    if (label) await updateSavedRoute({ ...renaming, label });
     setRenaming(null);
     reload();
   }
@@ -202,68 +217,70 @@ export default function SavedJourneysScreen() {
       {/* Options for one saved journey. The three "use it" actions come
           first and in the order they're wanted: right now is the common
           case, a future time next, repeating last. */}
-      <Modal visible={active !== null} transparent animationType="slide" onRequestClose={() => setActive(null)}>
-        <View style={styles.sheetBackdrop}>
-          <Pressable style={styles.sheetDismissArea} onPress={() => setActive(null)} />
-          <View style={styles.sheet}>
-            {active && (
-              <>
-                <Text style={styles.sheetTitle}>{active.label}</Text>
-                <Text style={styles.sheetSubtitle}>{routeSubtitle(active)}</Text>
-                {isUsable(active) ? (
-                  <View style={styles.sheetActions}>
-                    <AppButton label="Leave now" onPress={() => use(active, "now")} />
-                    <AppButton label="Pick a time" variant="secondary" onPress={() => use(active, "schedule")} />
-                    <AppButton
-                      label={active.recurrence ? "Edit repeats" : "Set up repeats"}
-                      variant="secondary"
-                      onPress={() => use(active, "repeat")}
-                    />
-                  </View>
-                ) : (
-                  <Text style={styles.sheetNote}>
-                    Add the missing place back under Locations, or forget this journey and save a new one.
-                  </Text>
-                )}
-                <View style={styles.sheetFooter}>
-                  <AppButton
-                    label="Rename"
-                    variant="ghost"
-                    size="sm"
-                    onPress={() => {
-                      setDraftLabel(active.label);
-                      setRenaming(active);
-                      setActive(null);
-                    }}
-                  />
-                  <AppButton label="Forget this journey" variant="danger" size="sm" onPress={() => confirmDelete(active)} />
-                </View>
-              </>
+      <BottomSheet visible={active !== null} onClose={() => setActive(null)} closeLabel="Close journey options">
+        {active && (
+          <>
+            <Text style={styles.sheetTitle}>{active.label}</Text>
+            <Text style={styles.sheetSubtitle}>{routeSubtitle(active)}</Text>
+            {isUsable(active) ? (
+              <View style={styles.sheetActions}>
+                <AppButton label="Leave now" onPress={() => use(active, "now")} />
+                <AppButton label="Pick a time" variant="secondary" onPress={() => use(active, "schedule")} />
+                <AppButton
+                  label={active.recurrence ? "Edit repeats" : "Set up repeats"}
+                  variant="secondary"
+                  onPress={() => use(active, "repeat")}
+                />
+              </View>
+            ) : (
+              <Text style={styles.sheetNote}>
+                Add the missing place back under Locations, or forget this journey and save a new one.
+              </Text>
             )}
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={renaming !== null} transparent animationType="fade" onRequestClose={() => setRenaming(null)}>
-        <View style={styles.sheetBackdrop}>
-          <Pressable style={styles.sheetDismissArea} onPress={() => setRenaming(null)} />
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Rename</Text>
-            <TextInput
-              style={styles.input}
-              value={draftLabel}
-              onChangeText={setDraftLabel}
-              placeholder="Morning commute"
-              placeholderTextColor={theme.textSecondary}
-              autoFocus
-            />
-            <View style={styles.renameActions}>
-              <AppButton label="Cancel" variant="secondary" layout="inline" onPress={() => setRenaming(null)} />
-              <AppButton label="Save" layout="inline" disabled={draftLabel.trim().length === 0} onPress={saveRename} />
+            <View style={styles.sheetFooter}>
+              <AppButton
+                label="Rename"
+                variant="ghost"
+                size="sm"
+                onPress={() => {
+                  setDraftLabel(active.label);
+                  setRenaming(active);
+                  setActive(null);
+                }}
+              />
+              <AppButton label="Forget this journey" variant="danger" size="sm" onPress={() => confirmDelete(active)} />
             </View>
-          </View>
+          </>
+        )}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={renaming !== null}
+        onClose={() => setRenaming(null)}
+        title="Rename"
+        closeLabel="Cancel renaming"
+      >
+        <TextInput
+          style={styles.input}
+          value={draftLabel}
+          onChangeText={setDraftLabel}
+          placeholder={(renaming && defaultLabelFor(renaming)) ?? "Morning commute"}
+          placeholderTextColor={theme.textSecondary}
+          accessibilityLabel="Journey name, optional. Leave it empty to go back to the route"
+          autoFocus
+        />
+        <View style={styles.renameActions}>
+          <AppButton label="Cancel" variant="secondary" layout="inline" onPress={() => setRenaming(null)} />
+          <AppButton
+            label="Save"
+            layout="inline"
+            // Only blocked in the one case with no default to fall back
+            // on: an empty name for a route whose endpoints are gone.
+            disabled={draftLabel.trim().length === 0 && !(renaming && defaultLabelFor(renaming))}
+            onPress={saveRename}
+          />
         </View>
-      </Modal>
+      </BottomSheet>
     </ScreenSurface>
   );
 }
@@ -307,17 +324,8 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     rowMeta: { ...TYPE.caption, color: theme.textSecondary },
     repeatRow: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
     starButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-    sheetBackdrop: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.35)", justifyContent: "flex-end", alignItems: "center" },
-    sheetDismissArea: { flex: 1, alignSelf: "stretch" },
-    sheet: {
-      width: "100%",
-      maxWidth: CONTENT_MAX_WIDTH,
-      backgroundColor: theme.surfaceRaised,
-      borderTopLeftRadius: RADIUS.card,
-      borderTopRightRadius: RADIUS.card,
-      padding: SPACING.xl,
-      gap: SPACING.sm,
-    },
+    // The sheet's own chrome (backdrop, corners, width cap, keyboard inset)
+    // lives in BottomSheet now — only the contents are styled here.
     sheetTitle: { ...TYPE.subtitle, color: theme.textPrimary },
     sheetSubtitle: { ...TYPE.caption, color: theme.textSecondary },
     sheetNote: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18, marginTop: SPACING.sm },

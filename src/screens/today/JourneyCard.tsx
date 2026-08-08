@@ -3,7 +3,9 @@ import { useRecommendation } from "../../lib/useRecommendation";
 import { classifyWeather } from "../../lib/weather";
 import WeatherIcon, { weatherIconKindFor, type WeatherIconKind } from "../../components/WeatherIcon";
 import ActionIcon from "../../components/ActionIcon";
+import ModeIcon from "../../components/ModeIcon";
 import { formatTime } from "../../lib/formatTime";
+import { formatDuration, spokenDuration } from "../../lib/formatDuration";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle, type ThemeTokens } from "../../theme/tokens";
@@ -35,28 +37,41 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
   const departTime = formatTime(journey.departTime, hour12);
 
-  // §9.1 (2026-07-21) — per-leg chips (icon + temperature, or an "AC" pill
-  // for indoor legs) replace the old color-only dot strip, in the leg
-  // order they actually occur so the sequence reads as a mini timeline of
-  // the trip, not just an unordered condition summary.
-  const stages: ({ key: string; indoor: false; iconKind: WeatherIconKind; tempC: number } | { key: string; indoor: true })[] = journey.legs
-    .filter((l) => (l.outdoor && l.weather) || (!l.outdoor && l.climate))
-    .map((leg) =>
-      leg.outdoor && leg.weather
-        ? {
-            key: leg.id,
-            indoor: false,
-            iconKind: weatherIconKindFor(classifyWeather(leg.weather.weatherCode, leg.weather.precipMm, leg.weather.windKph)),
-            // Air temperature, matching the Right now card above it and the
-            // leg badges on Journey Detail. A chip is one number wide, so it
-            // can't caveat itself — and two cards on the same screen showing
-            // different temperatures for the same day is worse than either
-            // choice on its own. Journey Detail is where the feels-like gap
-            // gets stated, via recommendGear()'s note.
-            tempC: Math.round(leg.weather.tempC),
-          }
-        : { key: leg.id, indoor: true }
+  // A summary of the trip, not a transcript of it.
+  //
+  // This was one chip per leg, in order, as a mini timeline. That reads
+  // nicely for a three-leg commute and falls apart completely past about
+  // six: a real transit journey came back with fifteen legs, which wrapped
+  // to four rows of "12° → 12° → 12° → …" and pushed everything else off the
+  // card, all to say that it is twelve degrees the whole way.
+  //
+  // What a summary card owes the reader is the shape of the trip and
+  // anything that varies: how long it takes, which modes are involved, the
+  // temperature range, and the worst weather on the way. The per-leg detail
+  // is one tap away on Journey Detail, which is the screen built for it.
+  const outdoorLegs = journey.legs.filter((l) => l.outdoor && l.weather);
+  const temps = outdoorLegs.map((l) => Math.round(l.weather!.tempC));
+  const minTemp = temps.length > 0 ? Math.min(...temps) : undefined;
+  const maxTemp = temps.length > 0 ? Math.max(...temps) : undefined;
+  // The worst thing the weather does on this trip is the part worth a glance
+  // — a dry commute with one rainy leg is a rainy commute.
+  const worstCondition = outdoorLegs
+    .map((l) => classifyWeather(l.weather!.weatherCode, l.weather!.precipMm, l.weather!.windKph))
+    .reduce<ReturnType<typeof classifyWeather> | undefined>(
+      (worst, c) => (worst === undefined || c.severity > worst.severity ? c : worst),
+      undefined
     );
+  const worstIconKind: WeatherIconKind | undefined = worstCondition ? weatherIconKindFor(worstCondition) : undefined;
+  const tempRange =
+    minTemp === undefined ? undefined : minTemp === maxTemp ? `${minTemp}°` : `${minTemp}–${maxTemp}°`;
+  // Modes in the order they happen, de-duplicated — a bus trip that starts
+  // and ends on foot is "walk, bus", not "walk, bus, walk". Same rule the
+  // journey summary card on Journey Detail uses.
+  const modes = journey.legs
+    .filter((leg) => leg.outdoor && !leg.isStationary)
+    .map((leg) => leg.mode)
+    .filter((mode, i, all) => all.indexOf(mode) === i);
+  const totalMin = journey.legs.reduce((sum, leg) => sum + leg.durationMin, 0);
 
   // §9.6 — the per-leg chips below are still color-plus-icon-plus-number,
   // not color alone, but the full detail is also carried in words here so
@@ -66,6 +81,8 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
   const accessibilityLabel = [
     `${journey.origin.label} to ${journey.destination.label}`,
     `departs ${departTime}`,
+    spokenDuration(totalMin),
+    tempRange ? `${tempRange.replace("–", " to ")}, ${worstCondition?.label ?? ""}`.trim() : undefined,
     journey.recurrence ? "repeats" : undefined,
     journey.linkedReturnJourneyId ? "has a return trip" : undefined,
     topLabel,
@@ -98,25 +115,22 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
           <Text style={styles.time}>{departTime}</Text>
         </View>
 
-        {stages.length > 0 && (
-          <View style={styles.stagesRow}>
-            {stages.map((stage, i) => (
-              <View key={stage.key} style={styles.stageWrap}>
-                {i > 0 && <Text style={styles.stageSep}>→</Text>}
-                <View style={styles.stage}>
-                  {stage.indoor ? (
-                    <Text style={styles.stageText}>AC</Text>
-                  ) : (
-                    <>
-                      <WeatherIcon kind={stage.iconKind} size={11} color={theme.textSecondary} />
-                      <Text style={styles.stageText}>{stage.tempC}°</Text>
-                    </>
-                  )}
-                </View>
-              </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText}>{formatDuration(totalMin)}</Text>
+          {modes.length > 0 && <View style={styles.dot} />}
+          <View style={styles.modeRow}>
+            {modes.map((mode) => (
+              <ModeIcon key={mode} kind={mode} size={13} color={theme.textSecondary} />
             ))}
           </View>
-        )}
+          {tempRange && <View style={styles.dot} />}
+          {tempRange && worstIconKind && (
+            <View style={styles.weatherChip}>
+              <WeatherIcon kind={worstIconKind} size={12} color={theme.textSecondary} />
+              <Text style={styles.summaryText}>{tempRange}</Text>
+            </View>
+          )}
+        </View>
 
         <Text style={styles.topRecommendation}>{topLabel}</Text>
       </Pressable>
@@ -153,11 +167,13 @@ function getStyles(theme: ThemeTokens) {
     routeRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
     route: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary, flexShrink: 1 },
     time: { ...TYPE.caption, fontWeight: "700", color: theme.accentWalk },
-    stagesRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 },
-    stageWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
-    stageSep: { ...TYPE.micro, color: theme.textSecondary, opacity: 0.5 },
-    stage: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: theme.bg, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
-    stageText: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary },
+    // One line, fixed length whatever the leg count — see the note above the
+    // summary in the component.
+    summaryRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.sm },
+    summaryText: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
+    modeRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+    weatherChip: { flexDirection: "row", alignItems: "center", gap: 4 },
+    dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: theme.textSecondary, opacity: 0.5 },
     topRecommendation: { ...TYPE.caption, color: theme.textPrimary },
     leavingNowButton: { marginTop: SPACING.xs, alignSelf: "flex-start", minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.lg, borderRadius: RADIUS.pill, backgroundColor: theme.accentWalk },
     leavingNowLabel: { ...TYPE.caption, color: "#FFFFFF", fontWeight: "700" },

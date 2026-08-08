@@ -142,6 +142,24 @@ one by date — don't edit the old entry.
 - 2026-08-06 — A saved location repaints the whole app in its mood, and mood changes cross over ~400ms (§9.1.3) [supersedes the 2026-08-05 "a pinned reading never repaints the app"]
 - 2026-08-06 — Locations and Gear are tab-nested stacks; their sub-views are real routes, not `useState` modes (§4, §9.2) [design]
 - 2026-08-07 — Manual lat/lng fields removed; the web map wraps Leaflet's unwrapped longitude (§4, §2) [design, bug fix]
+- 2026-08-07 — Back chip hugs the edge on a phone; Today's setup prompts collapse behind a disclosure (§9.2, §4.1) [design]
+- 2026-08-07 — Condition pucks thinned by ground distance; planned directions condensed and collapsed (§9.3) [design]
+- 2026-08-07 — Location and saved-journey labels are optional, defaulted at save time (§3.1, §4.3)
+- 2026-08-07 — One `BottomSheet`, lifted by the keyboard's own reported height (§9.3) [bug fix, design]
+- 2026-08-07 — Transit board/alight points are route data, drawn at every zoom (§9.3, §2)
+- 2026-08-07 — Full-screen map renders a second JourneyMap rather than reparenting the embedded one (§9.3) [design]
+- 2026-08-07 — Durations read as hours and minutes app-wide (§9.0.1) [design]
+- 2026-08-07 — Condition pucks: suburb-scale spacing, offset off the route, never on a stop (§9.3) [design, supersedes the 700m spacing set earlier today]
+- 2026-08-07 — Transit stop markers carry their vehicle glyph (§9.3) [design]
+- 2026-08-07 — One `JourneyDirections` list per journey, leg-then-turn, replacing the per-leg disclosures (§9.3) [design, supersedes the per-leg StepList disclosure set earlier today]
+- 2026-08-07 — Full-screen map has a planned mode and a recentre control that starts following (§9.3) [design]
+- 2026-08-07 — Web location picker is an inline combobox, not a modal; nothing user-visible depends on RNW blur (§4.3, §9.3) [design, bug fix]
+- 2026-08-09 — Consecutive transit walk steps merge into one named leg; polyline encoder added (§5.6, §2) [bug fix]
+- 2026-08-09 — Rail lines use their full name, bus routes their number; leg fragments lose their article (§9.0.1) [bug fix]
+- 2026-08-09 — Leg list rebuilt as a connected timeline with clock times (§9.3) [design]
+- 2026-08-09 — Today's journey card summarises instead of listing every leg (§9.4) [design]
+- 2026-08-09 — Map markers settle only after the map is ready; hint chip dodges each platform's own furniture (§9.2) [bug fix]
+- 2026-08-09 — A journey opening with an unsittable wait defers its departure to the first service (§5.6) [design]
 
 ---
 
@@ -2685,5 +2703,380 @@ map picker as the *only* way to save a location outside New Zealand, since
 address search is region-restricted (`placesService.ts`) — if that becomes a
 problem, widen the region codes rather than restoring the fields, and read the
 `getSeason()` caveat there first.
+
+---
+
+## 2026-08-07 — Back chip hugs the edge on a phone; Today's setup prompts collapse behind a disclosure (§9.2, §4.1)
+
+**What**: `HeaderBackButton`'s left inset is now viewport-dependent —
+`BACK_INSET_NARROW` (6) below `CONTENT_MAX_WIDTH`, the old 20 above it — and
+`SetupChecklist` renders its cards behind a `▸ Suggestions to personalize (N)`
+disclosure, closed by default.
+
+**Why**: the flat 20px inset from 2026-07-23 was chosen to line up with the
+content margin, which reads as a control adrift from the corner on a phone
+where nothing else competes for it. The setup prompts pushed Today's actual
+answer — what the weather is doing — below the fold on every visit.
+
+**Resolution**: the inset rule is pinned in `HeaderBackButton.test.ts`
+(monotonic across the breakpoint); the disclosure keeps the count in its
+header so collapsed never means hidden. Both are scoped to these two places —
+don't generalise the inset into a token without re-measuring the wide case.
+
+---
+
+## 2026-08-07 — Condition pucks thinned by ground distance; planned directions condensed and collapsed (§9.3)
+
+**What**: `thinBySpacing()` (mapGeometry) drops condition markers within
+`MIN_CONDITION_MARKER_SPACING_M` (700m) of the last one kept, keyed on the
+condition so a clear→rain crossing always survives. `condenseSteps()`
+(navigationSteps) folds sub-25m non-decision steps into the next one, and
+`StepList`'s planned view sits behind a per-leg "Directions" disclosure.
+
+**Why**: a routed walk is one leg *per turn*, so a walk across town drew a
+dozen identical weather pucks over the route line, and dumped sixty step rows
+under a four-leg journey. Both are display problems, not data problems.
+
+**Resolution**: thinning and condensing are pure functions with their own
+tests; the leg data keeps every leg and every step, and the leg list below the
+map still shows them all. Live (following) mode is deliberately exempt from
+both — there you want the literal next instruction.
+
+---
+
+## 2026-08-07 — Location and saved-journey labels are optional, defaulted at save time (§3.1, §4.3)
+
+**What**: `LocationForm` no longer requires a label to save, and clearing a
+saved journey's name in the rename sheet reverts it to "origin → destination".
+`placeLabel.ts` holds `shortAddressLabel` / `resolveLocationLabel` /
+`defaultRouteLabel`.
+
+**Why**: an address already names a place, and requiring a second name for it
+was a gate with nothing behind it.
+
+**Resolution**: the default is resolved **at save time**, so
+`SavedLocation.label` stays a required non-empty string and nothing downstream
+(pickers, subtitles, a11y labels, the sync payload) learns about an unnamed
+location. Consequence: editing the address later won't re-derive the label —
+by then it is the name the user knows the place by. Don't make the column
+nullable to "fix" that.
+
+---
+
+## 2026-08-07 — One `BottomSheet`, lifted by the keyboard's own reported height (§9.3)
+
+**What**: the four hand-rolled bottom sheets (the Plan screen's place picker,
+Journey Detail's "Mark this spot", both of Saved journeys') are now one
+`BottomSheet` component, whose backdrop takes `useKeyboardInset()` as bottom
+padding and caps the sheet against the space actually left over.
+
+**Why**: a sheet anchored to the bottom of the screen puts its text field
+exactly where the software keyboard appears. `KeyboardAvoidingView` is the
+usual answer and is wrong here: inside a `<Modal>` on Android the measurement
+is against a window `adjustResize` never resizes.
+
+**Resolution**: reading `Keyboard`'s reported height and turning it into
+padding sidesteps the layout question entirely; the hook no-ops on web, where
+the browser handles an obscured input itself. `SidePanel` stays separate — it
+slides from the right and is a panel, not a sheet. New sheets go through
+`BottomSheet`.
+
+---
+
+## 2026-08-07 — Transit board/alight points are route data, drawn at every zoom (§9.3, §2)
+
+**What**: `routesService` now extracts each TRANSIT step's departure/arrival
+stop coordinates into `RouteStep.transitStops`, carried through `planJourney`
+onto `JourneyLeg.transitStops` and drawn on both maps as rotated squares —
+filled for boarding, hollow for alighting.
+
+**Why**: both basemaps draw their own station pucks, but only past roughly
+zoom 16, so on a map framed to the whole commute the two points a transit
+journey actually turns on were the only things unmarked.
+
+**Resolution**: no field-mask change was needed — `location` already sits
+inside the `transitDetails` subtree the mask requests. Another `legs` JSON
+addition, so no migration; absent on anything planned before this, and a stop
+with no usable coordinate is dropped rather than pinned at Null Island. The
+square shape is deliberate: every other marker on these maps is a disc.
+
+---
+
+## 2026-08-07 — Full-screen map renders a second JourneyMap rather than reparenting the embedded one (§9.3)
+
+**What**: a "Full screen" chip on Journey Detail's map opens
+`FullScreenMapModal` — the same map at full height with the turns as a
+translucent bottom overlay, pageable by leg, showing live ETA and the
+highlighted next step while following.
+
+**Why**: the embedded map is 280pt above a column of cards, which answers
+"where does this route go" and not "which way now".
+
+**Resolution**: the modal mounts its own `<JourneyMap>` from one shared
+`mapProps` object rather than moving the embedded one — both implementations
+key their camera off their own mount, and a native MapView remounts on
+reparent anyway. Long-press annotation capture is deliberately *not* passed
+through: its sheet can't render over a full-screen modal, and marking a spot
+is a planning action. Leg paging is derived state with an explicit override,
+not an effect — this repo's lint forbids `setState` in an effect body.
+
+---
+
+## 2026-08-07 — Durations read as hours and minutes app-wide (§9.0.1)
+
+**What**: `formatDuration()` / `spokenDuration()` in `lib/formatDuration.ts`,
+used by the journey summary, the leg rows, the live journey bar and the
+full-screen overlay. "95 min" is now "1 h 35 min".
+
+**Why**: every duration in the app is stored in minutes and every screen
+printed them raw, which past an hour is a quantity the reader has to do
+arithmetic on rather than one they can read.
+
+**Resolution**: hours only appear when there are any, so sub-hour durations
+are unchanged; never returns "0 min", since a leg that claims to take no time
+reads as a bug. `spokenDuration` exists because a screen reader saying "h" as
+a letter is not a duration — use it in `accessibilityLabel`, not the
+abbreviated form.
+
+---
+
+## 2026-08-07 — Condition pucks: suburb-scale spacing, offset off the route, never on a stop (§9.3)
+
+**What**: `MIN_CONDITION_MARKER_SPACING_M` goes 700 → 1500; pucks are offset
+`CONDITION_MARKER_OFFSET_M` (70m) perpendicular-right of the route's local
+bearing; any puck within `CONDITION_MARKER_STOP_CLEARANCE_M` (250m) of a
+transit stop is dropped. Supersedes the 700m spacing set earlier the same day.
+
+**Why**: at 700m and centred on the line, the pucks still appeared several
+times per walk, sat on top of the route they described, and collided with the
+stop markers — which are the more actionable of the two.
+
+**Resolution**: 1500m is a suburb's width across most of Auckland. Doing this
+by *actual* suburb would need a `reverseGeocodeSuburb` call per marker per
+journey — a billed call to answer a question the geometry answers well
+enough — and a genuine weather change is never thinned away regardless
+(`thinBySpacing`'s `keyOf`), so "one per suburb, or per change" is the
+outcome. The offset is fixed metres because neither map exposes a zoom-aware
+marker offset; it collapses back onto the line at city zoom, where the line is
+a hairline and there was nothing to collide with.
+
+---
+
+## 2026-08-07 — Transit stop markers carry their vehicle glyph (§9.3)
+
+**What**: `MapTransitStop` gains `mode`, and the marker grew from a 16px
+rotated square to a 22px rounded square holding the bus or train glyph from
+`modeIconPaths.ts`. Boarding is filled, alighting hollow.
+
+**Why**: a bare shape said "a stop" but not "a stop for what", which on a
+multi-modal journey is the thing you need.
+
+**Resolution**: the rounded square stays deliberately non-circular — every
+other marker on these maps is a disc, so shape alone still separates a stop
+from a weather puck. Native `transitStopMarker` and `leafletIcons`'
+`transitStopDivIcon` are the same marker twice; keep them in step.
+
+---
+
+## 2026-08-07 — One `JourneyDirections` list per journey, leg-then-turn (§9.3)
+
+**What**: the per-leg "Directions" disclosures are gone. One list below the
+leg list, two levels: a leg row carrying **duration and temperature**, and its
+turns underneath carrying **instruction and distance** and nothing else.
+`stepRepeatsLabel()` drops a step that only restates its leg's label; waits
+are omitted; `StepList` is now live-only. Supersedes the per-leg disclosure
+introduced earlier the same day.
+
+**Why**: directions split under each "Walk to <stop>" heading made four short
+lists out of one route, headed by the leg label rather than by what you
+actually do — and a turn-and-street-name is the thing you need at a junction,
+not a timestamp and a temperature on the same row.
+
+**Resolution**: legs with no turns (a bus ride) still get a leg row — a
+directions list that skips the bus has a hole in it. The temperature appears
+once per leg, never per turn. Live mode keeps its own pinned three-turn list
+under the map, because "the literal next instruction" is a different question
+from "what does this journey involve".
+
+---
+
+## 2026-08-07 — Full-screen map has a planned mode and a recentre control that starts following (§9.3)
+
+**What**: `FullScreenMapModal` takes the whole `Journey` and branches on
+`following`: planned shows origin→destination, the departure/arrival window,
+the total duration and the full `JourneyDirections` (collapsible down to its
+header); following shows the live arrival line and the next four turns. Both
+maps gained a recentre chip.
+
+**Why**: the modal previously only had a live-ish overlay with a leg pager,
+which said nothing useful on a journey you hadn't started — and there was no
+way to get the camera back on yourself once you'd panned, or to start
+following from the map at all.
+
+**Resolution**: the planned overlay reuses `JourneyDirections` rather than
+copying it, so there is one directions component in the app. `recentreOnMe()`
+is one handler shared by both maps and covers both states — mid-journey it
+re-locks the camera after a pan, before departure it *starts* journey mode,
+which is the only way a recentre button can mean anything on a journey you
+haven't set off on. It's withheld entirely when tracking is impossible
+(`untrackable`, permission denied, read-only), because a control that can only
+fail isn't worth offering.
+
+---
+
+## 2026-08-07 — Web location picker is an inline combobox, not a modal (§4.3, §9.3)
+
+**What**: new `SavedLocationPicker.web.tsx` — the Plan screen's origin/
+destination field *is* the text input on web, with saved places and Places
+results in one dropdown beneath it. No modal. Native keeps its bottom sheet
+but now passes `autoFocus`, so one tap opens it ready to type.
+`AddressAutocomplete` grew `autoFocus`, `onFocus`/`onBlur`,
+`selectTextOnFocus` and `extraRows` to support both.
+
+**Why**: on web the sheet cost two clicks to do one thing — open it, then
+click the input inside it — and threw a modal over the window to pick from a
+list. A combobox is the pattern the web already has, and it's keyboard
+reachable in a way a Pressable-that-opens-a-Modal never was.
+
+**Resolution**: the first cut blanked the field on focus and restored it on
+blur; RNW does not fire blur reliably in a tree re-rendering underneath it,
+so the field looked empty while the value was still set. The rule now is that
+**nothing the user can lose depends on blur** — the text stays put and
+`selectTextOnFocus` makes the first keystroke replace it. Blur only closes the
+dropdown and drops an abandoned query, both cosmetic. Keep the two picker
+files in step; the dropdown is in normal flow, not absolutely positioned,
+because the Plan screen's route rail measures the gap between these fields
+(`PICKER_FIELD_CENTER_Y`) and an overlay would be clipped by the scroll
+container.
+
+---
+
+## 2026-08-09 — Consecutive transit walk steps merge into one named leg (§5.6, §2)
+
+**What**: `parseTransitSteps` now swallows a whole run of consecutive WALK
+steps into a single leg — summed duration, joined geometry, and every turn
+instruction from all of them — named from the next ride's departure stop, or
+the destination when nothing rides after it. `encodePolyline` was added to
+`annotations.ts` to make the geometry join possible.
+
+**Why**: a real Titirangi→Grafton journey came back as fifteen legs, six of
+them labelled "Walk to stop", because Google splits one continuous walk into a
+step per geometry change and the old code made a leg of each. Worse, each of
+those legs carried one coarse instruction that duplicated its own label, so
+`stepRepeatsLabel` filtered it out and the directions list was empty.
+
+**Resolution**: the same journey is now four legs with real names, and the
+directions carry actual street-level turns. Polylines are decoded and
+re-encoded rather than string-concatenated — they're delta-encoded against
+their predecessor, so joining them as text puts the second half in the sea;
+`annotations.test.ts` pins that, and its hand-rolled test-local encoder was
+deleted in favour of the real one.
+
+---
+
+## 2026-08-09 — Rail lines use their full name; leg fragments lose their article (§9.0.1)
+
+**What**: transit line naming prefers `nameShort` for buses (a route number,
+"15") and `name` for trains (a line name). `legShortLabel` strips a leading
+article from what it extracts.
+
+**Why**: AT's `nameShort` for rail is a bare code, so the app said "Waiting for
+the West" as though West were a place. And every alert reads "on the <x> leg",
+so a label that already began with an article produced "rain on the the 15
+leg".
+
+**Resolution**: both pinned in tests. If a third vehicle type appears, pick its
+side of the bus/train split by asking what a rider would say out loud.
+
+---
+
+## 2026-08-09 — Leg list rebuilt as a connected timeline (§9.3)
+
+**What**: `LegRow` is now a row on a rail — departure time in a fixed left
+column, a node carrying the mode glyph, a continuous line joining consecutive
+nodes, detail to the right, one surface for the whole itinerary. Duration is
+joined by distance. The section is titled "Route"; "Directions" below it is the
+turn-by-turn.
+
+**Why**: it was a stack of identical free-standing cards with no thread between
+them and no clock times — nothing said which came first except their order.
+Every transit app people already know (Google Maps, Citymapper, Transit) draws
+an itinerary as a rail, and borrowing that convention is the point.
+
+**Resolution**: the rail column needs `alignSelf: "stretch"` — the row is
+`alignItems: flex-start`, so without it the column collapses to the node's own
+30px and the rail's `bottom` resolves against that, leaving the thread stopping
+just under each node. Verified in the DOM (rail segments span 40–60px between
+nodes, and the first/last are correctly hidden). Don't reintroduce a per-leg
+card: the shared surface is what lets the rail run.
+
+---
+
+## 2026-08-09 — Today's journey card summarises instead of listing every leg (§9.4)
+
+**What**: the per-leg weather chip strip is replaced by one line — total
+duration, the modes involved, and the temperature range with the worst
+condition's icon.
+
+**Why**: one chip per leg reads nicely for a three-leg commute and collapses
+past about six. A fifteen-leg journey wrapped to four rows of "12° → 12° →
+12° → …" to say that it is twelve degrees the whole way.
+
+**Resolution**: a summary card owes the reader the shape of the trip and
+whatever varies; per-leg detail belongs on Journey Detail, which is built for
+it. The row is a fixed length whatever the leg count — keep it that way.
+
+---
+
+## 2026-08-09 — Map markers settle after the map is ready; hint chip dodges platform furniture (§9.2)
+
+**What**: `tracksViewChanges` now stays on until the map reports ready *and*
+`MARKER_SETTLE_MS` (1500, was 500) has passed. The "hold/right-click to mark a
+spot" hint moved to top-left on native and stayed bottom-left, raised, on web.
+The off-route state is no longer also printed in the journey bar.
+
+**Why**: the origin marker shipped as a solid accent disc with its travel-mode
+glyph missing — the signature settled before the react-native-svg child had
+rasterized, and a marker that mounts with tracking already off freezes blank.
+The hint sat on Google's logo and attribution. And off-route was stated twice,
+once without an action attached.
+
+**Resolution**: under-waiting doesn't degrade a marker, it blanks it, so the
+delay is deliberately generous. The two maps have genuinely different
+furniture — Leaflet's zoom control is top-left (measured at x 10–44), Google's
+logo is bottom-left — so each file dodges its own rather than sharing a
+position that is wrong on one of them.
+
+---
+
+## 2026-08-09 — A journey opening with an unsittable wait defers to the first service (§5.6)
+
+**What**: `deferToFirstService` (`lib/deferDeparture.ts`) runs on the assembled
+legs before any clock time or forecast is stamped. When a journey *opens* with
+a stationary wait of `LONG_WAIT_MIN` (45) or more, the wait is cut back to
+`PLATFORM_BUFFER_MIN` (5) and the departure moves forward by the difference —
+so the service stays exactly where Google put it and the walk is scheduled
+backwards from it. `planJourney` returns a `deferred` descriptor and the Plan
+screen says so in an alert; it is never silent.
+
+**Why**: asking for a bus at 12:08 am returned "walk 23 min, wait 5 h 21 min,
+catch the 5:52". Every number was right and the itinerary was a fiction —
+nobody walks to a stop at half past midnight to stand there until dawn. Left
+alone it poisoned everything downstream: a 6 h 34 min "duration", a leave-by
+notification firing immediately, a gear engine dressing the user for five
+hours in the wind, and midnight's forecast on a walk that happens at dawn.
+This is what every transit app does — Google Maps says "Departs 5:52 AM".
+
+**Resolution**: fixed at the source rather than in each consumer, which is why
+one change corrects duration, notification, gear and per-leg weather at once
+(verified live: the same trip became 5:23 am → 6:41 am, 1 h 18 min, "5 min
+waiting in the wind"). Deliberate limits: only a *leading* wait defers — a
+long wait after a ride is a transfer, the departure is behind you, and moving
+it would move a service already caught; those are surfaced instead by
+`longTransferWaitMin` on the journey summary. It does not re-query Google at
+the new time, because the service being anchored to is the one Google already
+returned, so the itinerary is the same one. It does not run on §5.1's
+cached-structure fallback, where a stored wait leg has no live service time
+behind it and shifting would be guesswork.
 
 ---

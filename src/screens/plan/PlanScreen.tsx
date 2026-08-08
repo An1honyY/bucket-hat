@@ -11,6 +11,8 @@ import { showAlert } from "../../lib/crossPlatformAlert";
 import { findRainWindowNear } from "../../lib/weather";
 import { getHourlyForecast } from "../../services/weatherService";
 import { formatTime } from "../../lib/formatTime";
+import { formatDuration } from "../../lib/formatDuration";
+import { defaultRouteLabel } from "../../lib/placeLabel";
 import { useNowBucket } from "../../lib/useNowBucket";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import SavedLocationPicker from "../../components/SavedLocationPicker";
@@ -311,6 +313,16 @@ export default function PlanScreen() {
           "Leaving now instead",
           "Your requested time had already passed by the time this was planned, so we're planning from right now."
         );
+      } else if (result.deferred) {
+        // Never silently. The user asked to leave now and is being told to
+        // leave in five hours; the reason is the whole message, and the new
+        // departure is the thing they have to act on.
+        const service = formatTime(result.deferred.to, hour12);
+        showAlert(
+          `Nothing running until ${service}`,
+          `There's no service on this route for another ${formatDuration(result.deferred.byMin)}. ` +
+            `We've planned you to leave at ${service} instead of waiting at the stop.`
+        );
       }
 
       if (planReturnTrip) {
@@ -344,7 +356,7 @@ export default function PlanScreen() {
 
       if (saveThisRoute) {
         await createSavedRoute({
-          label: saveLabel.trim() || `${origin.label} → ${destination.label}`,
+          label: saveLabel.trim() || defaultRouteLabel(origin.label, destination.label),
           originId: origin.id,
           destinationId: destination.id,
           preferredMode: mode,
@@ -469,7 +481,7 @@ export default function PlanScreen() {
                     {/* The default label *is* "origin → destination", so
                         repeating it underneath would print the same line
                         twice; a renamed journey still gets its route shown. */}
-                    {from && to && (saved.label !== `${from} → ${to}` || stops > 0) && (
+                    {from && to && (saved.label !== defaultRouteLabel(from, to) || stops > 0) && (
                       <Text style={styles.chooserRowMeta} numberOfLines={1}>
                         {from} → {to}
                         {stops > 0 ? ` · ${stops} stop${stops === 1 ? "" : "s"}` : ""}
@@ -793,8 +805,9 @@ export default function PlanScreen() {
                 style={styles.input}
                 value={saveLabel}
                 onChangeText={setSaveLabel}
-                placeholder={origin && destination ? `${origin.label} → ${destination.label}` : "Morning commute"}
+                placeholder={origin && destination ? defaultRouteLabel(origin.label, destination.label) : "Morning commute"}
                 placeholderTextColor={theme.textSecondary}
+                accessibilityLabel="Name for this saved journey, optional. Defaults to the route"
               />
               <Pressable
                 onPress={() => setSaveAsFavorite((v) => !v)}

@@ -16,7 +16,8 @@ export type ActionIconKind =
   | "crosshair"
   | "flag"
   | "search"
-  | "arrowRight";
+  | "arrowRight"
+  | "expand";
 
 const PATHS: Record<ActionIconKind, string[]> = {
   check: ["M5,13l4,4l10,-10"],
@@ -41,6 +42,11 @@ const PATHS: Record<ActionIconKind, string[]> = {
   // marker you most want to find at a glance the least distinctive
   // silhouette of the three.
   flag: ["M7,3v18", "M7,4.5h11l-2.8,4l2.8,4h-11z"],
+  // "Give this the whole screen", for Journey Detail's map. The four corner
+  // brackets pushing outward — the universal expand glyph — rather than a
+  // diagonal double-arrow, which reads as "resize" (a thing you drag) on a
+  // control that is a single tap.
+  expand: ["M4,9v-5h5", "M20,9v-5h-5", "M4,15v5h5", "M20,15v5h-5"],
   // The standard "locate me" target, for LocationPickerMap's recenter
   // button — deliberately not the `pin` glyph, which already means "the
   // dropped marker" everywhere else in this app.

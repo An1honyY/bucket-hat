@@ -9,13 +9,14 @@ import {
   flagDivIcon,
   stopDivIcon,
   conditionDivIcon,
+  transitStopDivIcon,
   annotationDivIcon,
   userPuckDivIcon,
 } from "./leafletIcons";
 import { basemapFor } from "./leafletBasemap";
 import type { ModeIconKind } from "./modeIconPaths";
 import { boundsKey, hexToRgba, usableCoordinates } from "../lib/mapGeometry";
-import type { ConditionMarker, MapAnnotation, MapCircle, MapFollowMode, MapStop, MapUserPuck } from "./JourneyMap";
+import type { ConditionMarker, MapAnnotation, MapCircle, MapFollowMode, MapStop, MapTransitStop, MapUserPuck } from "./JourneyMap";
 import useTheme from "../theme/useTheme";
 import { darkTheme } from "../theme/tokens";
 
@@ -43,6 +44,7 @@ interface Props {
   onLongPress?: (coordinate: { lat: number; lng: number }) => void;
   previewCircle?: MapCircle | null;
   conditionMarkers?: ConditionMarker[];
+  transitStops?: MapTransitStop[];
   annotations?: MapAnnotation[];
   previewColor?: string;
   // Phase 22 — see JourneyMap.tsx's Props for the full rationale. Omitting
@@ -179,6 +181,7 @@ export default function JourneyMap({
   onLongPress,
   previewCircle,
   conditionMarkers,
+  transitStops,
   annotations,
   previewColor,
   traveledPath,
@@ -300,6 +303,18 @@ export default function JourneyMap({
             alt={marker.label}
           />
         ))}
+        {/* After the condition badges, so a stop sharing a corner with a
+            weather puck is the one on top — see the native map. */}
+        {(transitStops ?? []).map((stop, i) => (
+          <Marker
+            key={`transit-stop-${i}`}
+            position={[stop.lat, stop.lng]}
+            icon={transitStopDivIcon(stop.color, stop.kind, stop.mode)}
+            title={stop.label}
+            alt={stop.label}
+            zIndexOffset={200}
+          />
+        ))}
         {(annotations ?? []).map((annotation, i) => (
           <Circle
             key={`annotation-circle-${i}`}
@@ -364,10 +379,17 @@ function stopTitle(index: number, total: number): string {
 
 const styles = StyleSheet.create({
   container: { width: "100%", height: "100%" },
+  // Bottom-left, raised clear of the attribution strip.
+  //
+  // Not top-left, where the native map puts it: Leaflet's zoom control lives
+  // in that corner on web (measured at x 10–44, y 74–139) and the chip sat
+  // straight over it. The two maps genuinely have different furniture —
+  // Google puts its logo bottom-left and its zoom control bottom-right, so
+  // each file dodges its own.
   hint: {
     position: "absolute",
     left: 12,
-    bottom: 12,
+    bottom: 26,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
