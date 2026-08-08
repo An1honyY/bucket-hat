@@ -1,30 +1,8 @@
-import { applyAnnotationsToLegs, decodePolyline, distanceMeters, matchAnnotationsToPoints } from "./annotations";
+import { applyAnnotationsToLegs, decodePolyline, distanceMeters, encodePolyline, matchAnnotationsToPoints } from "./annotations";
 import type { EnvironmentAnnotation, JourneyLeg } from "../types";
 
-// Minimal encoder (inverse of decodePolyline) so tests can build legs with
-// real encoded polylines instead of hand-computed strings.
-function encodePolyline(points: { lat: number; lng: number }[]): string {
-  let out = "";
-  let prevLat = 0;
-  let prevLng = 0;
-  for (const p of points) {
-    for (const [value, prev] of [
-      [Math.round(p.lat * 1e5), prevLat],
-      [Math.round(p.lng * 1e5), prevLng],
-    ] as const) {
-      let delta = value - prev;
-      delta = delta < 0 ? ~(delta << 1) : delta << 1;
-      while (delta >= 0x20) {
-        out += String.fromCharCode((0x20 | (delta & 0x1f)) + 63);
-        delta >>= 5;
-      }
-      out += String.fromCharCode(delta + 63);
-    }
-    prevLat = Math.round(p.lat * 1e5);
-    prevLng = Math.round(p.lng * 1e5);
-  }
-  return out;
-}
+// Encoding comes from the module under test now — a test-local copy of the
+// encoder used to live here, written because there wasn't a real one.
 
 function annotation(overrides: Partial<EnvironmentAnnotation>): EnvironmentAnnotation {
   return {
@@ -199,5 +177,50 @@ describe("applyAnnotationsToLegs", () => {
     };
     const [waitResult] = applyAnnotationsToLegs([wait], [annotation({ effect: "wind-tunnel" })]);
     expect(waitResult).toBe(wait);
+  });
+});
+
+describe("encodePolyline", () => {
+  // The property that matters: merging two walking segments into one leg
+  // decodes both and re-encodes the joined path, so a round trip has to
+  // survive to ~1e-5 precision (Google's own polyline resolution).
+  it("round-trips a path through decodePolyline", () => {
+    const path = [
+      { lat: -36.8485, lng: 174.7633 },
+      { lat: -36.8501, lng: 174.7669 },
+      { lat: -36.8522, lng: 174.7701 },
+    ];
+    const decoded = decodePolyline(encodePolyline(path));
+    expect(decoded).toHaveLength(path.length);
+    decoded.forEach((point, i) => {
+      expect(point.lat).toBeCloseTo(path[i].lat, 5);
+      expect(point.lng).toBeCloseTo(path[i].lng, 5);
+    });
+  });
+
+  it("handles an empty path", () => {
+    expect(encodePolyline([])).toBe("");
+    expect(decodePolyline("")).toEqual([]);
+  });
+
+  it("survives negative deltas in both axes", () => {
+    const path = [
+      { lat: -36.85, lng: 174.77 },
+      { lat: -36.9, lng: 174.7 },
+    ];
+    const decoded = decodePolyline(encodePolyline(path));
+    expect(decoded[1].lat).toBeCloseTo(-36.9, 5);
+    expect(decoded[1].lng).toBeCloseTo(174.7, 5);
+  });
+
+  // Joining two segments as *text* is the bug this exists to prevent: the
+  // second half's first delta would be measured from the wrong origin.
+  it("joins two segments correctly, where string concatenation would not", () => {
+    const first = [{ lat: -36.85, lng: 174.76 }, { lat: -36.86, lng: 174.77 }];
+    const second = [{ lat: -36.86, lng: 174.77 }, { lat: -36.87, lng: 174.78 }];
+    const joined = decodePolyline(encodePolyline([...first, ...second]));
+    expect(joined[joined.length - 1].lat).toBeCloseTo(-36.87, 5);
+    const naive = decodePolyline(encodePolyline(first) + encodePolyline(second));
+    expect(naive[naive.length - 1].lat).not.toBeCloseTo(-36.87, 5);
   });
 });

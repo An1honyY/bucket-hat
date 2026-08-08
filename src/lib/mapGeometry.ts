@@ -101,6 +101,110 @@ export function boundsKey(points: readonly Partial<LatLngLike>[] | undefined): s
   ].join(":");
 }
 
+// How far apart two condition pucks have to be before both are worth
+// drawing. A routed walk is one leg per turn, so a ten-minute walk through
+// town produced a dozen pucks stacked on top of each other, all reporting the
+// same weather — the marker's job is "conditions along the route," and the
+// weather does not change between one street corner and the next.
+//
+// 1500m is a suburb's width, give or take, across most of Auckland. Doing
+// this by actual suburb would mean a reverse-geocode per marker per journey
+// (placesService.reverseGeocodeSuburb) — a billed call to answer a question
+// the geometry already answers well enough. Distance is the proxy; a genuine
+// change in the weather is never thinned away regardless (see thinBySpacing's
+// `keyOf`), so "one per suburb, or wherever the weather changes" is what
+// comes out.
+export const MIN_CONDITION_MARKER_SPACING_M = 1500;
+
+// A condition puck sitting on top of a bus stop marker hides the more
+// actionable of the two. Anything this close to a stop is dropped outright
+// rather than nudged: near a stop the puck is redundant anyway, since the
+// stop's own leg carries the same weather in the list below.
+export const CONDITION_MARKER_STOP_CLEARANCE_M = 250;
+
+// How far off the route line a condition puck sits. Fixed metres rather than
+// pixels, because neither map exposes a zoom-aware offset for a marker — at
+// street zoom this clears the 5px route stroke and its casing comfortably,
+// and at city zoom it collapses back onto the line, which is the zoom where
+// the line is a hairline and there was nothing to collide with anyway.
+export const CONDITION_MARKER_OFFSET_M = 70;
+
+// Distance between two coordinates, in metres. Duplicated deliberately from
+// annotations.ts's distanceMeters rather than imported: that module is the
+// annotation-matching pipeline (it pulls in JourneyLeg and the polyline
+// decoder), and the map-geometry helpers stay dependency-free so they can be
+// reasoned about — and tested — as pure maths.
+const EARTH_RADIUS_M = 6371000;
+
+export function metersBetween(a: LatLngLike, b: LatLngLike): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** Initial bearing from `a` to `b`, in degrees clockwise from north. */
+export function bearingBetween(a: LatLngLike, b: LatLngLike): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (((Math.atan2(y, x) * 180) / Math.PI) + 360) % 360;
+}
+
+/**
+ * The point `meters` away from `origin` along `bearingDeg`.
+ *
+ * A flat-earth approximation, which over the tens of metres this is used for
+ * (nudging a marker off a route line) is accurate to well under a metre and
+ * avoids the spherical formula's behaviour near the poles — irrelevant in
+ * Auckland, but the simpler maths is also the easier one to reason about.
+ */
+export function offsetMeters(origin: LatLngLike, bearingDeg: number, meters: number): LatLngLike {
+  const METERS_PER_DEGREE_LAT = 111_320;
+  const rad = (bearingDeg * Math.PI) / 180;
+  const north = Math.cos(rad) * meters;
+  const east = Math.sin(rad) * meters;
+  const latDelta = north / METERS_PER_DEGREE_LAT;
+  // Longitude degrees get shorter towards the poles; at Auckland's latitude a
+  // degree of longitude is about 80% of a degree of latitude.
+  const lngScale = Math.cos((origin.lat * Math.PI) / 180) || 1;
+  const lngDelta = east / (METERS_PER_DEGREE_LAT * lngScale);
+  return { lat: origin.lat + latDelta, lng: origin.lng + lngDelta };
+}
+
+/**
+ * Drops points that sit closer than `minSpacingM` to the last one kept, so a
+ * dense run of markers thins to a legible scatter.
+ *
+ * `keyOf` is the escape hatch that keeps this from throwing away information:
+ * a point whose key differs from the last kept one survives regardless of how
+ * close it is. For condition markers the key is the weather itself, so the
+ * spot where a route crosses from clear into rain is always drawn — proximity
+ * only ever collapses markers that were saying the same thing twice.
+ */
+export function thinBySpacing<T extends LatLngLike>(
+  points: readonly T[],
+  minSpacingM: number,
+  keyOf?: (point: T) => string
+): T[] {
+  const kept: T[] = [];
+  let last: T | undefined;
+  for (const point of points) {
+    const changed = last !== undefined && keyOf !== undefined && keyOf(point) !== keyOf(last);
+    if (last === undefined || changed || metersBetween(last, point) >= minSpacingM) {
+      kept.push(point);
+      last = point;
+    }
+  }
+  return kept;
+}
+
 // Theme tokens are authored as #rrggbb (src/theme/tokens.ts), but the
 // weather-mood palettes and any future token edit could reasonably use the
 // #rgb shorthand — anything unrecognized passes through untouched so a

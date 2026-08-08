@@ -55,6 +55,22 @@ export interface MapAnnotation {
   color: string;
 }
 
+// Where a transit leg boards and alights. Both basemaps (Google's and
+// CARTO's) draw their own station pucks, but only past roughly zoom 16 — so
+// on a map framed to the whole commute, the two points a transit journey
+// actually turns on were the only things not marked. These are route data,
+// drawn at every zoom, and distinct from a ConditionMarker in shape and
+// colour so "here's your stop" never reads as a weather badge.
+export interface MapTransitStop {
+  lat: number;
+  lng: number;
+  kind: "board" | "alight";
+  /** Drawn inside the marker, so a stop says which vehicle it's for. */
+  mode: "bus" | "train";
+  color: string;
+  label: string; // accessibilityLabel, §9.6
+}
+
 // Phase 22 (Journey Mode) — where the user actually is, drawn as a disc
 // carrying the current leg's transport glyph rather than the generic blue
 // dot every maps app shares. Same dumb-renderer split as the markers above:
@@ -95,6 +111,7 @@ interface Props {
   onLongPress?: (coordinate: { lat: number; lng: number }) => void;
   previewCircle?: MapCircle | null;
   conditionMarkers?: ConditionMarker[];
+  transitStops?: MapTransitStop[];
   // Saved EnvironmentAnnotations to display (§4.5) — distinct from the
   // single transient `previewCircle` shown while adding a new one.
   annotations?: MapAnnotation[];
@@ -135,6 +152,10 @@ const FOLLOW_ANIMATE_MS = 600;
 // Below this, the GPS halo is smaller than the puck itself and reads as
 // visual noise rather than as uncertainty.
 const ACCURACY_HALO_MIN_M = 25;
+// See the settle effect below. Generous on purpose: the cost of waiting too
+// long is a few extra frames of marker re-rasterization, and the cost of not
+// waiting long enough is a marker with no glyph in it.
+const MARKER_SETTLE_MS = 1500;
 
 function followZoomFor(mode: ModeIconKind): number {
   return mode === "drive" || mode === "bus" || mode === "train" ? FOLLOW_ZOOM_VEHICLE : FOLLOW_ZOOM_WALKING;
@@ -148,6 +169,7 @@ export default function JourneyMap({
   onLongPress,
   previewCircle,
   conditionMarkers,
+  transitStops,
   annotations,
   previewColor,
   traveledPath,
@@ -161,6 +183,11 @@ export default function JourneyMap({
   const mapRef = useRef<MapView>(null);
   const hasFittedRef = useRef(false);
   const [settledSignature, setSettledSignature] = useState<string | null>(null);
+  // Custom markers can only rasterize once the native map surface exists.
+  // Settling the signature before then froze them mid-layout — which is how
+  // the origin marker shipped as a solid accent disc with its travel-mode
+  // glyph missing entirely.
+  const [mapReady, setMapReady] = useState(false);
 
   const coordinates = useMemo(
     () => usableCoordinates(stops).map((s) => ({ latitude: s.lat, longitude: s.lng })),
@@ -181,7 +208,7 @@ export default function JourneyMap({
   // the glyph inside changes when the current leg switches from walk to bus.
   // Feeding position in here would re-rasterize several times a minute and
   // reintroduce exactly the stutter this mechanism exists to prevent.
-  const markerSignature = `${coordinates.length}:${conditionMarkers?.length ?? 0}:${annotations?.length ?? 0}:${userPuck?.mode ?? "none"}:${originMode ?? "pin"}`;
+  const markerSignature = `${coordinates.length}:${conditionMarkers?.length ?? 0}:${(transitStops ?? []).map((s) => `${s.kind}${s.mode}`).join("")}:${annotations?.length ?? 0}:${userPuck?.mode ?? "none"}:${originMode ?? "pin"}`;
   const tracksViewChanges = settledSignature !== markerSignature;
   const lineCoordinates = useMemo(() => {
     const path = usableCoordinates(routePath);
@@ -216,12 +243,15 @@ export default function JourneyMap({
   // the fallback if onMapReady never fires.
   const initialRegion = useMemo(() => regionForCoordinates(fitPoints), [fitPoints]);
 
-  // Long enough for each badge's contents (an emoji, a stop number) to have
-  // laid out.
+  // Long enough for each marker's contents to have laid out and rasterized —
+  // and these hold react-native-svg glyphs, which take a good deal longer to
+  // appear than the emoji and stop numbers this delay was originally tuned
+  // for. Under-waiting doesn't degrade the marker, it blanks it.
   useEffect(() => {
-    const timer = setTimeout(() => setSettledSignature(markerSignature), 500);
+    if (!mapReady) return;
+    const timer = setTimeout(() => setSettledSignature(markerSignature), MARKER_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [markerSignature]);
+  }, [markerSignature, mapReady]);
 
   // Re-frame whenever the framed extent actually changes — a forecast-drift
   // re-plan or a newly saved annotation replaces the geometry underneath an
@@ -291,6 +321,7 @@ export default function JourneyMap({
         // trigger it, so the follow camera can't pan itself out of follow.
         onPanDrag={onUserPan}
         onMapReady={() => {
+          setMapReady(true);
           if (followMode === "follow") return;
           if (fitPoints.length < 2) return;
           hasFittedRef.current = true;
@@ -403,6 +434,36 @@ export default function JourneyMap({
           >
             <View style={[styles.conditionMarker, { backgroundColor: marker.color }]}>
               <Text style={styles.conditionMarkerEmoji}>{marker.emoji}</Text>
+            </View>
+          </Marker>
+        ))}
+        {/* Drawn after the condition badges so a stop is never buried under a
+            weather puck sitting on the same corner: where you get on the bus
+            is the more actionable of the two. */}
+        {(transitStops ?? []).map((stop, i) => (
+          <Marker
+            key={`transit-stop-${i}`}
+            coordinate={{ latitude: stop.lat, longitude: stop.lng }}
+            title={stop.label}
+            accessibilityLabel={stop.label}
+            tracksViewChanges={tracksViewChanges}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={5}
+          >
+            {/* A rounded square, not a disc — every other marker on this map
+                is round, so shape alone distinguishes a stop at a glance,
+                and the square has room for the vehicle glyph a bare dot
+                didn't. Boarding is filled (the one you have to be at on
+                time); alighting is hollow. */}
+            <View
+              style={[
+                styles.transitStopMarker,
+                stop.kind === "board"
+                  ? { backgroundColor: stop.color, borderColor: "#FFFFFF" }
+                  : { backgroundColor: "#FFFFFF", borderColor: stop.color },
+              ]}
+            >
+              <ModeIcon kind={stop.mode} size={13} color={stop.kind === "board" ? "#FFFFFF" : stop.color} />
             </View>
           </Marker>
         ))}
@@ -551,6 +612,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   conditionMarkerEmoji: { fontSize: 12 },
+  // Mirrors leafletIcons.ts's transitStopDivIcon — keep the two in step.
+  transitStopMarker: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOpacity: 0.35,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 4,
+  },
   // Mirrors leafletIcons.ts's flagDivIcon/stopDivIcon — keep the two in step,
   // they're the same marker on two platforms. The destination holds a white
   // flag glyph in a filled disc: see flagDivIcon's comment for how the route's
@@ -595,10 +670,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   annotationMarkerIcon: { fontSize: 13 },
+  // Top-left, not bottom-left: Google's logo and the legally-required
+  // attribution live in the bottom-left corner of the native map, and this
+  // chip was sitting squarely on top of them.
   hint: {
     position: "absolute",
     left: 12,
-    bottom: 12,
+    top: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,

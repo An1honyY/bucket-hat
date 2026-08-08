@@ -206,3 +206,24 @@ describe("topAlert", () => {
     expect(alerts[0].id).toBe("b");
   });
 });
+
+describe("leg fragments in alert copy", () => {
+  // "Waiting for the 15" produced "rain on the the 15 leg" — the label's own
+  // article colliding with the one the sentence supplies.
+  it("does not stutter the article", () => {
+    const legs = [
+      leg({ id: "a" }),
+      leg({ id: "b", label: "Waiting for the 15", mode: "bus", isStationary: true, weather: weather({ precipMm: 2 }) }),
+    ];
+    const alerts = gearTimingAlerts(legs, progress({ currentLegIndex: 0, currentLegFraction: 0.5 }));
+    const umbrella = alerts.find((a) => a.id.startsWith("gear-umbrella"));
+    expect(umbrella?.message).toContain("on the 15 leg");
+    expect(umbrella?.message).not.toContain("the the");
+  });
+
+  it("still names a leg that has no article of its own", () => {
+    const legs = [leg({ id: "a" }), leg({ id: "b", label: "Walk to Queen St", weather: weather({ precipMm: 2 }) })];
+    const alerts = gearTimingAlerts(legs, progress({ currentLegIndex: 0, currentLegFraction: 0.5 }));
+    expect(alerts.find((a) => a.id.startsWith("gear-umbrella"))?.message).toContain("on the Queen St leg");
+  });
+});

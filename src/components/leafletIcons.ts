@@ -83,6 +83,27 @@ export function conditionDivIcon(color: string, emoji: string): L.DivIcon {
   });
 }
 
+// A transit boarding/alighting point — mirrors JourneyMap.tsx's native
+// transitStopMarker; keep the two in step. A rounded square, because every
+// other marker on these maps is a disc and shape alone should say "this is a
+// stop, not weather", and because a square has room for the vehicle glyph
+// that tells you whether you're waiting for a bus or a train. Boarding is
+// filled (the one you have to be at on time), alighting is hollow.
+export function transitStopDivIcon(color: string, kind: "board" | "alight", mode: ModeIconKind): L.DivIcon {
+  const fill = kind === "board" ? color : "#FFFFFF";
+  const border = kind === "board" ? "#FFFFFF" : color;
+  const glyph = kind === "board" ? "#FFFFFF" : color;
+  const paths = MODE_ICON_PATHS[mode]
+    .map((d) => `<path d="${d}" stroke="${glyph}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`)
+    .join("");
+  return L.divIcon({
+    className: "cwp-transit-stop-marker",
+    html: `<div style="width:22px;height:22px;border-radius:6px;background:${fill};border:2px solid ${border};box-sizing:border-box;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,0.35);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none">${paths}</svg></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+}
+
 // A saved EnvironmentAnnotation badge (§4.5) — mirrors JourneyMap.tsx's
 // native annotationMarker: a 26px circular white-bordered badge in the
 // annotationPin color holding the effect's emoji glyph.

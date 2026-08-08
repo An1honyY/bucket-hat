@@ -6,6 +6,8 @@ import useTheme from "../../theme/useTheme";
 import { cardElevationStyle } from "../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import { formatTime } from "../../lib/formatTime";
+import { formatDuration, spokenDuration } from "../../lib/formatDuration";
+import { longTransferWaitMin } from "../../lib/deferDeparture";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import type { Journey } from "../../types";
 
@@ -53,12 +55,18 @@ export default function JourneySummary({ journey, totalDurationMin }: Props) {
     .map((leg) => leg.mode)
     .filter((mode, i, all) => all.indexOf(mode) === i);
   const stopCount = journey.waypoints?.length ?? 0;
+  // A long wait *between* rides. The planner shifts a long wait at the start
+  // of a journey into a later departure (deferDeparture.ts), but a transfer
+  // can't be shifted — you're already out — so it's real time standing at a
+  // stop, and it's the single biggest thing about a journey that has one.
+  // Stated here rather than left to be discovered halfway down the leg list.
+  const transferWaitMin = longTransferWaitMin(journey.legs);
 
   return (
     <View
       style={styles.card}
       accessible
-      accessibilityLabel={`${journey.origin.label} to ${journey.destination.label}, ${day}, leaving ${formatTime(journey.departTime, hour12)}, arriving ${formatTime(arriveIso, hour12)}, ${totalDurationMin} minutes`}
+      accessibilityLabel={`${journey.origin.label} to ${journey.destination.label}, ${day}, leaving ${formatTime(journey.departTime, hour12)}, arriving ${formatTime(arriveIso, hour12)}, ${spokenDuration(totalDurationMin)}${transferWaitMin !== undefined ? `, includes a ${spokenDuration(transferWaitMin)} wait between services` : ""}`}
     >
       <View style={styles.routeRow}>
         <Text style={styles.endpoint} numberOfLines={1}>
@@ -74,7 +82,7 @@ export default function JourneySummary({ journey, totalDurationMin }: Props) {
         <Text style={styles.time}>{formatTime(journey.departTime, hour12)}</Text>
         <Text style={styles.timeSep}>→</Text>
         <Text style={styles.time}>{formatTime(arriveIso, hour12)}</Text>
-        <Text style={styles.duration}>{totalDurationMin} min</Text>
+        <Text style={styles.duration}>{formatDuration(totalDurationMin)}</Text>
       </View>
 
       <View style={styles.metaRow}>
@@ -90,6 +98,12 @@ export default function JourneySummary({ journey, totalDurationMin }: Props) {
           </Text>
         )}
       </View>
+
+      {transferWaitMin !== undefined && (
+        <Text style={styles.waitNote}>
+          Includes a {formatDuration(transferWaitMin)} wait between services.
+        </Text>
+      )}
     </View>
   );
 }
@@ -111,6 +125,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     duration: { ...TYPE.caption, color: theme.textSecondary, marginLeft: SPACING.xs },
     metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.sm },
     meta: { ...TYPE.caption, color: theme.textSecondary },
+    waitNote: { ...TYPE.caption, color: theme.textPrimary, fontWeight: "600" },
     dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: theme.textSecondary, opacity: 0.6 },
   });
 }

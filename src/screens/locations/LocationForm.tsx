@@ -11,6 +11,7 @@ import FormSection from "../../components/FormSection";
 import FormActions from "../../components/FormActions";
 import GearMultiSelect from "../../components/GearMultiSelect";
 import { useGearOptions } from "../../lib/useGearOptions";
+import { resolveLocationLabel, shortAddressLabel } from "../../lib/placeLabel";
 import { reverseGeocode } from "../../services/placesService";
 
 // Add/edit form for a SavedLocation — docs/04-screens-navigation.md item 3.
@@ -84,7 +85,13 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete, em
   // separately, or a brand-new location (lat/lng still blank) reads as a
   // valid (0,0) coordinate instead of "not set yet."
   const hasValidCoords = lat.trim() !== "" && lng.trim() !== "" && !Number.isNaN(latNum) && !Number.isNaN(lngNum);
-  const canSubmit = label.trim().length > 0 && address.trim().length > 0 && hasValidCoords;
+  // The label is no longer part of this: an address already names the place,
+  // and making the user invent a second name for it before they can save was
+  // a gate with nothing behind it. resolveLocationLabel() fills it in on
+  // submit, so the stored label is still always a real string.
+  const canSubmit = address.trim().length > 0 && hasValidCoords;
+  // Shown under the empty field so the default isn't a surprise after saving.
+  const labelPlaceholder = shortAddressLabel(address) || "Home";
 
   async function handleMapConfirm(coords: { lat: number; lng: number }, resolvedLabel?: string) {
     setMapPickerOpen(false);
@@ -114,8 +121,15 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete, em
     <Container {...containerProps}>
       <FormSection title="Location">
         <View>
-          <Text style={common.fieldLabel}>Label</Text>
-          <TextInput style={common.input} placeholderTextColor={theme.textSecondary} value={label} onChangeText={setLabel} placeholder="Home" />
+          <Text style={common.fieldLabel}>Label (optional)</Text>
+          <TextInput
+            style={common.input}
+            placeholderTextColor={theme.textSecondary}
+            value={label}
+            onChangeText={setLabel}
+            placeholder={labelPlaceholder}
+            accessibilityLabel={`Label, optional. Defaults to ${labelPlaceholder}`}
+          />
         </View>
 
         <View>
@@ -224,7 +238,7 @@ export default function LocationForm({ initial, onSubmit, onCancel, onDelete, em
         canSubmit={canSubmit}
         onSubmit={() =>
           onSubmit({
-            label: label.trim(),
+            label: resolveLocationLabel(label, address),
             address: address.trim(),
             lat: latNum,
             lng: lngNum,

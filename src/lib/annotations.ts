@@ -38,6 +38,40 @@ export function decodePolyline(encoded: string): LatLng[] {
   return points;
 }
 
+/**
+ * The inverse of `decodePolyline`.
+ *
+ * Needed because encoded polylines are delta-encoded against the point
+ * before them, so two of them cannot be joined by concatenating the strings
+ * — the second one's first delta would be measured from the wrong origin.
+ * Merging consecutive walking segments into one leg (routesService) has to
+ * decode both, join the points, and re-encode.
+ */
+export function encodePolyline(points: readonly LatLng[]): string {
+  let lastLat = 0;
+  let lastLng = 0;
+  let encoded = "";
+
+  const writeDelta = (value: number) => {
+    let v = value < 0 ? ~(value << 1) : value << 1;
+    while (v >= 0x20) {
+      encoded += String.fromCharCode((0x20 | (v & 0x1f)) + 63);
+      v >>= 5;
+    }
+    encoded += String.fromCharCode(v + 63);
+  };
+
+  for (const point of points) {
+    const lat = Math.round(point.lat * 1e5);
+    const lng = Math.round(point.lng * 1e5);
+    writeDelta(lat - lastLat);
+    writeDelta(lng - lastLng);
+    lastLat = lat;
+    lastLng = lng;
+  }
+  return encoded;
+}
+
 const EARTH_RADIUS_M = 6_371_000;
 
 export function distanceMeters(a: LatLng, b: LatLng): number {

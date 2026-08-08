@@ -14,6 +14,8 @@ import { PUDDLE_RISK_PRECIP_MM_6H } from "./recommend";
 import { scheduleForJourney } from "./leaveBy";
 import { CLIMATE_BY_MODE } from "./weather";
 import type { CarryPreference, Journey, JourneyLeg, RecurrenceRule, SavedLocation, TravelMode } from "../types";
+import { formatDuration } from "./formatDuration";
+import { deferToFirstService, type DeferralResult } from "./deferDeparture";
 
 const WAYPOINT_DWELL_MIN = 10;
 const OFFLINE_FALLBACK_WINDOW_DAYS = 30;
@@ -86,9 +88,19 @@ export interface PlanJourneyInput {
   templateId?: string;
 }
 
+/** Set when the departure was moved to meet the first running service —
+ *  see deferDeparture.ts. The UI must say so rather than silently reschedule. */
+export interface DeferredDeparture {
+  /** What the user asked for. */
+  from: string;
+  /** Where it moved to. */
+  to: string;
+  byMin: number;
+}
+
 export type PlanJourneyResult =
-  | { kind: "success"; journey: Journey; timeAdjusted?: boolean }
-  | { kind: "success-cached"; journey: Journey; cachedFromDate: string; timeAdjusted?: boolean }
+  | { kind: "success"; journey: Journey; timeAdjusted?: boolean; deferred?: DeferredDeparture }
+  | { kind: "success-cached"; journey: Journey; cachedFromDate: string; timeAdjusted?: boolean; deferred?: DeferredDeparture }
   | { kind: "failed" };
 
 interface AssembledLeg {
@@ -101,6 +113,7 @@ interface AssembledLeg {
   waitContext?: JourneyLeg["waitContext"];
   polyline?: string;
   steps?: JourneyLeg["steps"]; // Phase 22 — turn-by-turn, carried straight through
+  transitStops?: JourneyLeg["transitStops"]; // board/alight points on a transit step, carried straight through
   hopIndex?: number; // index into the ordered stop sequence this leg travels *from* — undefined when unknown (transit, cached-structure reuse)
   // Phase 7 (§5.6) — best-effort AT GTFS Realtime lookup keys carried from
   // routesService's transit step, only set on the transit step itself.
@@ -117,7 +130,7 @@ interface AssembledLeg {
 // one).
 function waitLabel(stopId: string | undefined, waitMin: number): string {
   const stopName = stopId ?? "your stop";
-  return waitMin > 0 ? `Waiting at ${stopName} — delay ${waitMin} min` : `Waiting at ${stopName}`;
+  return waitMin > 0 ? `Waiting at ${stopName} — delay ${formatDuration(waitMin)}` : `Waiting at ${stopName}`;
 }
 
 // §5.6 — for each bus/train step, ask AT GTFS Realtime for the live
@@ -218,6 +231,7 @@ function stepsToAssembledLegs(steps: RouteStep[], input: PlanJourneyInput): Asse
       waitContext: step.waitContext,
       polyline: step.polyline,
       steps: step.steps,
+      transitStops: step.transitStops,
       hopIndex: knownHopBoundaries ? hopIndex : undefined,
       routeId: step.routeId,
       stopId: step.stopId,
@@ -257,6 +271,7 @@ async function assembleJourney(
       climate: step.climate,
       polyline: step.polyline,
       steps: step.steps,
+      transitStops: step.transitStops,
       isStationary: step.isStationary,
       waitContext: step.waitContext,
       delayMinutes: step.delayMinutes,
@@ -320,10 +335,20 @@ async function assembleJourney(
   };
 }
 
-async function buildFromLiveRoute(steps: RouteStep[], input: PlanJourneyInput): Promise<Journey> {
+async function buildFromLiveRoute(
+  steps: RouteStep[],
+  input: PlanJourneyInput
+): Promise<{ journey: Journey; deferral: DeferralResult<AssembledLeg> }> {
   const assembled = await applyRealtimeDelays(stepsToAssembledLegs(steps, input));
+  // Before any clock time or forecast is stamped: a journey that opens with a
+  // wait nobody would sit through isn't a journey that departs now. Shifting
+  // it here fixes the duration, the leave-by notification, the gear engine's
+  // exposure figure and the per-leg forecast hours in one move — see
+  // deferDeparture.ts.
+  const deferral = deferToFirstService(assembled, input.departTime);
   const stops = [input.origin, ...input.waypoints, input.destination];
-  return assembleJourney(assembled, input, stops);
+  const journey = await assembleJourney(deferral.legs, { ...input, departTime: deferral.departTime }, stops);
+  return { journey, deferral };
 }
 
 async function buildFromCachedStructure(cached: Journey, input: PlanJourneyInput): Promise<Journey> {
@@ -414,9 +439,18 @@ export async function planJourney(input: PlanJourneyInput): Promise<PlanJourneyR
 
   let journey: Journey | undefined;
   let cachedFromDate: string | undefined;
+  let deferred: DeferredDeparture | undefined;
 
   if (steps) {
-    journey = await buildFromLiveRoute(steps, resolvedInput);
+    const built = await buildFromLiveRoute(steps, resolvedInput);
+    journey = built.journey;
+    if (built.deferral.deferredFrom && built.deferral.deferredByMin) {
+      deferred = {
+        from: built.deferral.deferredFrom,
+        to: built.deferral.departTime,
+        byMin: built.deferral.deferredByMin,
+      };
+    }
   } else {
     // §5.1 — on failure, look for a previously-planned Journey between the
     // same origin/destination pair within the last 30 days and reuse its
@@ -438,6 +472,6 @@ export async function planJourney(input: PlanJourneyInput): Promise<PlanJourneyR
   // caller's perspective: scheduleForJourney() never throws.
   void scheduleForJourney(journey);
   return cachedFromDate
-    ? { kind: "success-cached", journey, cachedFromDate, timeAdjusted: timeAdjusted || undefined }
-    : { kind: "success", journey, timeAdjusted: timeAdjusted || undefined };
+    ? { kind: "success-cached", journey, cachedFromDate, timeAdjusted: timeAdjusted || undefined, deferred }
+    : { kind: "success", journey, timeAdjusted: timeAdjusted || undefined, deferred };
 }

@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import useTheme from "../theme/useTheme";
+import { CONTENT_MAX_WIDTH } from "../theme/commonStyles";
 
 // Custom header back control replacing React Navigation's platform default —
 // a rounded accent-tinted chip with a chevron, matching the app's own
@@ -12,16 +13,31 @@ interface Props {
   label?: string;
 }
 
+// How far the back chip sits from the screen's left edge. On a phone the
+// header is the chip's own row — nothing else is competing for that corner —
+// and 20px of dead space before a 30px disc reads as a control that drifted
+// inboard, so it hugs the edge the way every native header's arrow does. Only
+// once the viewport is wide enough for the content column to be centred and
+// capped does the larger inset earn its keep, keeping the chip clear of the
+// window frame. Exported for the test that pins the two ends of the range.
+export const BACK_INSET_NARROW = 6;
+export const BACK_INSET_WIDE = 20;
+
+export function backButtonInset(viewportWidth: number): number {
+  return viewportWidth < CONTENT_MAX_WIDTH ? BACK_INSET_NARROW : BACK_INSET_WIDE;
+}
+
 export default function HeaderBackButton({ onPress, label = "Back" }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
+  const { width } = useWindowDimensions();
   return (
     <Pressable
       onPress={onPress}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.button, { paddingLeft: backButtonInset(width) }, pressed && styles.pressed]}
     >
       <View style={styles.iconWrap}>
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -45,9 +61,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // `headerLeftContainerStyle`: that option isn't part of native-stack's
     // type at all, and the default container sits flush against the screen
     // edge on web/RNW (measured at x=0, chevron disc touching the frame).
-    // 20 is §9.2's screen horizontal margin, so the chip lines up with the
-    // content below it.
-    button: { flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 20, paddingRight: 12, paddingVertical: 4 },
+    // It's applied inline from backButtonInset() rather than set here,
+    // because it depends on the viewport width — see that function.
+    button: { flexDirection: "row", alignItems: "center", gap: 4, paddingRight: 12, paddingVertical: 4 },
     pressed: { opacity: 0.55 },
     iconWrap: {
       width: 30,
