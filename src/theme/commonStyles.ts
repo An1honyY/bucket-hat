@@ -48,6 +48,32 @@ export function selectedChipLabelStyle(theme: ThemeTokens) {
   return { color: onTonal(theme.accentWalk, theme.isLight), fontWeight: "600" } as const;
 }
 
+// §9.1/§9.6 (2026-08-09) — one look for "this reading is out of the ordinary".
+//
+// The app had four of these and they all looked different: a solid-gold UV
+// badge with white text, a solid-gold wash reminder, a solid-gold late-service
+// pill, and a bold-text feels-like. `uvBadge` had quietly become a
+// general-purpose attention fill for three unrelated facts, and the solid
+// version was loud enough that the UV badge outshouted the temperature it sat
+// beside — the actual headline of that card.
+//
+// Tonal instead, defaulting to `conditionLight`: §9.1's "notable, not severe"
+// hue, already assigned to Windy/Foggy/Light rain. Deliberately not
+// `accentWalk`, which is reserved for primary interactive emphasis and reads
+// as tappable.
+//
+// A highlight only means something while it stays rare. Use this where the
+// engine has *already* decided a value is exceptional — a named threshold, a
+// divergence check — never for a value that merely looks interesting, and
+// never more than a couple on one screen.
+export function notableFillStyle(theme: ThemeTokens, tone: string = theme.conditionLight) {
+  return { backgroundColor: withAlpha(tone, tonalFillAlpha(theme.isLight)) } as const;
+}
+
+export function notableLabelStyle(theme: ThemeTokens, tone: string = theme.conditionLight) {
+  return { color: onTonal(tone, theme.isLight), fontWeight: "700" } as const;
+}
+
 export function getCommonStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     // ---- screen scaffolding ----

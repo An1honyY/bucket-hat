@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 import useTheme from "../theme/useTheme";
+import { notableFillStyle, notableLabelStyle } from "../theme/commonStyles";
 
 // Unavailability + wash-reminder badges — docs/09-design-system.md §9.4.3.
 // Mutually exclusive: an item already out for laundry doesn't also show
@@ -60,7 +61,7 @@ export default function GearRowBadges({ item, onTapUnavailable, onTapWashReminde
         : "Might need a wash after that last trip";
     return (
       <Pressable onPress={onTapWashReminder} style={[styles.badge, styles.washBadge]}>
-        <Text style={styles.badgeLabel}>{label}</Text>
+        <Text style={[styles.badgeLabel, styles.washBadgeLabel]}>{label}</Text>
       </Pressable>
     );
   }
@@ -78,7 +79,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderRadius: 8,
       backgroundColor: theme.border,
     },
-    washBadge: { backgroundColor: theme.uvBadge },
+    // The same "notable" vocabulary the Today card uses, rather than a third
+    // independent solid-gold fill.
+    washBadge: notableFillStyle(theme, theme.uvBadge),
+    washBadgeLabel: notableLabelStyle(theme, theme.uvBadge),
     badgeLabel: { fontSize: 11, color: theme.textPrimary },
   });
 }

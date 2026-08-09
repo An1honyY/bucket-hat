@@ -102,12 +102,19 @@ describe("tonal surfaces stay readable", () => {
   // at/over HIGH_WIND_KPH) is a second tonal pairing: `conditionLight` on
   // `surfaceRaised` rather than `accentWalk` on `bg`. Different hue, different
   // backdrop, so it earns its own check rather than inheriting the one above.
-  it.each([
+  const notableTones = [
+    { tone: "conditionLight" as const, why: "a diverging feels-like, or notable wind" },
+    { tone: "uvBadge" as const, why: "the UV badge, and the wash reminder" },
+  ];
+  const surfaces = [
     { name: "dark", theme: darkTheme },
     { name: "light", theme: lightTheme },
-  ])("$name: a notable fact clears AA on the raised card", ({ theme }) => {
-    const label = onTonal(theme.conditionLight, theme.isLight);
-    const chip = compositedChip(theme.conditionLight, theme.surfaceRaised, theme.isLight);
+  ];
+  it.each(
+    surfaces.flatMap(({ name, theme }) => notableTones.map(({ tone, why }) => ({ name, theme, tone, why })))
+  )("$name: $why clears AA on the raised card", ({ theme, tone }) => {
+    const label = onTonal(theme[tone], theme.isLight);
+    const chip = compositedChip(theme[tone], theme.surfaceRaised, theme.isLight);
     expect(contrast(label, chip)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 

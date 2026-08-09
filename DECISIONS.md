@@ -176,6 +176,7 @@ one by date — don't edit the old entry.
 - 2026-08-09 — The day boundary is drawn through the hourly band, not as a gap in it (§9.5) [design]
 - 2026-08-09 — Today's "Right now" card leads with the temperature, not its own title (§9.3.1) [design]
 - 2026-08-09 — A diverging feels-like or notable wind lights up as a tonal fact chip (§9.3.1, §9.6) [design]
+- 2026-08-09 — One tonal vocabulary for "out of the ordinary"; the UV and wash badges join it (§9.1, §9.6) [design]
 
 ---
 
@@ -3427,5 +3428,36 @@ reserved for primary interactive emphasis and would read as tappable. Fill,
 weight and colour all move together and the figure is stated in words either
 way, so Section 9.6 holds; the pairing is pinned in `tonalContrast.test.ts`
 and measured at 7.08:1 live.
+
+---
+
+## 2026-08-09 — One tonal vocabulary for "out of the ordinary"; the UV and wash badges join it (Section 9.1, 9.6)
+
+**What**: extracted `notableFillStyle`/`notableLabelStyle` into
+`commonStyles.ts`, defaulting to `conditionLight` and taking any tone. The
+"Right now" fact chips, the UV badge and the gear wash reminder now all read
+from it. The UV badge and wash reminder were solid `uvBadge` fills with white
+or primary text; both are now tonal in that same hue.
+
+**Why**: four things meaning "this is out of the ordinary" looked four
+different ways, and `uvBadge` had quietly become a general-purpose attention
+fill for three unrelated facts. The solid version was loud enough that a UV
+number — present only sometimes — outshouted the temperature beside it, which
+is the actual headline of that card.
+
+**Resolution**: the helper carries the rule in its own comment — use it only
+where the engine has *already* decided a value is exceptional (a named
+threshold, a divergence check), never for a value that merely looks
+interesting, and never more than a couple per screen. A highlight only means
+anything while it stays rare. Both tones are pinned in
+`tonalContrast.test.ts`.
+
+Deliberately **not** converted, so this doesn't become "highlight everything":
+LegRow's wind figure is already gated on `HIGH_WIND_KPH`, so its mere presence
+is the highlight and a chip inside a comma-joined line would read worse; the
+transit delay pill is a different register (a late service is about a service,
+and it carries an early/late distinction this vocabulary has no room for); and
+the condition badges keep their severity fills, which mean something more
+specific than "notable".
 
 ---

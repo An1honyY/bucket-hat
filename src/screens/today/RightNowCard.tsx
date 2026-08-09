@@ -5,7 +5,8 @@ import { classifyWeather, feelsLikeDiverges, formatWindKph } from "../../lib/wea
 import { conditionColorForIcon } from "../../theme/conditionColor";
 import useTheme from "../../theme/useTheme";
 import { NUMERIC, RADIUS, SPACING, TYPE } from "../../theme/typography";
-import { cardElevationStyle, onTonal, tonalFillAlpha, withAlpha } from "../../theme/tokens";
+import { cardElevationStyle } from "../../theme/tokens";
+import { notableFillStyle, notableLabelStyle } from "../../theme/commonStyles";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
 import GearThumbnail from "../../components/GearThumbnail";
 import GearDetailSheet, { type GearItem } from "../../components/GearDetailSheet";
@@ -262,17 +263,21 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     },
     // §9.6 — three signals at once (fill, weight, colour) and the figure is
     // stated in words either way, so nothing here rides on colour alone.
-    //
-    // `conditionLight` is the app's existing "notable, not severe" hue — §9.1
-    // assigns it to Windy/Foggy/Light rain and the UV badge — rather than
-    // `accentWalk`, which is reserved for primary interactive emphasis and
-    // would read as something you can tap.
-    detailNotable: {
-      backgroundColor: withAlpha(theme.conditionLight, tonalFillAlpha(theme.isLight)),
+    // The shared vocabulary; see notableFillStyle for why it's tonal.
+    detailNotable: notableFillStyle(theme),
+    detailNotableText: notableLabelStyle(theme),
+    // Same vocabulary as the two fact chips below it, in its own `uvBadge`
+    // tone. It was a solid gold fill with white text, which made the loudest
+    // thing on this card a number that is only sometimes present — louder
+    // than the temperature it sits beside.
+    uvBadge: {
+      marginLeft: "auto",
+      paddingHorizontal: SPACING.sm,
+      paddingVertical: SPACING.xs,
+      borderRadius: RADIUS.pill,
+      ...notableFillStyle(theme, theme.uvBadge),
     },
-    detailNotableText: { fontWeight: "700", color: onTonal(theme.conditionLight, theme.isLight) },
-    uvBadge: { marginLeft: "auto", paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, borderRadius: RADIUS.pill, backgroundColor: theme.uvBadge },
-    uvBadgeText: { ...TYPE.micro, color: "#FFFFFF", fontWeight: "700" },
+    uvBadgeText: { ...TYPE.micro, ...notableLabelStyle(theme, theme.uvBadge) },
     picksSection: { gap: SPACING.sm, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.md, marginTop: 2 },
     picksHeading: { ...TYPE.eyebrow, color: theme.textSecondary },
     picksRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACING.sm },
