@@ -10,6 +10,7 @@ import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../.
 import GearThumbnail from "../../components/GearThumbnail";
 import GearDetailSheet, { type GearItem } from "../../components/GearDetailSheet";
 import WeatherIcon, { weatherIconKindFor } from "../../components/WeatherIcon";
+import MetaDivider from "../../components/MetaDivider";
 import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import type { LayerPick } from "../../lib/recommend";
@@ -127,6 +128,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
         <Text style={[styles.detail, diverges && styles.detailEmphasis]}>
           Feels like {Math.round(weather.apparentTempC)}°
         </Text>
+        <MetaDivider />
         <Text style={styles.detail}>Wind {formatWindKph(weather.windKph)}</Text>
       </View>
 
@@ -221,9 +223,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     temp: { fontSize: 24, fontWeight: "700", color: theme.textPrimary },
     conditionLabel: { ...TYPE.body, fontWeight: "600", color: theme.textSecondary },
-    // `lg`, not `xs`: the dot that used to divide these two facts is gone, so
-    // the gap is doing that job on its own and has to be unmistakable.
-    detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.lg, flexWrap: "wrap", marginTop: -2 },
+    // A hairline rule divides the two facts (MetaDivider), so the gap only has
+    // to give it breathing room either side.
+    detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap", marginTop: -2 },
     detail: { ...TYPE.caption, color: theme.textSecondary },
     // §9.6 — the emphasis is weight and colour together, never colour alone,
     // and the line states the figure either way; nothing here is conveyed by

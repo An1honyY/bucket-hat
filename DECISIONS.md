@@ -171,6 +171,8 @@ one by date — don't edit the old entry.
 - 2026-08-09 — Facts are separated by space, not by a dot (§9.2, §9.0.1) [design]
 - 2026-08-09 — Today's journey card badges a climate-controlled leg (§9.4) [design]
 - 2026-08-09 — The tab indicator is a proportion of its slot, with no maximum width (§9.2) [bug fix]
+- 2026-08-09 — A hairline rule separates peer facts (§9.2) [design, supersedes today's "separated by space, not by a dot"]
+- 2026-08-09 — The tab indicator spans its row; `top: 6` was double-counting the bar's padding (§9.2) [bug fix]
 
 ---
 
@@ -3313,5 +3315,46 @@ middle of its slot on desktop while filling it on a phone.
 (~0.87 of the slot) at every width, so widening it shrinks the pill
 *everywhere*, including on phones where nothing was wrong. Measured 81.75pt at
 375 (unchanged from before) and 138pt at 600.
+
+---
+
+## 2026-08-09 — A hairline rule separates peer facts (Section 9.2)
+
+**What**: supersedes today's "Facts are separated by space, not by a dot".
+The middots stay gone, but bare whitespace is replaced by `MetaDivider`, a
+short dim hairline rule, in the three summary rows that carry peer facts
+(Today's journey card, Journey Detail's summary, the "Right now" detail row).
+Row gaps come back down from `xxl`/`lg` to `sm`.
+
+**Why**: whitespace has to be large enough to read as a boundary, and at that
+size the row stopped looking like one line of related facts and started
+looking like items that had drifted apart — while still being ambiguous,
+since the groups inside it (mode glyphs, a weather chip) have their own gaps.
+
+**Resolution**: a rule is structure rather than punctuation, so it reads at a
+small gap and doesn't sit on the baseline pretending to be a character. It is
+deliberately short (12pt) and drawn in `border`, and it's hidden from
+accessibility — the spoken summary already reads as a sentence. Reach for
+`MetaDivider` rather than reintroducing a character separator.
+
+---
+
+## 2026-08-09 — The tab indicator spans its row; `top: 6` was double-counting the bar's padding (Section 9.2)
+
+**What**: `indicatorStyle.top` goes from 6 to 0, so the travelling pill spans
+the item row exactly and the icon and label sit inside it on the tab item's
+own 4pt padding.
+
+**Why**: the 6 was calibrated when the indicator was a direct child of the
+outer bar. Moving it inside the `CONTENT_MAX_WIDTH` item row earlier today
+left it stacking on top of that bar's own 6pt `paddingTop`, so the pill
+started below the icon — measured at icon top 860 against pill top 862, which
+is visible as the icon breaking out through the top of the pill.
+
+**Resolution**: the pill's height is now the row's height, so it can't drift
+again if the bar's padding changes. Verified by measurement rather than by
+eye: 4pt clearance above the icon and below the label, fully contained on all
+four sides. A width change and a height change went unnoticed here in one
+session — measure both when this moves.
 
 ---

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import ModeIcon from "../../components/ModeIcon";
+import MetaDivider from "../../components/MetaDivider";
 import ActionIcon from "../../components/ActionIcon";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle } from "../../theme/tokens";
@@ -97,7 +98,9 @@ export default function JourneySummary({ journey, totalDurationMin }: Props) {
 
       <View style={styles.metaRow}>
         <Text style={styles.meta}>{day}</Text>
+        <MetaDivider />
         <Text style={styles.meta}>{formatDuration(totalDurationMin)}</Text>
+        {modes.length > 0 && <MetaDivider />}
         {modes.length > 0 && (
           <View style={styles.modeRow}>
             {modes.map((mode) => (
@@ -105,6 +108,7 @@ export default function JourneySummary({ journey, totalDurationMin }: Props) {
             ))}
           </View>
         )}
+        {stopCount > 0 && <MetaDivider />}
         {stopCount > 0 && (
           <Text style={styles.meta}>
             {stopCount} stop{stopCount === 1 ? "" : "s"} on the way
@@ -141,9 +145,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     timeArrow: { marginTop: SPACING.xxl },
     departTime: { ...TYPE.display, ...NUMERIC, color: theme.accentWalk },
     arriveTime: { ...TYPE.title, ...NUMERIC, color: theme.textPrimary },
-    // Wider gap in place of the dots that used to divide these facts; the
-    // mode glyphs keep their own tight grouping inside `modeRow`.
-    metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.lg },
+    // A hairline rule divides these facts (MetaDivider); the gap only has to
+    // give it room, and the mode glyphs keep their own tighter grouping.
+    metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.sm },
     meta: { ...TYPE.caption, color: theme.textSecondary },
     modeRow: { flexDirection: "row", alignItems: "center", gap: SPACING.xs },
     waitNote: { ...TYPE.caption, color: theme.textPrimary, fontWeight: "600" },

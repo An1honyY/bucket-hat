@@ -211,7 +211,14 @@ const tabItemStyle = {
 const indicatorStyle = {
   position: "absolute" as const,
   left: 0,
-  top: 6,
+  // Spans the item row exactly — the icon and label sit inside it with the
+  // tab item's own 4pt vertical padding as clearance.
+  //
+  // This was `top: 6`, calibrated against the outer bar back when the
+  // indicator was its direct child. Inside the item row that 6 lands *on top
+  // of* the bar's own 6pt paddingTop, pushing the pill down far enough that
+  // the icon broke out of it (icon top 860 vs pill top 862, measured).
+  top: 0,
   borderRadius: 16,
   borderWidth: 1,
 };

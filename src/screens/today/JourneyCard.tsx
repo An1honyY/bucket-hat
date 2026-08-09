@@ -4,6 +4,7 @@ import { classifyWeather } from "../../lib/weather";
 import WeatherIcon, { weatherIconKindFor, type WeatherIconKind } from "../../components/WeatherIcon";
 import ActionIcon from "../../components/ActionIcon";
 import ModeIcon from "../../components/ModeIcon";
+import MetaDivider from "../../components/MetaDivider";
 import { formatTime } from "../../lib/formatTime";
 import { formatDuration, spokenDuration } from "../../lib/formatDuration";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
@@ -125,17 +126,17 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
           <Text style={styles.time}>{departTime}</Text>
         </View>
 
-        {/* Separated by space rather than by dots. Each of these is already a
-            distinct shape — a duration, a row of mode glyphs, a weather chip,
-            an AC badge — so the dividers were punctuating things that didn't
-            need it. */}
+        {/* Peer facts, separated by a hairline rule rather than a middot —
+            see MetaDivider for why neither a dot nor bare spacing works here. */}
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>{formatDuration(totalMin)}</Text>
+          {modes.length > 0 && <MetaDivider />}
           <View style={styles.modeRow}>
             {modes.map((mode) => (
               <ModeIcon key={mode} kind={mode} size={13} color={theme.textSecondary} />
             ))}
           </View>
+          {tempRange && worstIconKind && <MetaDivider />}
           {tempRange && worstIconKind && (
             <View style={styles.weatherChip}>
               <WeatherIcon kind={worstIconKind} size={12} color={theme.textSecondary} />
@@ -146,6 +147,7 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
               Today: it's the difference between dressing for 13° and dressing
               for 13° plus twenty minutes of aggressive bus AC, and it's the
               one thing on this card you can't infer from the weather. */}
+          {climateLegCount > 0 && <MetaDivider />}
           {climateLegCount > 0 && (
             <View style={styles.acBadge}>
               <Text style={styles.acBadgeLabel}>{climateLabel}</Text>
@@ -190,10 +192,10 @@ function getStyles(theme: ThemeTokens) {
     time: { ...TYPE.caption, fontWeight: "700", color: theme.accentWalk },
     // One line, fixed length whatever the leg count — see the note above the
     // summary in the component.
-    // `lg` between groups rather than `sm` plus a dot: with the dividers gone
-    // the spacing is what separates them, so it has to be clearly wider than
-    // the gaps *inside* each group (5 and 4 below).
-    summaryRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.lg },
+    // Back down to `sm` now the rule carries the separation: `lg` was needed
+    // only while whitespace alone had to do it, and at that width the row
+    // stopped reading as one line.
+    summaryRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.sm },
     summaryText: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
     modeRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     weatherChip: { flexDirection: "row", alignItems: "center", gap: 4 },
