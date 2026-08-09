@@ -173,6 +173,8 @@ one by date — don't edit the old entry.
 - 2026-08-09 — The tab indicator is a proportion of its slot, with no maximum width (§9.2) [bug fix]
 - 2026-08-09 — A hairline rule separates peer facts (§9.2) [design, supersedes today's "separated by space, not by a dot"]
 - 2026-08-09 — The tab indicator spans its row; `top: 6` was double-counting the bar's padding (§9.2) [bug fix]
+- 2026-08-09 — The day boundary is drawn through the hourly band, not as a gap in it (§9.5) [design]
+- 2026-08-09 — Today's "Right now" card leads with the temperature, not its own title (§9.3.1) [design]
 
 ---
 
@@ -3356,5 +3358,48 @@ again if the bar's padding changes. Verified by measurement rather than by
 eye: 4pt clearance above the icon and below the label, fully contained on all
 four sides. A width change and a height change went unnoticed here in one
 session — measure both when this moves.
+
+---
+
+## 2026-08-09 — The day boundary is drawn through the hourly band, not as a gap in it (Section 9.5)
+
+**What**: `HourlyForecastRow`'s day separator moves from a faint full-height
+rule sitting inside a 12pt inter-group gutter to a hairline placed *between*
+groups with the cells flush either side of it, offset down past the day-name
+row so it divides hours rather than the two day labels.
+
+**Why**: the run flags right above it go out of their way to compute night
+runs against the flat reading list rather than per day group, precisely so a
+night starting before midnight and ending after it renders as one continuous
+tinted block — and then the gutter cut that block in half at exactly midnight,
+which is the one place it is trying hardest to read as continuous.
+
+**Resolution**: the trailing clearance the last group got from `hours`'
+`paddingRight` moved to the strip's `contentContainerStyle`, since the padding
+had to go for the break to sit flush. The label row's height is now an
+explicit constant (`LABEL_BAND`) because the break offsets past it by height —
+change one and the other has to follow.
+
+---
+
+## 2026-08-09 — Today's "Right now" card leads with the temperature, not its own title (Section 9.3.1)
+
+**What**: the temperature moves from a hardcoded `fontSize: 24` to §9.2's
+`display` role with tabular figures, the condition label from
+caption-weight `textSecondary` to `subtitle` in `textPrimary`, the weather
+glyph from 26 to 34, and the card's own "Right now" heading down to an
+eyebrow.
+
+**Why**: this is the highest-traffic card in the app and the one number it
+exists to give you was set smaller than the app's own `title` role, while the
+words "Right now" sat above it at nearly the same weight — so the card opened
+with two things competing and led with the less interesting one.
+
+**Resolution**: the hero is the reading, and the heading is a signpost. This
+is also the first use of the `display` step outside Journey Detail; a screen
+gets at most one, so anything else added to this card stays below `subtitle`.
+`picksHeading` was a sixth local copy of the eyebrow and now reads
+`TYPE.eyebrow`; the dead `detailSeparator` style left over from the middot
+removal is gone.
 
 ---

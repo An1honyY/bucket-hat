@@ -4,7 +4,7 @@ import type { RightNowState } from "../../lib/useRightNow";
 import { classifyWeather, feelsLikeDiverges, formatWindKph } from "../../lib/weather";
 import { conditionColorForIcon } from "../../theme/conditionColor";
 import useTheme from "../../theme/useTheme";
-import { RADIUS, SPACING, TYPE } from "../../theme/typography";
+import { NUMERIC, RADIUS, SPACING, TYPE } from "../../theme/typography";
 import { cardElevationStyle } from "../../theme/tokens";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
 import GearThumbnail from "../../components/GearThumbnail";
@@ -101,7 +101,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
             conditionDry, a deliberately muted grey that suits a small leg
             badge and made this card's hero icon *dimmer* than the plain
             textPrimary it replaced — the opposite of the intent. */}
-        <WeatherIcon kind={heroIcon} size={26} color={conditionColorForIcon(theme, heroIcon)} />
+        <WeatherIcon kind={heroIcon} size={34} color={conditionColorForIcon(theme, heroIcon)} />
         {/* The air temperature, not the apparent one. This card showed
             `apparentTempC` here unlabelled for its whole life, which is the
             one number a bare "5°C" must not be: every other weather app
@@ -218,11 +218,21 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       marginBottom: SPACING.lg,
       ...cardElevationStyle(theme),
     },
-    title: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    // "Right now" is a signpost, not content — as body/600 in textPrimary it
+    // sat at almost the same weight as the reading underneath it, so the card
+    // opened with two things asking for attention and led with the less
+    // interesting one. Demoted to an eyebrow, which is what it always was.
+    title: { ...TYPE.eyebrow, color: theme.textSecondary },
     suburbLabel: { ...TYPE.caption, color: theme.textSecondary },
     conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
-    temp: { fontSize: 24, fontWeight: "700", color: theme.textPrimary },
-    conditionLabel: { ...TYPE.body, fontWeight: "600", color: theme.textSecondary },
+    // The one number this screen exists to give you, finally at the size the
+    // scale has for exactly that (§9.2's display step). It was a hardcoded 24
+    // — smaller than the app's own title role — on the highest-traffic card in
+    // the app. Tabular, so it doesn't shift width as the temperature changes.
+    temp: { ...TYPE.display, ...NUMERIC, color: theme.textPrimary },
+    // Promoted alongside it: "Light rain" is half the answer to "what's it
+    // like out", and it was styled as a caption in textSecondary.
+    conditionLabel: { ...TYPE.subtitle, color: theme.textPrimary, flexShrink: 1 },
     // A hairline rule divides the two facts (MetaDivider), so the gap only has
     // to give it breathing room either side.
     detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap", marginTop: -2 },
@@ -231,11 +241,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // and the line states the figure either way; nothing here is conveyed by
     // the styling on its own.
     detailEmphasis: { fontWeight: "700", color: theme.textPrimary },
-    detailSeparator: { ...TYPE.caption, color: theme.textSecondary },
     uvBadge: { marginLeft: "auto", paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, borderRadius: RADIUS.pill, backgroundColor: theme.uvBadge },
     uvBadgeText: { ...TYPE.micro, color: "#FFFFFF", fontWeight: "700" },
     picksSection: { gap: SPACING.sm, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.md, marginTop: 2 },
-    picksHeading: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 },
+    picksHeading: { ...TYPE.eyebrow, color: theme.textSecondary },
     picksRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACING.sm },
     // A resolved pick names something the user owns, so it gets the accent and
     // a tinted chip. A fallback is generic advice, so it stays quieter and
