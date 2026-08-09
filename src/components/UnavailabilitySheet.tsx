@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import useTheme from "../theme/useTheme";
+import { selectedChipStyle, selectedChipLabelStyle } from "../theme/commonStyles";
 
 // "Mark unavailable until…" action — docs/07-recommendation-engine.md §7.7,
 // §7.16, docs/09-design-system.md §9.4.3. A reason picker (Laundry / Repair
@@ -117,9 +118,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     title: { fontSize: 17, fontWeight: "600", color: theme.textPrimary },
     reasonRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
     reasonChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.border },
-    reasonChipActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    reasonChipActive: selectedChipStyle(theme),
     reasonLabel: { fontSize: 14, color: theme.textPrimary },
-    reasonLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    reasonLabelActive: selectedChipLabelStyle(theme),
     stepperRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16 },
     stepperButton: {
       width: 36,

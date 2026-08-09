@@ -32,7 +32,7 @@ import { cancelLeaveByNotification } from "../../lib/notifications";
 import { showAlert } from "../../lib/crossPlatformAlert";
 import { recordGearFeedback } from "../../lib/calibration";
 import { checkForecastDrift } from "../../lib/forecastDrift";
-import { dominantMode } from "../../lib/journeyMode";
+import { departureMode, dominantMode } from "../../lib/journeyMode";
 import { classifyWeather } from "../../lib/weather";
 import { formatTime } from "../../lib/formatTime";
 import { formatDuration } from "../../lib/formatDuration";
@@ -57,7 +57,7 @@ import FullScreenMapModal from "./FullScreenMapModal";
 import BottomSheet from "../../components/BottomSheet";
 import ScreenSurface from "../../components/ScreenSurface";
 import ActionIcon from "../../components/ActionIcon";
-import AppButton from "../../components/AppButton";
+import AppButton, { buttonIconColor } from "../../components/AppButton";
 import EffectIcon from "../../components/EffectIcon";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle, conditionColorForSeverity } from "../../theme/tokens";
@@ -590,8 +590,11 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
     accentColor,
     // The origin marker carries the mode you're travelling by (the same glyph
     // the live puck uses), so "where I set off" and "what I'm on" are one
-    // marker rather than a generic place-pin.
-    originMode: dominantMode(journey.legs),
+    // marker rather than a generic place-pin. `departureMode`, not
+    // `dominantMode`: at the origin of a bus trip you are standing on the
+    // footpath about to walk, and the live puck already shows the current
+    // leg's mode — these two should agree at the moment you set off.
+    originMode: departureMode(journey.legs),
     onLongPress: openAnnotationSheet,
     previewCircle,
     conditionMarkers,
@@ -648,7 +651,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
                   the status line carries the whole bar on its own. */}
               {progress && (
                 <Text style={styles.journeyBarEta}>
-                  Arrive {formatTime(new Date(progress.etaMs).toISOString(), hour12)} ·{" "}
+                  Arrive {formatTime(new Date(progress.etaMs).toISOString(), hour12)},{" "}
                   {formatDuration(progress.remainingMin)} left
                 </Text>
               )}
@@ -770,11 +773,15 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
             <AppButton
               label="Follow this journey"
               accessibilityLabel="Follow this journey on the map"
+              // `tonal`, not `primary`: the departure time directly above is
+              // already the accent at full strength, and two of those
+              // touching cancel each other out (see AppButton's variant note).
+              variant="tonal"
               onPress={() => {
                 setCameraLocked(true);
                 setJourneyMode(true);
               }}
-              icon={<ActionIcon kind="crosshair" size={16} color="#FFFFFF" />}
+              icon={<ActionIcon kind="crosshair" size={16} color={buttonIconColor(theme, "tonal")} />}
             />
           )}
 
@@ -1028,7 +1035,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       backgroundColor: theme.surface,
       ...cardElevationStyle(theme),
     },
-    sectionLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
+    sectionLabel: { ...TYPE.eyebrow, color: theme.textSecondary },
     footerActions: { gap: SPACING.sm, marginTop: SPACING.sm },
     content: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
     empty: { color: theme.textSecondary },
@@ -1042,7 +1049,11 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     recenterChip: {
       position: "absolute",
       right: 12,
-      bottom: 12,
+      // Raised clear of the basemap's attribution strip, the same 26 the
+      // hint chip in JourneyMap.web.tsx already uses for the same reason.
+      // At 12 this chip sat on top of "© OpenStreetMap contributors" — the
+      // one piece of furniture on the map that isn't ours to cover.
+      bottom: 26,
       flexDirection: "row",
       alignItems: "center",
       gap: 6,

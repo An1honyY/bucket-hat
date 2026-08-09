@@ -45,8 +45,8 @@ export default function WarmthSlider({
         ))}
       </View>
       <View style={styles.anchors}>
-        <Text style={styles.anchorLabel}>1 · barely warmer than a t-shirt</Text>
-        <Text style={styles.anchorLabel}>10 · heaviest winter coat you own</Text>
+        <Text style={styles.anchorLabel}>1 — barely warmer than a t-shirt</Text>
+        <Text style={styles.anchorLabel}>10 — heaviest winter coat you own</Text>
       </View>
 
       {showSubstitutesToggle && (

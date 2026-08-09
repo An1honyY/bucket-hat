@@ -44,11 +44,15 @@ export default function LocationsScreen({ navigation }: Props) {
 
   return (
     <ScreenSurface>
+      {/* The empty state carries no "Locations" heading — the tab header
+          directly above it already says exactly that, and an empty screen
+          repeating its own title spends the one moment it has to tell you
+          what to do. Its action is `primary`: it is the only thing on the
+          screen, so there's nothing for it to compete with. */}
       {loaded && locations.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.title}>Locations</Text>
-          <Text style={styles.empty}>No locations yet — add Home and Work first</Text>
-          <AppButton label="Add a location" variant="secondary" onPress={() => navigation.navigate("LocationForm")} style={styles.addButton} />
+          <Text style={styles.empty}>Nothing saved yet — start with Home and Work.</Text>
+          <AppButton label="Add a location" onPress={() => navigation.navigate("LocationForm")} style={styles.addButton} />
         </View>
       ) : (
         <FlatList

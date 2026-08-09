@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { dayLabelFor, formatHourLabel, iconKindFor, localDayKey } from "../lib/outlookDisplay";
 import { useTimeFormatStore } from "../lib/useTimeFormatStore";
@@ -5,6 +6,7 @@ import type { HourlyReading } from "../services/weatherService";
 import { conditionColorForIcon } from "../theme/conditionColor";
 import type { ThemeTokens } from "../theme/tokens";
 import useTheme from "../theme/useTheme";
+import { TYPE } from "../theme/typography";
 import HorizontalStrip from "./HorizontalStrip";
 import RainGauge from "./RainGauge";
 import { WEATHER_ICON_LABEL } from "./WeatherIcon";
@@ -51,6 +53,12 @@ interface Props {
   theme?: ThemeTokens;
 }
 
+/** The day-name row, and the gap under it — together, how far the day break
+ *  has to drop before it starts dividing hours. */
+const LABEL_HEIGHT = 14;
+const LABEL_GAP = 6;
+const LABEL_BAND = LABEL_HEIGHT + LABEL_GAP;
+
 interface DayGroup {
   key: string;
   label: string;
@@ -88,7 +96,20 @@ export default function HourlyForecastRow({ readings, nowIso, bleed = 0, theme: 
       contentContainerStyle={[styles.content, bleed ? { paddingLeft: bleed, paddingRight: bleed } : null]}
     >
       {groups.map((group, groupIndex) => (
-        <View key={group.key} style={styles.group}>
+        <Fragment key={group.key}>
+          {/* The day boundary is drawn *through* the band rather than as a gap
+              in it. A night starts before midnight and ends after it, and the
+              run flags below go out of their way to keep that one continuous
+              tinted block — then the old 12pt inter-group gutter cut it in
+              half at exactly midnight, which is the one place the block is
+              trying hardest to read as continuous. A hairline over an unbroken
+              band says "new day" without saying "new thing".
+
+              It clears the label row above it (LABEL_BAND), so it divides the
+              hours and not the two day names, which are already separated by
+              being different words in different places. */}
+          {groupIndex > 0 && <View style={styles.dayBreak} />}
+          <View style={styles.group}>
           <Text style={styles.dayLabel} numberOfLines={1}>
             {group.label}
           </Text>
@@ -126,11 +147,8 @@ export default function HourlyForecastRow({ readings, nowIso, bleed = 0, theme: 
               );
             })}
           </View>
-          {/* A hairline between days, so the boundary is visible even when the
-              label above it has scrolled out of view. Not drawn before the
-              first group, which has no previous day to divide from. */}
-          {groupIndex < groups.length - 1 && <View style={styles.dayDivider} />}
-        </View>
+          </View>
+        </Fragment>
       ))}
     </HorizontalStrip>
   );
@@ -138,27 +156,27 @@ export default function HourlyForecastRow({ readings, nowIso, bleed = 0, theme: 
 
 function getStyles(theme: ThemeTokens) {
   return StyleSheet.create({
-    content: { paddingRight: 4 },
-    group: { flexDirection: "column", gap: 6 },
+    // The trailing clearance the last group used to get from `hours`' own
+    // paddingRight, which had to go so the day break could sit flush.
+    content: { paddingRight: 16 },
+    group: { flexDirection: "column", gap: LABEL_GAP },
     dayLabel: {
-      fontSize: 11,
-      fontWeight: "700",
+      ...TYPE.eyebrow,
+      // Explicit, because `dayBreak` offsets itself past this row by height
+      // rather than by guessing at the font's default leading.
+      lineHeight: LABEL_HEIGHT,
       color: theme.accentWalk,
-      textTransform: "uppercase",
-      letterSpacing: 0.4,
       paddingLeft: 2,
     },
     // No gap between columns: each RainGauge carries its own horizontal
     // padding instead, so consecutive night hours tint as one continuous
     // block rather than a row of separate chips. Same pitch as before
     // (36px column + 2×6px padding = the old 36 + 12 gap).
-    hours: { flexDirection: "row", paddingRight: 12 },
-    dayDivider: {
-      position: "absolute",
-      right: 4,
-      top: 0,
-      bottom: 0,
+    hours: { flexDirection: "row" },
+    dayBreak: {
       width: 1,
+      alignSelf: "stretch",
+      marginTop: LABEL_BAND,
       backgroundColor: theme.border,
     },
   });

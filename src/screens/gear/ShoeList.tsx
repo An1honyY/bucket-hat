@@ -60,7 +60,7 @@ export default function ShoeList() {
       {loaded && items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No shoes yet — add your first pair</Text>
-          <AppButton label="Add shoes" variant="secondary" onPress={() => navigation.navigate("GearItem", { kind: "shoe" })} style={styles.addButton} />
+          <AppButton label="Add shoes" onPress={() => navigation.navigate("GearItem", { kind: "shoe" })} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -78,7 +78,7 @@ export default function ShoeList() {
                 <View style={styles.rowText}>
                   <Text style={[styles.rowLabel, isUnavailable && styles.dimmedText]}>{item.name}</Text>
                   <Text style={styles.rowMeta}>
-                    {item.type} · {item.grip} grip
+                    {item.type}, {item.grip} grip
                   </Text>
                   <GearRowBadges
                     item={item}

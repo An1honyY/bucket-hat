@@ -160,6 +160,23 @@ one by date — don't edit the old entry.
 - 2026-08-09 — Today's journey card summarises instead of listing every leg (§9.4) [design]
 - 2026-08-09 — Map markers settle only after the map is ready; hint chip dodges each platform's own furniture (§9.2) [bug fix]
 - 2026-08-09 — A journey opening with an unsittable wait defers its departure to the first service (§5.6) [design]
+- 2026-08-09 — Mascot companion is responsive, not needy: no decay, no neglect state (§13.9) [design]
+- 2026-08-09 — The visual refresh lands screen by screen, Journey Detail first (§9) [design]
+- 2026-08-09 — Numbers are tabular; the type scale gains a display step and an eyebrow (§9.2) [design]
+- 2026-08-09 — `tonal` is the accent's second weight; its label is derived, not the accent (§9.1, §9.6) [design, a11y]
+- 2026-08-09 — Tab bar items sit on the content measure, not the window's (§9.2) [design, bug fix]
+- 2026-08-09 — Disclosures use a real chevron; empty states lead with a primary action (§9.0.1, §9.2) [design]
+- 2026-08-09 — The origin marker carries the departure mode, not the journey's dominant one (§9.3) [design, bug fix]
+- 2026-08-09 — App-authored gear labels are title-cased; the user's own names are not (§9.0.1) [design]
+- 2026-08-09 — Facts are separated by space, not by a dot (§9.2, §9.0.1) [design]
+- 2026-08-09 — Today's journey card badges a climate-controlled leg (§9.4) [design]
+- 2026-08-09 — The tab indicator is a proportion of its slot, with no maximum width (§9.2) [bug fix]
+- 2026-08-09 — A hairline rule separates peer facts (§9.2) [design, supersedes today's "separated by space, not by a dot"]
+- 2026-08-09 — The tab indicator spans its row; `top: 6` was double-counting the bar's padding (§9.2) [bug fix]
+- 2026-08-09 — The day boundary is drawn through the hourly band, not as a gap in it (§9.5) [design]
+- 2026-08-09 — Today's "Right now" card leads with the temperature, not its own title (§9.3.1) [design]
+- 2026-08-09 — A diverging feels-like or notable wind lights up as a tonal fact chip (§9.3.1, §9.6) [design]
+- 2026-08-09 — One tonal vocabulary for "out of the ordinary"; the UV and wash badges join it (§9.1, §9.6) [design]
 
 ---
 
@@ -3078,5 +3095,369 @@ the new time, because the service being anchored to is the one Google already
 returned, so the itinerary is the same one. It does not run on §5.1's
 cached-structure fallback, where a stored wait leg has no live service time
 behind it and shifting would be guesswork.
+
+---
+
+## 2026-08-09 — Mascot companion is responsive, not needy: no decay, no neglect state (Section 13.9)
+
+**What**: building Phase 21's mascot with an interactive care loop — it can be
+tapped, reacts to touch, and remembers recent visits — but with no hunger,
+no happiness meter that falls over time, and no sad/neglected state. The
+request was for "a pet the user can take care of".
+
+**Why**: a companion that degrades when unattended converts an app you can
+finish in ten seconds into an open obligation, which cuts against the whole
+premise of answering "what do I wear today" and closing it. It would also be
+the first thing in the app that manufactures a reason to open it rather than
+serving one.
+
+**Resolution**: affection is earned, never lost — visiting, tapping, and
+weather events raise a warmth value that plateaus and stays. Every state in
+Section 13.9's table remains weather-derived; care only modulates
+expressiveness. If a decay loop is ever wanted, add it as a Settings opt-in
+with a new entry here, rather than lowering the floor on the existing value.
+
+---
+
+## 2026-08-09 — The visual refresh lands screen by screen, Journey Detail first (Section 9)
+
+**What**: the app-wide restyle is sequenced one screen at a time rather than
+applied in a single sweep, starting with Journey Detail and only rolling
+outward once its vocabulary is accepted.
+
+**Why**: the tokens in `src/theme/tokens.ts` and the shared shells
+(`ScreenSurface`, `SidePanel`, `ScreenPattern`) mean any real change is global
+by construction, so a full sweep is all-or-nothing to review and expensive to
+walk back if the direction is wrong.
+
+**Resolution**: Journey Detail is the pilot because it is the densest screen
+and exercises the most shared components; changes land in the tokens and
+shared shells, not in one screen's local styles, so the rollout is mostly
+verification. A future contributor extending the look should change the token
+or the shell, never restyle a screen in place.
+
+---
+
+## 2026-08-09 — Numbers are tabular; the type scale gains a display step and an eyebrow (Section 9.2)
+
+**What**: `TYPE` gained `display` (34/700) and `eyebrow` (11/700, uppercase,
+tracked), explicit `lineHeight`/`letterSpacing` on every role, and a `NUMERIC`
+fragment carrying tabular figures. `RADIUS` went 12→16 (card) and 8→10 (pill);
+`SPACING` gained `xxxl`. Journey Detail's departure time is now the display
+numeral, with arrival supporting it.
+
+**Why**: Section 9.2 specified sizes and weights only, so the app's actual
+content — clock times, degrees, durations, wind speeds — was set in
+proportional digits at prose tracking. A column of times read ragged and a
+ticking one changed width as it ticked.
+
+**Resolution**: seven near-identical local `sectionLabel` definitions
+(`FormSection`, `TodayScreen`, `JourneyDetailScreen`, `LocalForecastPanel`,
+`GearMultiSelect`, plus two in Journey Detail) now read from `TYPE.eyebrow` or
+`commonStyles.sectionLabel`. Add a role to the scale rather than a local copy;
+Settings' larger `sectionTitle` is deliberately left alone, being a page
+heading rather than a label over one block.
+
+---
+
+## 2026-08-09 — `tonal` is the accent's second weight; its label is derived, not the accent (Section 9.1, 9.6)
+
+**What**: added a `tonal` `AppButton` variant and a shared
+`selectedChipStyle`/`selectedChipLabelStyle`, both an accent wash with an
+accent-*derived* label. Nine files had declared a full-strength
+`{ backgroundColor: accentWalk, borderColor: accentWalk }` selected state
+independently; all now read from the shared pair. Journey Detail's "Follow
+this journey" became tonal.
+
+**Why**: Plan shows three selected segments at once and Journey Detail put a
+pink departure time directly above a pink CTA — six full-strength accents on a
+screen means none of them is primary, and the real primary action had no way
+to outrank them. The obvious fix, an accent label on an accent wash, measured
+4.02:1 (dark) and 3.89:1 (light), both under AA; light mode's accent only
+reaches 4.81:1 on pure white, so any tint sinks it.
+
+**Resolution**: `onTonal()` and `tonalFillAlpha()` in `tokens.ts` derive the
+label and fill from whatever accent is live, so they follow the mood override
+that turns the accent blue or gold instead of stranding a pink label on a blue
+chip. Verified 5.2:1–8.7:1 across all six accent/theme combinations and pinned
+in `tonalContrast.test.ts` — re-measure rather than eyeball if the shift
+amounts change.
+
+---
+
+## 2026-08-09 — Tab bar items sit on the content measure, not the window's (Section 9.2)
+
+**What**: `MainTabs`' custom `TabBar` now measures and lays out its four items
+inside a `CONTENT_MAX_WIDTH` row, centred, while the bar's fill and top border
+still span the window. The travelling indicator is measured and positioned
+inside that row.
+
+**Why**: the items were `flex: 1` across the full bar, so on the web build at
+desktop width the four tabs strung out to the far corners with no relationship
+to the 600pt column above them, and the indicator made a ~900pt trip between
+neighbours.
+
+**Resolution**: the row is the measured element, so the indicator's slot maths
+needs no separate cap. Anything else added to the bar should go inside that
+row rather than re-deriving its own width.
+
+---
+
+## 2026-08-09 — Disclosures use a real chevron; empty states lead with a primary action (Section 9.0.1, 9.2)
+
+**What**: `ActionIcon` gained `chevronRight`/`chevronDown`/`chevronUp`,
+replacing inline "▸"/"▾"/"▴" text glyphs in four screens. Today's setup
+disclosure is now "Finish setting up" with a count pill rather than
+"Suggestions to personalize (3)". The five empty states whose only action was
+a `secondary` button (Locations, and the four gear lists) now use `primary`,
+and Locations' empty state no longer repeats the tab header's own title.
+
+**Why**: the text glyphs rendered at the font's weight and baseline, so they
+sat light and slightly high against their labels and their size drifted with
+whatever role wrapped them. "Suggestions to personalize" was two abstract
+nouns for four concrete errands, against the voice guide's plain-words rule.
+
+**Resolution**: each task still carries its own "Not now", so naming them as
+setup doesn't make them an obligation. `secondary` remains correct for the
+same action sitting *above a populated list*, where it has content to outrank
+it — the variant tracks whether anything else is on screen, not the label.
+
+---
+
+## 2026-08-09 — The origin marker carries the departure mode, not the journey's dominant one (Section 9.3)
+
+**What**: added `departureMode()` beside `dominantMode()` in `journeyMode.ts`
+— the first non-stationary travelling leg's mode — and pointed Journey
+Detail's `originMode` at it. Everything else (`accentColor`, re-plan mode,
+`preferredMode`) still uses `dominantMode`.
+
+**Why**: a bus commute begins with a walk to the stop, so the marker sitting
+on the footpath where you're standing wore a bus glyph. The live puck already
+shows the *current* leg's mode, so the two disagreed at the one moment they
+should match — the moment you set off.
+
+**Resolution**: kept as two functions rather than one, because "what kind of
+trip is this" and "what am I doing at the start of it" are genuinely different
+questions and the other three call sites want the first. `departureMode` falls
+back to `dominantMode` when nothing is travelled outdoors; pinned in
+`journeyMode.test.ts`.
+
+---
+
+## 2026-08-09 — App-authored gear labels are title-cased; the user's own names are not (Section 9.0.1)
+
+**What**: new `src/lib/gearLabel.ts`. `displayGearLabel()` title-cases the
+engine's generic labels ("Warm jacket" → "Warm Jacket") but only up to a
+" — " clause, so "Waterproof shoes — mind the puddles" becomes "Waterproof
+Shoes — mind the puddles". `displayItemName()` raises only the first character
+of a name the user typed. `gearPickLabel()` routes a pick to whichever applies
+and replaces four copies of the same ternary.
+
+**Why**: Section 9.0 is explicit that gear keeps the user's own names wherever
+it's surfaced, so a blanket title-case would rewrite "REI down jacket" as "Rei
+Down Jacket". And the engine's labels aren't all names — several are a noun
+phrase plus an explanatory sentence, which must not become Title Case Prose.
+
+**Resolution**: applied at display time rather than by rewriting the strings in
+`recommend.ts`, so the engine's output stays stable for tests and
+notifications and the labels assembled at runtime are covered too. Pinned in
+`gearLabel.test.ts`. A new surface showing a pick should call `gearPickLabel`
+rather than reading `.name`/`.fallbackText` directly.
+
+---
+
+## 2026-08-09 — Facts are separated by space, not by a dot (Section 9.2, 9.0.1)
+
+**What**: removed the "·" divider everywhere it separated facts — as a
+rendered dot View (Today's journey card, Journey Detail's summary, the "Right
+now" detail row) and as a character inside a string (leg rows, directions
+summary, gear list subtitles, Plan and saved-journey stop counts, Settings'
+seasonal counts, the live ETA line).
+
+**Why**: the pieces being divided are already distinct shapes — a duration, a
+row of mode glyphs, a weather chip, a badge — so the dots were punctuating
+things that didn't need it.
+
+**Resolution**: where the parts are separate components the gap does the
+work, widened to `SPACING.lg` so it clearly exceeds the tighter gaps *inside*
+each group. Where they share one string a comma replaces the dot, since
+removing it outright ran the words together; the two `WarmthSlider` anchors
+take an em dash, being a label and its gloss rather than two peer facts.
+
+---
+
+## 2026-08-09 — Today's journey card badges a climate-controlled leg (Section 9.4)
+
+**What**: the compact journey card's summary row now shows an "AC" (or
+"Heated") badge when any indoor, non-stationary leg has `climate` set, using
+the same test LegRow applies per leg. `unconditioned` doesn't qualify.
+
+**Why**: Section 9.4 kept the card to duration/modes/temperature, and a heated
+or air-conditioned stretch is the one thing on it you cannot infer from the
+weather — it's the difference between dressing for 13° and dressing for 13°
+plus twenty minutes of bus AC.
+
+**Resolution**: one badge for the trip, not one per leg — the per-leg detail is
+a tap away on Journey Detail. AC wins when a trip has both, being the one that
+changes what you'd wear outdoors. The badge is tonal (`acBadge` token through
+`withAlpha`/`onTonal`) so it doesn't compete with the departure time.
+
+---
+
+## 2026-08-09 — The tab indicator is a proportion of its slot, with no maximum width (Section 9.2)
+
+**What**: dropped `INDICATOR_MAX_WIDTH` (104) from `MainTabs`. The travelling
+pill is now `slotWidth - INDICATOR_GUTTER * 2` at every width, with the gutter
+left at its original 6.
+
+**Why**: the cap existed to stop the pill stretching across a desktop-width
+slot. Once the item row itself was capped at `CONTENT_MAX_WIDTH` a slot can't
+exceed ~150pt, so the cap only had the effect of making the pill float in the
+middle of its slot on desktop while filling it on a phone.
+
+**Resolution**: the gutter is the single control now — it sets the proportion
+(~0.87 of the slot) at every width, so widening it shrinks the pill
+*everywhere*, including on phones where nothing was wrong. Measured 81.75pt at
+375 (unchanged from before) and 138pt at 600.
+
+---
+
+## 2026-08-09 — A hairline rule separates peer facts (Section 9.2)
+
+**What**: supersedes today's "Facts are separated by space, not by a dot".
+The middots stay gone, but bare whitespace is replaced by `MetaDivider`, a
+short dim hairline rule, in the three summary rows that carry peer facts
+(Today's journey card, Journey Detail's summary, the "Right now" detail row).
+Row gaps come back down from `xxl`/`lg` to `sm`.
+
+**Why**: whitespace has to be large enough to read as a boundary, and at that
+size the row stopped looking like one line of related facts and started
+looking like items that had drifted apart — while still being ambiguous,
+since the groups inside it (mode glyphs, a weather chip) have their own gaps.
+
+**Resolution**: a rule is structure rather than punctuation, so it reads at a
+small gap and doesn't sit on the baseline pretending to be a character. It is
+deliberately short (12pt) and drawn in `border`, and it's hidden from
+accessibility — the spoken summary already reads as a sentence. Reach for
+`MetaDivider` rather than reintroducing a character separator.
+
+---
+
+## 2026-08-09 — The tab indicator spans its row; `top: 6` was double-counting the bar's padding (Section 9.2)
+
+**What**: `indicatorStyle.top` goes from 6 to 0, so the travelling pill spans
+the item row exactly and the icon and label sit inside it on the tab item's
+own 4pt padding.
+
+**Why**: the 6 was calibrated when the indicator was a direct child of the
+outer bar. Moving it inside the `CONTENT_MAX_WIDTH` item row earlier today
+left it stacking on top of that bar's own 6pt `paddingTop`, so the pill
+started below the icon — measured at icon top 860 against pill top 862, which
+is visible as the icon breaking out through the top of the pill.
+
+**Resolution**: the pill's height is now the row's height, so it can't drift
+again if the bar's padding changes. Verified by measurement rather than by
+eye: 4pt clearance above the icon and below the label, fully contained on all
+four sides. A width change and a height change went unnoticed here in one
+session — measure both when this moves.
+
+---
+
+## 2026-08-09 — The day boundary is drawn through the hourly band, not as a gap in it (Section 9.5)
+
+**What**: `HourlyForecastRow`'s day separator moves from a faint full-height
+rule sitting inside a 12pt inter-group gutter to a hairline placed *between*
+groups with the cells flush either side of it, offset down past the day-name
+row so it divides hours rather than the two day labels.
+
+**Why**: the run flags right above it go out of their way to compute night
+runs against the flat reading list rather than per day group, precisely so a
+night starting before midnight and ending after it renders as one continuous
+tinted block — and then the gutter cut that block in half at exactly midnight,
+which is the one place it is trying hardest to read as continuous.
+
+**Resolution**: the trailing clearance the last group got from `hours`'
+`paddingRight` moved to the strip's `contentContainerStyle`, since the padding
+had to go for the break to sit flush. The label row's height is now an
+explicit constant (`LABEL_BAND`) because the break offsets past it by height —
+change one and the other has to follow.
+
+---
+
+## 2026-08-09 — Today's "Right now" card leads with the temperature, not its own title (Section 9.3.1)
+
+**What**: the temperature moves from a hardcoded `fontSize: 24` to §9.2's
+`display` role with tabular figures, the condition label from
+caption-weight `textSecondary` to `subtitle` in `textPrimary`, the weather
+glyph from 26 to 34, and the card's own "Right now" heading down to an
+eyebrow.
+
+**Why**: this is the highest-traffic card in the app and the one number it
+exists to give you was set smaller than the app's own `title` role, while the
+words "Right now" sat above it at nearly the same weight — so the card opened
+with two things competing and led with the less interesting one.
+
+**Resolution**: the hero is the reading, and the heading is a signpost. This
+is also the first use of the `display` step outside Journey Detail; a screen
+gets at most one, so anything else added to this card stays below `subtitle`.
+`picksHeading` was a sixth local copy of the eyebrow and now reads
+`TYPE.eyebrow`; the dead `detailSeparator` style left over from the middot
+removal is gone.
+
+---
+
+## 2026-08-09 — A diverging feels-like or notable wind lights up as a tonal fact chip (Section 9.3.1, 9.6)
+
+**What**: the "Right now" detail row's two facts each take a tonal chip when
+their reading is the one worth acting on — `feelsLikeDiverges()` (already
+existed, previously only bold text) and `windKph >= HIGH_WIND_KPH` (new). Both
+use the same treatment.
+
+**Why**: the feels-like emphasis was weight-and-colour only and read as barely
+distinct from the plain line, and wind had no emphasis at all despite being
+half of what the row is for. One shared treatment rather than two, because
+both say the same kind of thing — this reading is out of the ordinary — and
+two different emphases would imply two different severities.
+
+**Resolution**: reuses `HIGH_WIND_KPH` (Section 7), whose own comment already
+names it as Section 9.3's leg-badge wind-display threshold, rather than
+inventing a display threshold beside it. The chip is `conditionLight` — the
+app's existing "notable, not severe" hue (Section 9.1 gives it Windy/Foggy/
+Light rain and the UV badge) — deliberately not `accentWalk`, which is
+reserved for primary interactive emphasis and would read as tappable. Fill,
+weight and colour all move together and the figure is stated in words either
+way, so Section 9.6 holds; the pairing is pinned in `tonalContrast.test.ts`
+and measured at 7.08:1 live.
+
+---
+
+## 2026-08-09 — One tonal vocabulary for "out of the ordinary"; the UV and wash badges join it (Section 9.1, 9.6)
+
+**What**: extracted `notableFillStyle`/`notableLabelStyle` into
+`commonStyles.ts`, defaulting to `conditionLight` and taking any tone. The
+"Right now" fact chips, the UV badge and the gear wash reminder now all read
+from it. The UV badge and wash reminder were solid `uvBadge` fills with white
+or primary text; both are now tonal in that same hue.
+
+**Why**: four things meaning "this is out of the ordinary" looked four
+different ways, and `uvBadge` had quietly become a general-purpose attention
+fill for three unrelated facts. The solid version was loud enough that a UV
+number — present only sometimes — outshouted the temperature beside it, which
+is the actual headline of that card.
+
+**Resolution**: the helper carries the rule in its own comment — use it only
+where the engine has *already* decided a value is exceptional (a named
+threshold, a divergence check), never for a value that merely looks
+interesting, and never more than a couple per screen. A highlight only means
+anything while it stays rare. Both tones are pinned in
+`tonalContrast.test.ts`.
+
+Deliberately **not** converted, so this doesn't become "highlight everything":
+LegRow's wind figure is already gated on `HIGH_WIND_KPH`, so its mere presence
+is the highlight and a chip inside a comma-joined line would read worse; the
+transit delay pill is a different register (a late service is about a service,
+and it carries an early/late distinction this vocabulary has no room for); and
+the condition badges keep their severity fills, which mean something more
+specific than "notable".
 
 ---

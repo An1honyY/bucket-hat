@@ -35,7 +35,7 @@ export default function VehicleList() {
       {loaded && items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No vehicles yet — add your first one</Text>
-          <AppButton label="Add vehicle" variant="secondary" onPress={() => navigation.navigate("GearItem", { kind: "vehicle" })} style={styles.addButton} />
+          <AppButton label="Add vehicle" onPress={() => navigation.navigate("GearItem", { kind: "vehicle" })} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -51,7 +51,7 @@ export default function VehicleList() {
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>{item.name}</Text>
                 <Text style={styles.rowMeta}>
-                  {item.type} · {item.weatherProtection} weather protection
+                  {item.type}, {item.weatherProtection} weather protection
                 </Text>
               </View>
             </Pressable>

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import useTheme from "../theme/useTheme";
+import { selectedChipStyle, selectedChipLabelStyle } from "../theme/commonStyles";
 
 // Quick-select tag chips — docs/07-recommendation-engine.md §7.6: "quick-
 // select chips in the Gear CRUD add/edit form, not free text, so the engine
@@ -59,8 +60,8 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       minHeight: 36,
       justifyContent: "center",
     },
-    chipActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    chipActive: selectedChipStyle(theme),
     chipLabel: { fontSize: 13, color: theme.textPrimary },
-    chipLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    chipLabelActive: selectedChipLabelStyle(theme),
   });
 }

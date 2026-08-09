@@ -73,7 +73,7 @@ export default function SavedJourneysScreen() {
     if (!from || !to) return "A place on this trip has been deleted";
     const stops = route.waypointIds?.length ?? 0;
     const line = defaultRouteLabel(from, to);
-    if (stops > 0) return `${line} · ${stops} stop${stops === 1 ? "" : "s"}`;
+    if (stops > 0) return `${line}, ${stops} stop${stops === 1 ? "" : "s"}`;
     // The default label *is* the route, so a journey that was never renamed
     // would otherwise print the same line twice. Fall back to the mode.
     return route.label === line ? `By ${route.preferredMode ?? "walk"}` : line;

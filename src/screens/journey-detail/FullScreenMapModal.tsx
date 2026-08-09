@@ -154,7 +154,7 @@ export default function FullScreenMapModal({
             <>
               {etaMs !== undefined && remainingMin !== undefined && (
                 <Text style={styles.status}>
-                  Arrive {formatTime(new Date(etaMs).toISOString(), hour12)} · {formatDuration(remainingMin)} left
+                  Arrive {formatTime(new Date(etaMs).toISOString(), hour12)}, {formatDuration(remainingMin)} left
                 </Text>
               )}
               {liveLeg && (
@@ -185,10 +185,10 @@ export default function FullScreenMapModal({
                     {journey.origin.label} → {journey.destination.label}
                   </Text>
                   <Text style={styles.plannedMeta}>
-                    {formatTime(departIso, hour12)} – {formatTime(arriveIso, hour12)} · {formatDuration(totalDurationMin)}
+                    {formatTime(departIso, hour12)} – {formatTime(arriveIso, hour12)}, {formatDuration(totalDurationMin)}
                   </Text>
                 </View>
-                <Text style={styles.plannedChevron}>{collapsed ? "▴" : "▾"}</Text>
+                <ActionIcon kind={collapsed ? "chevronUp" : "chevronDown"} size={14} color={theme.textSecondary} />
               </Pressable>
               {!collapsed && (
                 <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>

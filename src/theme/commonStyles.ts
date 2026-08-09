@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { StyleSheet } from "react-native";
 import useTheme from "./useTheme";
-import { cardElevationStyle, type ThemeTokens } from "./tokens";
-import { RADIUS, SPACING, TYPE } from "./typography";
+import { cardElevationStyle, onTonal, tonalFillAlpha, withAlpha, type ThemeTokens } from "./tokens";
+import { NUMERIC, RADIUS, SPACING, TYPE } from "./typography";
 
 // docs/09-design-system.md §9.2 — the layout half of the design tokens.
 // typography.ts already gave the app one type scale/spacing unit/radius set;
@@ -23,6 +23,56 @@ export const CONTENT_MAX_WIDTH = 600;
  *  reading as a button — and on a large screen it's a long way for a cursor
  *  or thumb to travel to hit something whose text sits in the middle. */
 export const ACTION_MAX_WIDTH = 420;
+
+// §9.1 (2026-08-09) — the selected state for a chip or segment, in one place.
+//
+// Nine files had declared `{ backgroundColor: accentWalk, borderColor:
+// accentWalk }` with a white bold label, independently and identically. The
+// duplication was the smaller problem: a screen like Plan shows three of
+// these rows at once (mode, dress code, spare layer), so a full-strength
+// accent fill on each meant five or six "primary" elements competing on one
+// screen — and then the actual primary action, "Plan journey," had no way to
+// outrank them.
+//
+// Tonal instead: the accent as a wash, an accent border, and an accent label.
+// Selection is still carried by three things at once (fill, border, weight),
+// so §9.6's "never by colour alone" holds exactly as it did before.
+export function selectedChipStyle(theme: ThemeTokens) {
+  return {
+    backgroundColor: withAlpha(theme.accentWalk, tonalFillAlpha(theme.isLight)),
+    borderColor: theme.accentWalk,
+  } as const;
+}
+
+export function selectedChipLabelStyle(theme: ThemeTokens) {
+  return { color: onTonal(theme.accentWalk, theme.isLight), fontWeight: "600" } as const;
+}
+
+// §9.1/§9.6 (2026-08-09) — one look for "this reading is out of the ordinary".
+//
+// The app had four of these and they all looked different: a solid-gold UV
+// badge with white text, a solid-gold wash reminder, a solid-gold late-service
+// pill, and a bold-text feels-like. `uvBadge` had quietly become a
+// general-purpose attention fill for three unrelated facts, and the solid
+// version was loud enough that the UV badge outshouted the temperature it sat
+// beside — the actual headline of that card.
+//
+// Tonal instead, defaulting to `conditionLight`: §9.1's "notable, not severe"
+// hue, already assigned to Windy/Foggy/Light rain. Deliberately not
+// `accentWalk`, which is reserved for primary interactive emphasis and reads
+// as tappable.
+//
+// A highlight only means something while it stays rare. Use this where the
+// engine has *already* decided a value is exceptional — a named threshold, a
+// divergence check — never for a value that merely looks interesting, and
+// never more than a couple on one screen.
+export function notableFillStyle(theme: ThemeTokens, tone: string = theme.conditionLight) {
+  return { backgroundColor: withAlpha(tone, tonalFillAlpha(theme.isLight)) } as const;
+}
+
+export function notableLabelStyle(theme: ThemeTokens, tone: string = theme.conditionLight) {
+  return { color: onTonal(tone, theme.isLight), fontWeight: "700" } as const;
+}
 
 export function getCommonStyles(theme: ThemeTokens) {
   return StyleSheet.create({
@@ -58,17 +108,30 @@ export function getCommonStyles(theme: ThemeTokens) {
     },
 
     // ---- text roles ----
-    /** The small all-caps-weight label above a card, not inside it. */
+    /** The small label above a card, not inside it. Now a true eyebrow
+     *  (§9.2, 2026-08-09): uppercase and tracked, so it signposts the block
+     *  below without competing with it. It previously used `caption` at
+     *  weight 600, which sat close enough to real body copy to read as
+     *  content rather than as a label. */
     sectionLabel: {
-      ...TYPE.caption,
-      fontWeight: "600",
+      ...TYPE.eyebrow,
       color: theme.textSecondary,
       marginBottom: SPACING.sm,
     },
     cardTitle: { ...TYPE.subtitle, color: theme.textPrimary },
     title: { ...TYPE.title, color: theme.textPrimary },
     body: { ...TYPE.body, color: theme.textPrimary },
-    caption: { ...TYPE.caption, color: theme.textSecondary, lineHeight: 18 },
+    caption: { ...TYPE.caption, color: theme.textSecondary },
+
+    // ---- numbers ----
+    // The app's actual content: clock times, degrees, durations, wind
+    // speeds. These carry tabular figures so a column of them aligns and a
+    // ticking one doesn't jitter (NUMERIC, typography.ts).
+    /** The one number a screen exists to show — a departure time, the
+     *  current temperature. At most one per screen. */
+    displayNumber: { ...TYPE.display, ...NUMERIC, color: theme.textPrimary },
+    /** Any other figure sitting inline with text. */
+    numeric: { ...NUMERIC },
     emptyText: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },
 
     // ---- form fields ----

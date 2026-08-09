@@ -8,6 +8,7 @@ import PlanScreen from "../screens/plan/PlanScreen";
 import LocationsStack from "./LocationsStack";
 import GearStack from "./GearStack";
 import NavIcon, { type NavIconKind } from "../components/NavIcon";
+import { CONTENT_MAX_WIDTH } from "../theme/commonStyles";
 import { HeaderLogo, SavedJourneysButton, TodayHeaderButtons } from "./headerParts";
 import useTheme from "../theme/useTheme";
 import type { MainTabParamList } from "./types";
@@ -31,8 +32,16 @@ const ACTIVE_PILL_BORDER_ALPHA = "80"; // ~50% — enough edge to read as a shap
 // — an indicator that filled it read as a banner rather than as a marker. The
 // cap keeps the shape constant from phone to desktop; below it (any phone)
 // the slot is what constrains the width, so nothing changes there.
-const INDICATOR_MAX_WIDTH = 104;
-const INDICATOR_GUTTER = 6; // clear space either side of the indicator within its slot
+// Clear space either side of the indicator within its slot — 6, the value
+// this has always had. There is no longer a *maximum* width: the cap existed
+// to stop the pill stretching across a desktop-width slot, and since the item
+// row is itself capped at CONTENT_MAX_WIDTH a slot can't exceed ~150pt.
+// Keeping both meant the pill filled its slot on a phone but floated in the
+// middle of a wider one on desktop, reading as too small for the tab it
+// marks. The gutter is what sets the proportion (~0.87 of the slot at every
+// width) — widening it shrinks the pill everywhere, including on phones where
+// nothing was wrong.
+const INDICATOR_GUTTER = 6;
 
 const TAB_META: Record<keyof MainTabParamList, { icon: NavIconKind; label: string }> = {
   Today: { icon: "today", label: "Today" },
@@ -64,7 +73,7 @@ function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const placed = useRef(false);
 
   const slotWidth = barWidth / state.routes.length;
-  const indicatorWidth = Math.min(INDICATOR_MAX_WIDTH, Math.max(0, slotWidth - INDICATOR_GUTTER * 2));
+  const indicatorWidth = Math.max(0, slotWidth - INDICATOR_GUTTER * 2);
   const targetX = slotWidth * state.index + (slotWidth - indicatorWidth) / 2;
 
   useEffect(() => {
@@ -95,7 +104,6 @@ function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
       style={[
         tabBarStyle,
         {
@@ -105,23 +113,31 @@ function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         },
       ]}
     >
-      {barWidth > 0 && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            indicatorStyle,
-            {
-              width: indicatorWidth,
-              backgroundColor: `${theme.accentWalk}${ACTIVE_PILL_FILL_ALPHA}`,
-              borderColor: `${theme.accentWalk}${ACTIVE_PILL_BORDER_ALPHA}`,
-              bottom: 8 + insets.bottom,
-              transform: [{ translateX }],
-            },
-          ]}
-        />
-      )}
+      {/* The bar's fill spans the window, but its four items live on the same
+          measure as the content above them (CONTENT_MAX_WIDTH). Left to
+          `flex: 1` across the whole width, a desktop browser strung the tabs
+          to the far corners — a ~900pt trip for the indicator, and four
+          labels with no relationship to the column they belong to. The
+          indicator is measured and positioned inside this row for the same
+          reason. */}
+      <View style={tabRowStyle} onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}>
+        {barWidth > 0 && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              indicatorStyle,
+              {
+                width: indicatorWidth,
+                backgroundColor: `${theme.accentWalk}${ACTIVE_PILL_FILL_ALPHA}`,
+                borderColor: `${theme.accentWalk}${ACTIVE_PILL_BORDER_ALPHA}`,
+                bottom: 0,
+                transform: [{ translateX }],
+              },
+            ]}
+          />
+        )}
 
-      {state.routes.map((route, index) => {
+        {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const meta = TAB_META[route.name as keyof MainTabParamList];
         const focused = state.index === index;
@@ -162,16 +178,23 @@ function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                 sidesteps that internal sizing entirely. */}
             <Text style={{ fontSize: 11, fontWeight: "600", color, marginTop: 2, lineHeight: 14 }}>{meta.label}</Text>
           </Pressable>
-        );
-      })}
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const tabBarStyle = {
-  flexDirection: "row" as const,
   borderTopWidth: 1,
   paddingTop: 6,
+};
+
+const tabRowStyle = {
+  flexDirection: "row" as const,
+  width: "100%" as const,
+  maxWidth: CONTENT_MAX_WIDTH,
+  alignSelf: "center" as const,
 };
 
 const tabItemStyle = {
@@ -188,7 +211,14 @@ const tabItemStyle = {
 const indicatorStyle = {
   position: "absolute" as const,
   left: 0,
-  top: 6,
+  // Spans the item row exactly — the icon and label sit inside it with the
+  // tab item's own 4pt vertical padding as clearance.
+  //
+  // This was `top: 6`, calibrated against the outer bar back when the
+  // indicator was its direct child. Inside the item row that 6 lands *on top
+  // of* the bar's own 6pt paddingTop, pushing the pill down far enough that
+  // the icon broke out of it (icon top 860 vs pill top 862, measured).
+  top: 0,
   borderRadius: 16,
   borderWidth: 1,
 };

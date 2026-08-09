@@ -9,7 +9,8 @@ import { listClothing } from "../../db/repositories/clothing";
 import { listShoes } from "../../db/repositories/shoes";
 import { listUmbrellas } from "../../db/repositories/umbrellas";
 import { dismissSetupTask, getDismissedSetupTasks } from "../../db/repositories/settings";
-import { cardElevationStyle } from "../../theme/tokens";
+import { cardElevationStyle, onTonal, tonalFillAlpha, withAlpha } from "../../theme/tokens";
+import ActionIcon from "../../components/ActionIcon";
 import useTheme from "../../theme/useTheme";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { RootStackParamList } from "../../navigation/types";
@@ -140,13 +141,24 @@ export default function SetupChecklist() {
         accessibilityState={{ expanded: open }}
         accessibilityLabel={
           open
-            ? "Hide suggestions to personalize"
-            : `Show ${visible.length} suggestion${visible.length === 1 ? "" : "s"} to personalize`
+            ? "Hide setup steps"
+            : `Show ${visible.length} thing${visible.length === 1 ? "" : "s"} left to set up`
         }
       >
-        <Text style={styles.heading}>
-          {open ? "▾" : "▸"} Suggestions to personalize ({visible.length})
-        </Text>
+        {/* Voice guide (§9.0.1): says what it is in plain words. "Suggestions
+            to personalize" was two abstract nouns describing four concrete
+            errands — add your places, add your gear, plan a trip, allow
+            notifications. Each still carries its own "Not now," so naming
+            them as setup doesn't make them an obligation. */}
+        <ActionIcon
+          kind={open ? "chevronDown" : "chevronRight"}
+          size={16}
+          color={theme.textSecondary}
+        />
+        <Text style={styles.heading}>Finish setting up</Text>
+        <View style={styles.countPill}>
+          <Text style={styles.countLabel}>{visible.length}</Text>
+        </View>
       </Pressable>
       {open && visible.map((task) => (
         <View key={task.id} style={styles.card}>
@@ -176,8 +188,17 @@ export default function SetupChecklist() {
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { gap: SPACING.sm, marginBottom: SPACING.lg },
-    disclosureRow: { minHeight: 44, justifyContent: "center" },
-    heading: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
+    disclosureRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: SPACING.sm },
+    heading: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    countPill: {
+      minWidth: 20,
+      paddingHorizontal: SPACING.xs,
+      paddingVertical: 1,
+      borderRadius: RADIUS.circle,
+      backgroundColor: withAlpha(theme.accentWalk, tonalFillAlpha(theme.isLight)),
+      alignItems: "center",
+    },
+    countLabel: { ...TYPE.micro, fontWeight: "700", color: onTonal(theme.accentWalk, theme.isLight) },
     card: {
       padding: SPACING.lg,
       borderRadius: RADIUS.card,

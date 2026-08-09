@@ -152,7 +152,7 @@ export default function LegRow({
             leg.weather && leg.weather.windKph > HIGH_WIND_KPH ? formatWindKph(leg.weather.windKph) : undefined,
           ]
             .filter(Boolean)
-            .join(" · ")}
+            .join(", ")}
         </Text>
 
         {isCurrent && (

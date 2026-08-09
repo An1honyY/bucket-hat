@@ -7,6 +7,7 @@ import useTheme from "../../theme/useTheme";
 import { cardElevationStyle } from "../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { Journey } from "../../types";
+import { gearPickLabel } from "../../lib/gearLabel";
 
 // History's compact row — docs/09-design-system.md §9.4.2: "same row
 // structure as the Today-tab compact card" (src/screens/today/JourneyCard.tsx),
@@ -32,7 +33,7 @@ export default function HistoryRow({ journey, onPress }: Props) {
     topLabel = snapshot.layerNames[snapshot.layerNames.length - 1] ?? "Nothing extra needed — you're set";
   } else if (recomputed) {
     const topLayer = recomputed.layers[recomputed.layers.length - 1];
-    topLabel = topLayer ? ("id" in topLayer ? topLayer.name : topLayer.fallbackText) : "Nothing extra needed — you're set";
+    topLabel = topLayer ? gearPickLabel(topLayer).text : "Nothing extra needed — you're set";
   } else {
     topLabel = "…";
   }

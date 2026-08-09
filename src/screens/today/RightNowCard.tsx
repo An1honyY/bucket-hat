@@ -4,15 +4,18 @@ import type { RightNowState } from "../../lib/useRightNow";
 import { classifyWeather, feelsLikeDiverges, formatWindKph } from "../../lib/weather";
 import { conditionColorForIcon } from "../../theme/conditionColor";
 import useTheme from "../../theme/useTheme";
-import { RADIUS, SPACING, TYPE } from "../../theme/typography";
+import { NUMERIC, RADIUS, SPACING, TYPE } from "../../theme/typography";
 import { cardElevationStyle } from "../../theme/tokens";
+import { notableFillStyle, notableLabelStyle } from "../../theme/commonStyles";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
 import GearThumbnail from "../../components/GearThumbnail";
 import GearDetailSheet, { type GearItem } from "../../components/GearDetailSheet";
 import WeatherIcon, { weatherIconKindFor } from "../../components/WeatherIcon";
+import MetaDivider from "../../components/MetaDivider";
 import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
-import type { LayerPick } from "../../lib/recommend";
+import { HIGH_WIND_KPH, type LayerPick } from "../../lib/recommend";
+import { gearPickLabel } from "../../lib/gearLabel";
 
 // "Right now" card — docs/09-design-system.md §9.3.1, docs/04-screens-
 // navigation.md §4.2. A smaller self-contained version of the gear
@@ -31,10 +34,6 @@ const PICK_PHOTO_SIZE = 40;
 // chips used before photos were enlarged, so a photoless pick still reads as a
 // chip rather than as a mostly-empty tile.
 const PICK_ICON_SIZE = 15;
-
-function pickLabel(pick: { name: string } | { fallbackText: string }): { text: string; isFallback: boolean } {
-  return "name" in pick ? { text: pick.name, isFallback: false } : { text: pick.fallbackText, isFallback: true };
-}
 
 function layerIconKind(pick: LayerPick): ClothingIconKind {
   const type = "layerType" in pick ? pick.layerType : pick.type;
@@ -78,6 +77,10 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
   // Emphasised only when the gap is big enough that the engine also said
   // something about it — see FEELS_LIKE_DIVERGENCE_C.
   const diverges = feelsLikeDiverges(weather.tempC, weather.apparentTempC);
+  // §7's existing named constant, which its own comment already calls "§9.3's
+  // leg-badge wind-display threshold" — so this is the app's settled answer to
+  // "is this wind worth pointing at", not a second opinion invented here.
+  const windy = weather.windKph >= HIGH_WIND_KPH;
   // When the reading was fetched, not the forecast hour it describes. These
   // are the same instant on a fresh load, but they diverge as soon as the card
   // keeps showing a stored reading — which is the whole point of the "as of"
@@ -103,7 +106,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
             conditionDry, a deliberately muted grey that suits a small leg
             badge and made this card's hero icon *dimmer* than the plain
             textPrimary it replaced — the opposite of the intent. */}
-        <WeatherIcon kind={heroIcon} size={26} color={conditionColorForIcon(theme, heroIcon)} />
+        <WeatherIcon kind={heroIcon} size={34} color={conditionColorForIcon(theme, heroIcon)} />
         {/* The air temperature, not the apparent one. This card showed
             `apparentTempC` here unlabelled for its whole life, which is the
             one number a bare "5°C" must not be: every other weather app
@@ -126,12 +129,24 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
           — and a figure that only appears in bad weather teaches people not to
           look for it. The compact per-hour cells and leg badges stay gated,
           where a row of twelve is genuinely noise. */}
+      {/* Either fact can light up when its reading is the one worth acting on:
+          a "feels like" far enough from the headline number to change what you
+          wear, or wind strong enough to matter. Both take the same treatment,
+          because they're saying the same kind of thing — this reading is out
+          of the ordinary — and two different emphases would read as two
+          different severities. */}
       <View style={styles.detailRow}>
-        <Text style={[styles.detail, diverges && styles.detailEmphasis]}>
-          Feels like {Math.round(weather.apparentTempC)}°
-        </Text>
-        <Text style={styles.detailSeparator}>·</Text>
-        <Text style={styles.detail}>Wind {formatWindKph(weather.windKph)}</Text>
+        <View style={[styles.detailSlot, diverges && styles.detailNotable]}>
+          <Text style={[styles.detail, diverges && styles.detailNotableText]}>
+            Feels like {Math.round(weather.apparentTempC)}°
+          </Text>
+        </View>
+        <MetaDivider />
+        <View style={[styles.detailSlot, windy && styles.detailNotable]}>
+          <Text style={[styles.detail, windy && styles.detailNotableText]}>
+            Wind {formatWindKph(weather.windKph)}
+          </Text>
+        </View>
       </View>
 
       {/* The picks used to be a bare wrapped row directly under the
@@ -145,7 +160,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
           <Text style={styles.picksHeading}>What to wear</Text>
           <View style={styles.picksRow}>
             {picks.map(({ pick, icon }, i) => {
-              const { text, isFallback } = pickLabel(pick);
+              const { text, isFallback } = gearPickLabel(pick);
               // An owned item shows its own photo where it has one (§3.3) —
               // the chip is the smallest surface in the app that can carry
               // "this is *your* jacket" rather than a category glyph. At the
@@ -201,7 +216,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
       {/* An automatic refresh has no pull-to-refresh spinner behind it, so the
           only signal it's happening is here — otherwise a stale-looking "as
           of" gives no hint that a newer reading is already on its way. */}
-      <Text style={styles.asOf}>{refreshing ? `as of ${asOf} · updating…` : `as of ${asOf}`}</Text>
+      <Text style={styles.asOf}>{refreshing ? `as of ${asOf}, updating…` : `as of ${asOf}`}</Text>
 
       {openItem && (
         <GearDetailSheet item={openItem.item} kind={openItem.icon} onClose={() => setOpenItem(null)} />
@@ -220,22 +235,51 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       marginBottom: SPACING.lg,
       ...cardElevationStyle(theme),
     },
-    title: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
+    // "Right now" is a signpost, not content — as body/600 in textPrimary it
+    // sat at almost the same weight as the reading underneath it, so the card
+    // opened with two things asking for attention and led with the less
+    // interesting one. Demoted to an eyebrow, which is what it always was.
+    title: { ...TYPE.eyebrow, color: theme.textSecondary },
     suburbLabel: { ...TYPE.caption, color: theme.textSecondary },
     conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
-    temp: { fontSize: 24, fontWeight: "700", color: theme.textPrimary },
-    conditionLabel: { ...TYPE.body, fontWeight: "600", color: theme.textSecondary },
-    detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, flexWrap: "wrap", marginTop: -2 },
+    // The one number this screen exists to give you, finally at the size the
+    // scale has for exactly that (§9.2's display step). It was a hardcoded 24
+    // — smaller than the app's own title role — on the highest-traffic card in
+    // the app. Tabular, so it doesn't shift width as the temperature changes.
+    temp: { ...TYPE.display, ...NUMERIC, color: theme.textPrimary },
+    // Promoted alongside it: "Light rain" is half the answer to "what's it
+    // like out", and it was styled as a caption in textSecondary.
+    conditionLabel: { ...TYPE.subtitle, color: theme.textPrimary, flexShrink: 1 },
+    // A hairline rule divides the two facts (MetaDivider), so the gap only has
+    // to give it breathing room either side.
+    detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap", marginTop: -2 },
     detail: { ...TYPE.caption, color: theme.textSecondary },
-    // §9.6 — the emphasis is weight and colour together, never colour alone,
-    // and the line states the figure either way; nothing here is conveyed by
-    // the styling on its own.
-    detailEmphasis: { fontWeight: "700", color: theme.textPrimary },
-    detailSeparator: { ...TYPE.caption, color: theme.textSecondary },
-    uvBadge: { marginLeft: "auto", paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, borderRadius: RADIUS.pill, backgroundColor: theme.uvBadge },
-    uvBadgeText: { ...TYPE.micro, color: "#FFFFFF", fontWeight: "700" },
+    /** Wraps each fact so it can take a chip background without the row
+     *  jumping: the padding is always there, only the fill appears. */
+    detailSlot: {
+      paddingHorizontal: SPACING.xs,
+      paddingVertical: 1,
+      borderRadius: RADIUS.pill,
+    },
+    // §9.6 — three signals at once (fill, weight, colour) and the figure is
+    // stated in words either way, so nothing here rides on colour alone.
+    // The shared vocabulary; see notableFillStyle for why it's tonal.
+    detailNotable: notableFillStyle(theme),
+    detailNotableText: notableLabelStyle(theme),
+    // Same vocabulary as the two fact chips below it, in its own `uvBadge`
+    // tone. It was a solid gold fill with white text, which made the loudest
+    // thing on this card a number that is only sometimes present — louder
+    // than the temperature it sits beside.
+    uvBadge: {
+      marginLeft: "auto",
+      paddingHorizontal: SPACING.sm,
+      paddingVertical: SPACING.xs,
+      borderRadius: RADIUS.pill,
+      ...notableFillStyle(theme, theme.uvBadge),
+    },
+    uvBadgeText: { ...TYPE.micro, ...notableLabelStyle(theme, theme.uvBadge) },
     picksSection: { gap: SPACING.sm, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.md, marginTop: 2 },
-    picksHeading: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 },
+    picksHeading: { ...TYPE.eyebrow, color: theme.textSecondary },
     picksRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACING.sm },
     // A resolved pick names something the user owns, so it gets the accent and
     // a tinted chip. A fallback is generic advice, so it stays quieter and

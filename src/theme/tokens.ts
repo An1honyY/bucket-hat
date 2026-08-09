@@ -108,6 +108,55 @@ export const lightTheme: ThemeTokens = {
   isLight: true,
 };
 
+// §9.1 (2026-08-09) — a translucent wash of a token colour, for surfaces that
+// need to read as "the accent, quietly" rather than as the accent itself: a
+// tonal button, a selected chip, an accent-tinted strip.
+//
+// Derived at call time from whatever colour is passed rather than stored as
+// its own token, deliberately: `accentWalk` is mood-tracked (moodOverrides
+// below), so a fixed soft-accent token would keep the base pink while the
+// accent beside it turned blue on a cold day. Deriving keeps the two in step
+// by construction.
+export function withAlpha(hex: string, alpha: number): string {
+  const value = hex.replace("#", "");
+  const full = value.length === 3 ? value.split("").map((c) => c + c).join("") : value;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return hex;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// §9.1/§9.6 (2026-08-09) — the label colour to use *on* a `withAlpha` wash of
+// the same accent. Not the accent itself: measured against the composited
+// chip background, `accentWalk` gives 4.02:1 in dark and 3.89:1 in light at
+// the fills we use — both under WCAG AA's 4.5:1 for text this size. Light
+// mode's accent only reaches 4.81:1 on *pure white*, so any tint sinks it.
+//
+// Derived rather than tokenised for the same reason `withAlpha` is: the
+// accent is mood-tracked, so a fixed "on-tonal pink" would be stranded on a
+// blue chip during a cold snap. The two shift amounts are verified against
+// all six accent/mood/theme combinations (5.2:1 to 8.7:1) — if you change
+// them, re-measure rather than eyeball it.
+const ON_TONAL_LIGHTEN = 0.42;
+const ON_TONAL_DARKEN = 0.3;
+
+export function onTonal(hex: string, isLight: boolean): string {
+  const value = hex.replace("#", "");
+  const full = value.length === 3 ? value.split("").map((c) => c + c).join("") : value;
+  const channels = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+  if (channels.some(Number.isNaN)) return hex;
+  const target = isLight ? 0 : 255;
+  const amount = isLight ? ON_TONAL_DARKEN : ON_TONAL_LIGHTEN;
+  const [r, g, b] = channels.map((c) => Math.round(c + (target - c) * amount));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/** Fill opacity for a tonal surface. Dark themes need more to read at all. */
+export function tonalFillAlpha(isLight: boolean): number {
+  return isLight ? 0.12 : 0.18;
+}
+
 // §6/9.1 — maps classifyWeather()'s severity (0-4) to the active theme's
 // condition* tokens via a lookup array, theme-agnostic (indexes into
 // whichever token object useTheme() currently returns).

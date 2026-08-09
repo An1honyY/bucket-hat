@@ -28,6 +28,7 @@ import { initCrashReportingIfEnabled } from "../../lib/crashReporting";
 import { useThemeStore } from "../../theme/useThemeStore";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import ScreenSurface from "../../components/ScreenSurface";
+import ActionIcon from "../../components/ActionIcon";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
 import { cardElevationStyle } from "../../theme/tokens";
@@ -270,7 +271,7 @@ export default function SettingsScreen() {
             <>
               <Text style={styles.hint}>We learn separately for each season, since how you dress in winter doesn&apos;t always match summer.</Text>
               <Text style={styles.body}>
-                {SEASON_LABELS.map((s) => `${s.label}: ${seasonalSampleCounts[s.key]}`).join(" · ")}
+                {SEASON_LABELS.map((s) => `${s.label}: ${seasonalSampleCounts[s.key]}`).join(", ")}
               </Text>
             </>
           )}
@@ -397,7 +398,8 @@ export default function SettingsScreen() {
         </View>
 
         <Pressable onPress={() => setAdvancedExpanded((v) => !v)} style={styles.advancedHeader}>
-          <Text style={styles.sectionTitle}>{advancedExpanded ? "▾" : "▸"} Advanced — set exact temperature thresholds</Text>
+          <ActionIcon kind={advancedExpanded ? "chevronDown" : "chevronRight"} size={14} color={colors.textPrimary} />
+          <Text style={styles.sectionTitle}>Advanced — set exact temperature thresholds</Text>
         </Pressable>
         <View style={styles.sectionCard}>
           <Text style={styles.body}>
@@ -490,7 +492,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     dataButton: { flex: 1, minHeight: 44, paddingVertical: 10, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center", justifyContent: "center" },
     dataButtonDisabled: { opacity: 0.5 },
     dataButtonLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
-    advancedHeader: { marginTop: SPACING.xl, minHeight: 44, justifyContent: "center" },
+    advancedHeader: { marginTop: SPACING.xl, minHeight: 44, flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     advancedBody: { marginTop: SPACING.md, gap: 4 },
     label: { ...TYPE.caption, fontWeight: "600", marginTop: SPACING.md, color: theme.textPrimary },
     windSensitivityLabel: { marginTop: SPACING.md },

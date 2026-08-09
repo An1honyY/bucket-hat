@@ -4,6 +4,7 @@ import { RADIUS, SPACING, TYPE } from "../theme/typography";
 import ClothingTypeIcon from "./ClothingTypeIcon";
 import GearThumbnail from "./GearThumbnail";
 import type { GearGroup, GearOption } from "../lib/useGearOptions";
+import { selectedChipStyle, selectedChipLabelStyle } from "../theme/commonStyles";
 
 // Multi-select over the user's own gear — TagChips/SingleSelect's chip
 // language, but each chip names a real owned item and carries its photo where
@@ -78,7 +79,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     groups: { gap: SPACING.md },
     group: { gap: SPACING.sm },
-    groupLabel: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 },
+    groupLabel: { ...TYPE.eyebrow, color: theme.textSecondary },
     row: { flexDirection: "row", flexWrap: "wrap", gap: SPACING.sm },
     chip: {
       flexDirection: "row",
@@ -91,8 +92,8 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderColor: theme.border,
       minHeight: 44,
     },
-    chipActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    chipActive: selectedChipStyle(theme),
     chipLabel: { ...TYPE.caption, color: theme.textPrimary },
-    chipLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    chipLabelActive: selectedChipLabelStyle(theme),
   });
 }

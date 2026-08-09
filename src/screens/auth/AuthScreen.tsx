@@ -11,6 +11,7 @@ import useTheme from "../../theme/useTheme";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { RootStackParamList } from "../../navigation/types";
 import { AuthField, AuthLayout, ErrorNote, getStyles as getSharedStyles, LinkButton, LocalFirstNote, PrimaryButton } from "./authUi";
+import { selectedChipStyle, selectedChipLabelStyle } from "../../theme/commonStyles";
 
 // docs/13-extended-features.md §13.7 — sign in / create account, promoted
 // out of Settings → Sync & account (2026-08-02) into its own screen so
@@ -237,8 +238,8 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       alignItems: "center",
       justifyContent: "center",
     },
-    segmentActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    segmentActive: selectedChipStyle(theme),
     segmentLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
-    segmentLabelActive: { color: "#FFFFFF" },
+    segmentLabelActive: selectedChipLabelStyle(theme),
   });
 }
