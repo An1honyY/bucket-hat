@@ -8,6 +8,7 @@ import FormSection from "../../components/FormSection";
 import FormActions from "../../components/FormActions";
 import useTheme from "../../theme/useTheme";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
+import { selectedChipStyle, selectedChipLabelStyle } from "../../theme/commonStyles";
 
 // Shared add/edit form for an EnvironmentAnnotation — docs/04-screens-
 // navigation.md §4.5. Used both as the Journey Detail map long-press sheet
@@ -191,9 +192,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       alignItems: "center",
       gap: 4,
     },
-    effectButtonActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    effectButtonActive: selectedChipStyle(theme),
     effectLabel: { ...TYPE.micro, textAlign: "center", color: theme.textPrimary },
-    effectLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    effectLabelActive: selectedChipLabelStyle(theme),
     input: { borderWidth: 1, borderColor: theme.border, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, minHeight: 44, ...TYPE.body, color: theme.textPrimary },
     notesInput: { minHeight: 64, textAlignVertical: "top" },
     radiusScale: { flexDirection: "row", justifyContent: "space-between", marginTop: 2 },

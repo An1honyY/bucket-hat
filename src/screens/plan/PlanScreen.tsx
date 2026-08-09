@@ -25,7 +25,7 @@ import AppButton from "../../components/AppButton";
 import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { cardElevationStyle } from "../../theme/tokens";
-import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
+import { CONTENT_MAX_WIDTH, selectedChipStyle, selectedChipLabelStyle } from "../../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { CarryPreference, SavedLocation, SavedRoute, TravelMode } from "../../types";
 
@@ -484,7 +484,7 @@ export default function PlanScreen() {
                     {from && to && (saved.label !== defaultRouteLabel(from, to) || stops > 0) && (
                       <Text style={styles.chooserRowMeta} numberOfLines={1}>
                         {from} → {to}
-                        {stops > 0 ? ` · ${stops} stop${stops === 1 ? "" : "s"}` : ""}
+                        {stops > 0 ? `, ${stops} stop${stops === 1 ? "" : "s"}` : ""}
                       </Text>
                     )}
                   </View>
@@ -948,9 +948,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // §9.6 — chips are tap targets, so they carry the 44pt minimum rather
     // than sizing themselves off their label.
     modeChip: { minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.md, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border },
-    modeChipActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    modeChipActive: selectedChipStyle(theme),
     modeChipLabel: { ...TYPE.caption, color: theme.textPrimary },
-    modeChipLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    modeChipLabelActive: selectedChipLabelStyle(theme),
     returnCard: {
       marginTop: SPACING.lg,
       padding: SPACING.lg,
@@ -971,13 +971,13 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     hint: { ...TYPE.caption, color: theme.textSecondary, marginBottom: SPACING.sm, lineHeight: 18 },
     segmentRow: { flexDirection: "row", gap: SPACING.sm },
     segment: { flex: 1, minHeight: 44, justifyContent: "center", borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center" },
-    segmentActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    segmentActive: selectedChipStyle(theme),
     segmentLabel: { ...TYPE.caption, color: theme.textPrimary },
-    segmentLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    segmentLabelActive: selectedChipLabelStyle(theme),
     dayChip: { width: 44, height: 44, borderRadius: RADIUS.circle, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.border },
-    dayChipActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    dayChipActive: selectedChipStyle(theme),
     dayChipLabel: { ...TYPE.micro, color: theme.textPrimary },
-    dayChipLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    dayChipLabelActive: selectedChipLabelStyle(theme),
     planAction: { marginTop: SPACING.xxl },
     planningIndicator: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm, minHeight: 48 },
     planningLabel: { ...TYPE.caption, color: theme.textSecondary },

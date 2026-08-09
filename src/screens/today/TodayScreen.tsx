@@ -126,7 +126,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     content: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     journeysSection: { marginTop: SPACING.sm },
-    sectionLabel: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary, marginBottom: SPACING.sm },
+    sectionLabel: { ...TYPE.eyebrow, color: theme.textSecondary, marginBottom: SPACING.sm },
     emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: SPACING.xxl * 2 },
     empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },
   });

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import useTheme from "../theme/useTheme";
+import { onTonal, tonalFillAlpha, withAlpha } from "../theme/tokens";
 import { ACTION_MAX_WIDTH } from "../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../theme/typography";
 
@@ -17,7 +18,15 @@ import { RADIUS, SPACING, TYPE } from "../theme/typography";
 //
 // `layout="inline"` opts out of the block width cap for buttons that share a
 // row (Cancel / Save), where the row itself is already constrained.
-export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+//
+// `tonal` (2026-08-09) is the accent at lower volume — accent-coloured label
+// on a wash of the same accent. It exists for the case where a screen has
+// both a primary action *and* a headline fact rendered in the accent (Journey
+// Detail: a pink departure time directly above a pink "Follow this journey").
+// Two full-strength accents touching means neither is primary; giving the
+// action the quieter of two weights restores the order without making it
+// look disabled the way `secondary` would.
+export type ButtonVariant = "primary" | "secondary" | "tonal" | "danger" | "ghost";
 
 interface Props {
   label: string;
@@ -37,6 +46,7 @@ interface Props {
 export function buttonIconColor(theme: ReturnType<typeof useTheme>, variant: ButtonVariant = "primary"): string {
   if (variant === "primary") return "#FFFFFF";
   if (variant === "danger") return theme.danger;
+  if (variant === "tonal") return onTonal(theme.accentWalk, theme.isLight);
   if (variant === "ghost") return theme.accentWalk;
   return theme.textPrimary;
 }
@@ -104,6 +114,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     primaryLabel: { color: "#FFFFFF" },
     secondary: { borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface },
     secondaryLabel: { color: theme.textPrimary },
+    tonal: { backgroundColor: withAlpha(theme.accentWalk, tonalFillAlpha(theme.isLight)) },
+    // `onTonal`, not the raw accent — see its note in tokens.ts; the accent on
+    // its own wash misses AA in both themes.
+    tonalLabel: { color: onTonal(theme.accentWalk, theme.isLight) },
     danger: { borderWidth: 1, borderColor: theme.danger },
     dangerLabel: { color: theme.danger },
     ghost: { backgroundColor: "transparent" },

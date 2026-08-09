@@ -62,7 +62,10 @@ export default function ClothingList() {
       {loaded && items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No clothing yet — add your first item</Text>
-          <AppButton label="Add clothing" variant="secondary" onPress={() => navigation.navigate("GearItem", { kind: "clothing" })} style={styles.addButton} />
+          {/* `primary` on an empty screen, `secondary` above a populated list
+              (below): with nothing else on screen there is nothing for it to
+              outrank, and an empty state is an invitation to act. */}
+          <AppButton label="Add clothing" onPress={() => navigation.navigate("GearItem", { kind: "clothing" })} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -80,7 +83,7 @@ export default function ClothingList() {
                 <View style={styles.rowText}>
                   <Text style={[styles.rowLabel, isUnavailable && styles.dimmedText]}>{item.name}</Text>
                   <Text style={styles.rowMeta}>
-                    {item.type} · warmth {item.warmth}
+                    {item.type}, warmth {item.warmth}
                   </Text>
                   <GearRowBadges
                     item={item}

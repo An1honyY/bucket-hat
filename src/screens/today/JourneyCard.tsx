@@ -8,9 +8,10 @@ import { formatTime } from "../../lib/formatTime";
 import { formatDuration, spokenDuration } from "../../lib/formatDuration";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import useTheme from "../../theme/useTheme";
-import { cardElevationStyle, type ThemeTokens } from "../../theme/tokens";
+import { cardElevationStyle, onTonal, withAlpha, type ThemeTokens } from "../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import type { Journey } from "../../types";
+import { gearPickLabel } from "../../lib/gearLabel";
 
 // Today-tab compact journey card — docs/09-design-system.md §9.4.
 
@@ -32,7 +33,7 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
   const styles = getStyles(theme);
   const recommendation = useRecommendation(journey);
   const topLayer = recommendation?.layers[recommendation.layers.length - 1];
-  const topLabel = topLayer ? ("id" in topLayer ? topLayer.name : topLayer.fallbackText) : "Nothing extra needed — you're set";
+  const topLabel = topLayer ? gearPickLabel(topLayer).text : "Nothing extra needed — you're set";
 
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
   const departTime = formatTime(journey.departTime, hour12);
@@ -72,6 +73,15 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
     .map((leg) => leg.mode)
     .filter((mode, i, all) => all.indexOf(mode) === i);
   const totalMin = journey.legs.reduce((sum, leg) => sum + leg.durationMin, 0);
+  // Indoor stretches with real climate control, the same test LegRow uses for
+  // its per-leg pill. "unconditioned" doesn't count — it's the absence of the
+  // thing. Heated stretches are badged too, and the badge names which.
+  const climateLegs = journey.legs.filter(
+    (leg) => !leg.outdoor && !leg.isStationary && (leg.climate === "ac" || leg.climate === "heated")
+  );
+  const climateLegCount = climateLegs.length;
+  // If a trip has both, AC is the one that changes what you'd wear outdoors.
+  const climateLabel = climateLegs.some((leg) => leg.climate === "ac") ? "AC" : "Heated";
 
   // §9.6 — the per-leg chips below are still color-plus-icon-plus-number,
   // not color alone, but the full detail is also carried in words here so
@@ -115,19 +125,30 @@ export default function JourneyCard({ journey, isNextUp, onPress, onLeavingNow, 
           <Text style={styles.time}>{departTime}</Text>
         </View>
 
+        {/* Separated by space rather than by dots. Each of these is already a
+            distinct shape — a duration, a row of mode glyphs, a weather chip,
+            an AC badge — so the dividers were punctuating things that didn't
+            need it. */}
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>{formatDuration(totalMin)}</Text>
-          {modes.length > 0 && <View style={styles.dot} />}
           <View style={styles.modeRow}>
             {modes.map((mode) => (
               <ModeIcon key={mode} kind={mode} size={13} color={theme.textSecondary} />
             ))}
           </View>
-          {tempRange && <View style={styles.dot} />}
           {tempRange && worstIconKind && (
             <View style={styles.weatherChip}>
               <WeatherIcon kind={worstIconKind} size={12} color={theme.textSecondary} />
               <Text style={styles.summaryText}>{tempRange}</Text>
+            </View>
+          )}
+          {/* A trip with a heated/air-conditioned stretch is worth seeing from
+              Today: it's the difference between dressing for 13° and dressing
+              for 13° plus twenty minutes of aggressive bus AC, and it's the
+              one thing on this card you can't infer from the weather. */}
+          {climateLegCount > 0 && (
+            <View style={styles.acBadge}>
+              <Text style={styles.acBadgeLabel}>{climateLabel}</Text>
             </View>
           )}
         </View>
@@ -169,11 +190,21 @@ function getStyles(theme: ThemeTokens) {
     time: { ...TYPE.caption, fontWeight: "700", color: theme.accentWalk },
     // One line, fixed length whatever the leg count — see the note above the
     // summary in the component.
-    summaryRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.sm },
+    // `lg` between groups rather than `sm` plus a dot: with the dividers gone
+    // the spacing is what separates them, so it has to be clearly wider than
+    // the gaps *inside* each group (5 and 4 below).
+    summaryRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: SPACING.lg },
     summaryText: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
     modeRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     weatherChip: { flexDirection: "row", alignItems: "center", gap: 4 },
-    dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: theme.textSecondary, opacity: 0.5 },
+    // §9.3's indoor-leg pill, borrowed at summary scale for the whole trip.
+    acBadge: {
+      paddingHorizontal: SPACING.xs,
+      paddingVertical: 1,
+      borderRadius: RADIUS.pill,
+      backgroundColor: withAlpha(theme.acBadge, theme.isLight ? 0.18 : 0.26),
+    },
+    acBadgeLabel: { ...TYPE.micro, fontWeight: "700", color: onTonal(theme.acBadge, theme.isLight) },
     topRecommendation: { ...TYPE.caption, color: theme.textPrimary },
     leavingNowButton: { marginTop: SPACING.xs, alignSelf: "flex-start", minHeight: 44, justifyContent: "center", paddingHorizontal: SPACING.lg, borderRadius: RADIUS.pill, backgroundColor: theme.accentWalk },
     leavingNowLabel: { ...TYPE.caption, color: "#FFFFFF", fontWeight: "700" },

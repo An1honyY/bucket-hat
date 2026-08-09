@@ -7,6 +7,7 @@ import useTheme from "../../theme/useTheme";
 import { useAmbientWeatherStore } from "../../theme/useAmbientWeatherStore";
 import useCommonStyles from "../../theme/commonStyles";
 import { SPACING, TYPE } from "../../theme/typography";
+import ActionIcon from "../../components/ActionIcon";
 import RightNowCard from "../today/RightNowCard";
 import LocalForecastCard from "../today/LocalForecastCard";
 import LocationForm, { type LocationFormValues } from "./LocationForm";
@@ -95,7 +96,8 @@ export default function LocationDetail({ location, onSubmit, onDelete }: Props) 
         accessibilityState={{ expanded: detailsOpen }}
         accessibilityLabel={detailsOpen ? "Hide location and preferences" : "Edit location and preferences"}
       >
-        <Text style={styles.disclosure}>{detailsOpen ? "▾" : "▸"} Location &amp; preferences</Text>
+        <ActionIcon kind={detailsOpen ? "chevronDown" : "chevronRight"} size={14} color={theme.textPrimary} />
+        <Text style={styles.disclosure}>Location &amp; preferences</Text>
       </Pressable>
 
       {detailsOpen && (
@@ -121,7 +123,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     heading: { marginBottom: SPACING.lg },
     label: { ...TYPE.title, fontWeight: "600", color: theme.textPrimary },
     address: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2 },
-    disclosureRow: { minHeight: 44, justifyContent: "center" },
+    disclosureRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     disclosure: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
   });
 }

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import useTheme from "../theme/useTheme";
+import useCommonStyles from "../theme/commonStyles";
 import { cardElevationStyle } from "../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../theme/typography";
 
@@ -23,9 +24,13 @@ interface Props {
 export default function FormSection({ title, description, children }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
+  // The heading reads from the shared `sectionLabel` (§9.2) rather than a
+  // local copy — this file used to hold its own, one of seven near-identical
+  // definitions that had drifted apart across the app.
+  const common = useCommonStyles();
   return (
     <View style={styles.wrapper}>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={common.sectionLabel}>{title}</Text>
       <View style={styles.card}>
         {description && <Text style={styles.description}>{description}</Text>}
         {children}
@@ -36,8 +41,7 @@ export default function FormSection({ title, description, children }: Props) {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    wrapper: { marginTop: SPACING.lg },
-    title: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary, marginBottom: SPACING.sm },
+    wrapper: { marginTop: SPACING.xxl },
     card: {
       backgroundColor: theme.surface,
       borderRadius: RADIUS.card,

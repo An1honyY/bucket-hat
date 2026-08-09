@@ -7,6 +7,7 @@ import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../.
 import GearThumbnail from "../../components/GearThumbnail";
 import type { GearAddTarget } from "../../navigation/types";
 import type { RecommendationSnapshot } from "../../types";
+import { displayGearLabel, gearPickLabel } from "../../lib/gearLabel";
 
 // Gear recommendation card — docs/09-design-system.md §9.3 item 4, backed by
 // the real recommendGear() engine (docs/07-recommendation-engine.md §7).
@@ -25,10 +26,6 @@ import type { RecommendationSnapshot } from "../../types";
 // own photo is the strongest version of that (§3.3's thumbnail rule, §9.0's
 // "personal" read). Fallbacks have no photo by definition, which is exactly
 // why they belong in the second list rather than mixed into the first.
-function pickLabel(pick: { name: string } | { fallbackText: string }): { text: string; isFallback: boolean } {
-  return "name" in pick ? { text: pick.name, isFallback: false } : { text: pick.fallbackText, isFallback: true };
-}
-
 function layerIconKind(pick: LayerPick): ClothingIconKind {
   const type = "layerType" in pick ? pick.layerType : pick.type;
   if (type === "accessory") return accessoryIconKind("fallbackText" in pick ? pick.fallbackText : pick.name);
@@ -59,7 +56,7 @@ function slotsFor(recommendation: Recommendation): { owned: Slot[]; missing: Slo
   const push = (slot: Slot, isFallback: boolean) => (isFallback ? missing : owned).push(slot);
 
   [...recommendation.layers].reverse().forEach((pick, i) => {
-    const { text, isFallback } = pickLabel(pick);
+    const { text, isFallback } = gearPickLabel(pick);
     push(
       {
         key: `layer-${i}`,
@@ -75,7 +72,7 @@ function slotsFor(recommendation: Recommendation): { owned: Slot[]; missing: Slo
 
   if (recommendation.bottoms) {
     const pick = recommendation.bottoms;
-    const { text, isFallback } = pickLabel(pick);
+    const { text, isFallback } = gearPickLabel(pick);
     push(
       {
         key: "bottoms",
@@ -91,7 +88,7 @@ function slotsFor(recommendation: Recommendation): { owned: Slot[]; missing: Slo
 
   if (recommendation.shoes) {
     const pick = recommendation.shoes;
-    const { text, isFallback } = pickLabel(pick);
+    const { text, isFallback } = gearPickLabel(pick);
     push(
       {
         key: "shoes",
@@ -107,7 +104,7 @@ function slotsFor(recommendation: Recommendation): { owned: Slot[]; missing: Slo
 
   if (recommendation.umbrella) {
     const pick = recommendation.umbrella;
-    const { text, isFallback } = pickLabel(pick);
+    const { text, isFallback } = gearPickLabel(pick);
     push(
       {
         key: "umbrella",
@@ -122,7 +119,7 @@ function slotsFor(recommendation: Recommendation): { owned: Slot[]; missing: Slo
   }
 
   recommendation.accessories.forEach((pick, i) => {
-    const { text, isFallback } = pickLabel(pick);
+    const { text, isFallback } = gearPickLabel(pick);
     push(
       {
         key: `accessory-${i}`,
@@ -157,11 +154,21 @@ export default function GearRecommendationCard({ recommendation, snapshot, onAdd
     const layersTopDown = [...snapshot.layerNames]
       .map((name, i) => ({ name, kind: snapshot.layerTypes?.[i] }))
       .reverse();
+    // A snapshot stores flat strings, so there's no owned-item/fallback
+    // distinction left to read — `displayGearLabel` is the right rule for both
+    // here, since it only raises the leading noun phrase and leaves anything a
+    // user typed with its own capitals intact.
     const rows: { key: string; kind?: ClothingIconKind; text: string }[] = [
-      ...layersTopDown.map(({ name, kind }, i) => ({ key: `layer-${i}`, kind, text: name })),
-      ...(snapshot.shoeName ? [{ key: "shoes", kind: "shoe" as const, text: snapshot.shoeName }] : []),
-      ...(snapshot.umbrellaName ? [{ key: "umbrella", kind: "umbrella" as const, text: snapshot.umbrellaName }] : []),
-      ...snapshot.accessoryNames.map((name, i) => ({ key: `accessory-${i}`, kind: accessoryIconKind(name), text: name })),
+      ...layersTopDown.map(({ name, kind }, i) => ({ key: `layer-${i}`, kind, text: displayGearLabel(name) })),
+      ...(snapshot.shoeName ? [{ key: "shoes", kind: "shoe" as const, text: displayGearLabel(snapshot.shoeName) }] : []),
+      ...(snapshot.umbrellaName
+        ? [{ key: "umbrella", kind: "umbrella" as const, text: displayGearLabel(snapshot.umbrellaName) }]
+        : []),
+      ...snapshot.accessoryNames.map((name, i) => ({
+        key: `accessory-${i}`,
+        kind: accessoryIconKind(name),
+        text: displayGearLabel(name),
+      })),
     ];
     return (
       <View style={styles.card}>

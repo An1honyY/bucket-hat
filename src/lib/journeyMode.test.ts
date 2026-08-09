@@ -1,4 +1,4 @@
-import { dominantMode } from "./journeyMode";
+import { departureMode, dominantMode } from "./journeyMode";
 import type { JourneyLeg } from "../types";
 
 // docs/11-testing-strategy.md §11.1 — pure function with real branching
@@ -32,5 +32,32 @@ describe("dominantMode", () => {
   it("no legs (or no recognized mode) defaults to walk", () => {
     expect(dominantMode([])).toBe("walk");
     expect(dominantMode([leg("indoor")])).toBe("walk");
+  });
+});
+
+describe("departureMode", () => {
+  it("is the walk to the stop, not the bus the trip is mostly about", () => {
+    // The case that prompted it: the origin marker sat on the footpath where
+    // you're standing, wearing a bus glyph.
+    expect(departureMode([leg("walk"), leg("bus"), leg("walk")])).toBe("walk");
+    expect(dominantMode([leg("walk"), leg("bus"), leg("walk")])).toBe("bus");
+  });
+
+  it("skips indoor dwell legs", () => {
+    expect(departureMode([leg("indoor"), leg("walk"), leg("train")])).toBe("walk");
+  });
+
+  it("skips a stationary wait before the ride", () => {
+    const wait: JourneyLeg = { ...leg("bus"), id: "wait", isStationary: true };
+    expect(departureMode([wait, leg("walk"), leg("bus")])).toBe("walk");
+  });
+
+  it("is the ride itself when a trip starts on it", () => {
+    expect(departureMode([leg("drive")])).toBe("drive");
+  });
+
+  it("falls back to the dominant mode when nothing is travelled outdoors", () => {
+    expect(departureMode([leg("indoor")])).toBe("walk");
+    expect(departureMode([])).toBe("walk");
   });
 });

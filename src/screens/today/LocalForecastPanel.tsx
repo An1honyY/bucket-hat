@@ -115,7 +115,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // own that becomes a stray gap at the top.
     keyBlock: { paddingTop: 0 },
     sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: SPACING.sm },
-    sectionLabel: { ...TYPE.micro, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase" },
+    sectionLabel: { ...TYPE.eyebrow, color: theme.textSecondary },
     scrollHint: { ...TYPE.micro, color: theme.textSecondary, opacity: 0.8 },
     dayRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 40 },
     dayName: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary, width: 92 },

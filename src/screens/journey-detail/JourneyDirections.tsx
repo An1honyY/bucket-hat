@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import ActionIcon from "../../components/ActionIcon";
 import ManeuverIcon, { maneuverKindFor } from "../../components/ManeuverIcon";
 import ModeIcon from "../../components/ModeIcon";
 import WeatherIcon, { weatherIconKindFor } from "../../components/WeatherIcon";
@@ -65,7 +66,7 @@ export default function JourneyDirections({ legs, initiallyOpen = false, bare = 
   const totalMin = shown.reduce((sum, leg) => sum + leg.durationMin, 0);
   const totalM = shown.reduce((sum, leg) => sum + totalStepDistanceM(displayStepsFor(leg)), 0);
   const distance = formatDistance(totalM);
-  const summary = distance ? `${distance} · ${formatDuration(totalMin)}` : formatDuration(totalMin);
+  const summary = distance ? `${distance}, ${formatDuration(totalMin)}` : formatDuration(totalMin);
 
   return (
     <View style={[styles.container, !bare && styles.card]}>
@@ -76,7 +77,13 @@ export default function JourneyDirections({ legs, initiallyOpen = false, bare = 
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`${open ? "Hide" : "Show"} directions, ${distance ? `${distance}, ` : ""}${spokenDuration(totalMin)}`}
       >
-        <Text style={styles.disclosure}>{open ? "▾" : "▸"} Directions</Text>
+        {/* Grouped, so the row's space-between still has two children and the
+            chevron stays beside its label instead of being pushed to the
+            opposite edge from the summary. */}
+        <View style={styles.disclosureLabel}>
+          <ActionIcon kind={open ? "chevronDown" : "chevronRight"} size={14} color={theme.textPrimary} />
+          <Text style={styles.disclosure}>Directions</Text>
+        </View>
         <Text style={styles.disclosureMeta}>{summary}</Text>
       </Pressable>
 
@@ -168,6 +175,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       paddingHorizontal: SPACING.md,
       minHeight: 44,
     },
+    disclosureLabel: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     disclosure: { ...TYPE.caption, fontWeight: "600", color: theme.textPrimary },
     disclosureMeta: { ...TYPE.caption, color: theme.textSecondary },
     legRow: {

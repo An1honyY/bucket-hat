@@ -45,7 +45,7 @@ export default function UmbrellaList() {
       {loaded && items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No umbrellas yet — add your first one</Text>
-          <AppButton label="Add umbrella" variant="secondary" onPress={() => navigation.navigate("GearItem", { kind: "umbrella" })} style={styles.addButton} />
+          <AppButton label="Add umbrella" onPress={() => navigation.navigate("GearItem", { kind: "umbrella" })} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -63,7 +63,7 @@ export default function UmbrellaList() {
                 <View style={styles.rowText}>
                   <Text style={[styles.rowLabel, isUnavailable && styles.dimmedText]}>{item.name}</Text>
                   <Text style={styles.rowMeta}>
-                    {item.type} · {item.windRating} wind rating
+                    {item.type}, {item.windRating} wind rating
                   </Text>
                   <GearRowBadges
                     item={item}

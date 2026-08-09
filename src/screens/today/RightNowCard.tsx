@@ -13,6 +13,7 @@ import WeatherIcon, { weatherIconKindFor } from "../../components/WeatherIcon";
 import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import type { LayerPick } from "../../lib/recommend";
+import { gearPickLabel } from "../../lib/gearLabel";
 
 // "Right now" card — docs/09-design-system.md §9.3.1, docs/04-screens-
 // navigation.md §4.2. A smaller self-contained version of the gear
@@ -31,10 +32,6 @@ const PICK_PHOTO_SIZE = 40;
 // chips used before photos were enlarged, so a photoless pick still reads as a
 // chip rather than as a mostly-empty tile.
 const PICK_ICON_SIZE = 15;
-
-function pickLabel(pick: { name: string } | { fallbackText: string }): { text: string; isFallback: boolean } {
-  return "name" in pick ? { text: pick.name, isFallback: false } : { text: pick.fallbackText, isFallback: true };
-}
 
 function layerIconKind(pick: LayerPick): ClothingIconKind {
   const type = "layerType" in pick ? pick.layerType : pick.type;
@@ -130,7 +127,6 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
         <Text style={[styles.detail, diverges && styles.detailEmphasis]}>
           Feels like {Math.round(weather.apparentTempC)}°
         </Text>
-        <Text style={styles.detailSeparator}>·</Text>
         <Text style={styles.detail}>Wind {formatWindKph(weather.windKph)}</Text>
       </View>
 
@@ -145,7 +141,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
           <Text style={styles.picksHeading}>What to wear</Text>
           <View style={styles.picksRow}>
             {picks.map(({ pick, icon }, i) => {
-              const { text, isFallback } = pickLabel(pick);
+              const { text, isFallback } = gearPickLabel(pick);
               // An owned item shows its own photo where it has one (§3.3) —
               // the chip is the smallest surface in the app that can carry
               // "this is *your* jacket" rather than a category glyph. At the
@@ -201,7 +197,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
       {/* An automatic refresh has no pull-to-refresh spinner behind it, so the
           only signal it's happening is here — otherwise a stale-looking "as
           of" gives no hint that a newer reading is already on its way. */}
-      <Text style={styles.asOf}>{refreshing ? `as of ${asOf} · updating…` : `as of ${asOf}`}</Text>
+      <Text style={styles.asOf}>{refreshing ? `as of ${asOf}, updating…` : `as of ${asOf}`}</Text>
 
       {openItem && (
         <GearDetailSheet item={openItem.item} kind={openItem.icon} onClose={() => setOpenItem(null)} />
@@ -225,7 +221,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     temp: { fontSize: 24, fontWeight: "700", color: theme.textPrimary },
     conditionLabel: { ...TYPE.body, fontWeight: "600", color: theme.textSecondary },
-    detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, flexWrap: "wrap", marginTop: -2 },
+    // `lg`, not `xs`: the dot that used to divide these two facts is gone, so
+    // the gap is doing that job on its own and has to be unmistakable.
+    detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.lg, flexWrap: "wrap", marginTop: -2 },
     detail: { ...TYPE.caption, color: theme.textSecondary },
     // §9.6 — the emphasis is weight and colour together, never colour alone,
     // and the line states the figure either way; nothing here is conveyed by

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { SavedLocation } from "../../types";
 import useTheme from "../../theme/useTheme";
-import useCommonStyles from "../../theme/commonStyles";
+import useCommonStyles, { selectedChipStyle, selectedChipLabelStyle } from "../../theme/commonStyles";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import AddressAutocomplete from "../../components/AddressAutocomplete";
 import LocationPickerMap from "../../components/LocationPickerMap";
@@ -274,11 +274,11 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     favoriteRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, minHeight: 44 },
     segmentRow: { flexDirection: "row", gap: SPACING.sm },
     segment: { flex: 1, minHeight: 44, justifyContent: "center", borderRadius: RADIUS.pill, borderWidth: 1, borderColor: theme.border, alignItems: "center" },
-    segmentActive: { backgroundColor: theme.accentWalk, borderColor: theme.accentWalk },
+    segmentActive: selectedChipStyle(theme),
     segmentLabel: { ...TYPE.caption, color: theme.textPrimary },
     // Matches SettingsScreen.tsx's equivalent segmented control — both used
     // to disagree (theme.bg vs white for the active label); white reads
     // correctly against accentWalk in both themes, so unified on that.
-    segmentLabelActive: { color: "#FFFFFF", fontWeight: "600" },
+    segmentLabelActive: selectedChipLabelStyle(theme),
   });
 }

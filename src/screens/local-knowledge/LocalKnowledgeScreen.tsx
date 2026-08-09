@@ -90,7 +90,7 @@ export default function LocalKnowledgeScreen() {
               <View style={styles.rowText}>
                 <Text style={styles.rowLabel}>{item.label}</Text>
                 <Text style={styles.rowMeta}>
-                  {EFFECT_META[item.effect].label} · within {item.radiusM}m
+                  {EFFECT_META[item.effect].label}, within {item.radiusM}m
                 </Text>
                 {item.notes ? <Text style={styles.rowNotes}>{item.notes}</Text> : null}
               </View>

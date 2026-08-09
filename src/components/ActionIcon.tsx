@@ -17,6 +17,9 @@ export type ActionIconKind =
   | "flag"
   | "search"
   | "arrowRight"
+  | "chevronRight"
+  | "chevronDown"
+  | "chevronUp"
   | "expand";
 
 const PATHS: Record<ActionIconKind, string[]> = {
@@ -35,6 +38,13 @@ const PATHS: Record<ActionIconKind, string[]> = {
   // "origin → destination", for the journey summary card. `swap` is the
   // two-way return-trip glyph and would read as the wrong relationship here.
   arrowRight: ["M4,12h15", "M13,6l6,6l-6,6"],
+  // Disclosure state, replacing the "▸"/"▾" text glyphs several screens were
+  // drawing inline. Those render at the font's own weight and baseline, so
+  // they sat visually lighter and slightly high against the label beside
+  // them, and their size drifted with whatever TYPE role wrapped them.
+  chevronRight: ["M9,5l7,7l-7,7"],
+  chevronDown: ["M5,9l7,7l7,-7"],
+  chevronUp: ["M5,15l7,-7l7,7"],
   // "Where the route starts", for PlanScreen's route rail and the journey
   // maps' first marker. A flag rather than another circle: the rail's other
   // two markers are already a circle (each stop) and a teardrop (the
