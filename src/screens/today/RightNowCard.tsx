@@ -5,7 +5,7 @@ import { classifyWeather, feelsLikeDiverges, formatWindKph } from "../../lib/wea
 import { conditionColorForIcon } from "../../theme/conditionColor";
 import useTheme from "../../theme/useTheme";
 import { NUMERIC, RADIUS, SPACING, TYPE } from "../../theme/typography";
-import { cardElevationStyle } from "../../theme/tokens";
+import { cardElevationStyle, onTonal, tonalFillAlpha, withAlpha } from "../../theme/tokens";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
 import GearThumbnail from "../../components/GearThumbnail";
 import GearDetailSheet, { type GearItem } from "../../components/GearDetailSheet";
@@ -13,7 +13,7 @@ import WeatherIcon, { weatherIconKindFor } from "../../components/WeatherIcon";
 import MetaDivider from "../../components/MetaDivider";
 import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
-import type { LayerPick } from "../../lib/recommend";
+import { HIGH_WIND_KPH, type LayerPick } from "../../lib/recommend";
 import { gearPickLabel } from "../../lib/gearLabel";
 
 // "Right now" card — docs/09-design-system.md §9.3.1, docs/04-screens-
@@ -76,6 +76,10 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
   // Emphasised only when the gap is big enough that the engine also said
   // something about it — see FEELS_LIKE_DIVERGENCE_C.
   const diverges = feelsLikeDiverges(weather.tempC, weather.apparentTempC);
+  // §7's existing named constant, which its own comment already calls "§9.3's
+  // leg-badge wind-display threshold" — so this is the app's settled answer to
+  // "is this wind worth pointing at", not a second opinion invented here.
+  const windy = weather.windKph >= HIGH_WIND_KPH;
   // When the reading was fetched, not the forecast hour it describes. These
   // are the same instant on a fresh load, but they diverge as soon as the card
   // keeps showing a stored reading — which is the whole point of the "as of"
@@ -124,12 +128,24 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
           — and a figure that only appears in bad weather teaches people not to
           look for it. The compact per-hour cells and leg badges stay gated,
           where a row of twelve is genuinely noise. */}
+      {/* Either fact can light up when its reading is the one worth acting on:
+          a "feels like" far enough from the headline number to change what you
+          wear, or wind strong enough to matter. Both take the same treatment,
+          because they're saying the same kind of thing — this reading is out
+          of the ordinary — and two different emphases would read as two
+          different severities. */}
       <View style={styles.detailRow}>
-        <Text style={[styles.detail, diverges && styles.detailEmphasis]}>
-          Feels like {Math.round(weather.apparentTempC)}°
-        </Text>
+        <View style={[styles.detailSlot, diverges && styles.detailNotable]}>
+          <Text style={[styles.detail, diverges && styles.detailNotableText]}>
+            Feels like {Math.round(weather.apparentTempC)}°
+          </Text>
+        </View>
         <MetaDivider />
-        <Text style={styles.detail}>Wind {formatWindKph(weather.windKph)}</Text>
+        <View style={[styles.detailSlot, windy && styles.detailNotable]}>
+          <Text style={[styles.detail, windy && styles.detailNotableText]}>
+            Wind {formatWindKph(weather.windKph)}
+          </Text>
+        </View>
       </View>
 
       {/* The picks used to be a bare wrapped row directly under the
@@ -237,10 +253,24 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // to give it breathing room either side.
     detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap", marginTop: -2 },
     detail: { ...TYPE.caption, color: theme.textSecondary },
-    // §9.6 — the emphasis is weight and colour together, never colour alone,
-    // and the line states the figure either way; nothing here is conveyed by
-    // the styling on its own.
-    detailEmphasis: { fontWeight: "700", color: theme.textPrimary },
+    /** Wraps each fact so it can take a chip background without the row
+     *  jumping: the padding is always there, only the fill appears. */
+    detailSlot: {
+      paddingHorizontal: SPACING.xs,
+      paddingVertical: 1,
+      borderRadius: RADIUS.pill,
+    },
+    // §9.6 — three signals at once (fill, weight, colour) and the figure is
+    // stated in words either way, so nothing here rides on colour alone.
+    //
+    // `conditionLight` is the app's existing "notable, not severe" hue — §9.1
+    // assigns it to Windy/Foggy/Light rain and the UV badge — rather than
+    // `accentWalk`, which is reserved for primary interactive emphasis and
+    // would read as something you can tap.
+    detailNotable: {
+      backgroundColor: withAlpha(theme.conditionLight, tonalFillAlpha(theme.isLight)),
+    },
+    detailNotableText: { fontWeight: "700", color: onTonal(theme.conditionLight, theme.isLight) },
     uvBadge: { marginLeft: "auto", paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs, borderRadius: RADIUS.pill, backgroundColor: theme.uvBadge },
     uvBadgeText: { ...TYPE.micro, color: "#FFFFFF", fontWeight: "700" },
     picksSection: { gap: SPACING.sm, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.md, marginTop: 2 },

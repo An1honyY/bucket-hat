@@ -98,6 +98,19 @@ describe("tonal surfaces stay readable", () => {
     }
   });
 
+  // The "Right now" card's notable-fact chip (a diverging feels-like, or wind
+  // at/over HIGH_WIND_KPH) is a second tonal pairing: `conditionLight` on
+  // `surfaceRaised` rather than `accentWalk` on `bg`. Different hue, different
+  // backdrop, so it earns its own check rather than inheriting the one above.
+  it.each([
+    { name: "dark", theme: darkTheme },
+    { name: "light", theme: lightTheme },
+  ])("$name: a notable fact clears AA on the raised card", ({ theme }) => {
+    const label = onTonal(theme.conditionLight, theme.isLight);
+    const chip = compositedChip(theme.conditionLight, theme.surfaceRaised, theme.isLight);
+    expect(contrast(label, chip)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+  });
+
   it("the raw accent is what actually fails, in both base themes", () => {
     // The measurement this whole helper exists for. Deliberately only the
     // mild/base pair: the warm-mood gold happens to clear AA on its own, so

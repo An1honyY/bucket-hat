@@ -175,6 +175,7 @@ one by date — don't edit the old entry.
 - 2026-08-09 — The tab indicator spans its row; `top: 6` was double-counting the bar's padding (§9.2) [bug fix]
 - 2026-08-09 — The day boundary is drawn through the hourly band, not as a gap in it (§9.5) [design]
 - 2026-08-09 — Today's "Right now" card leads with the temperature, not its own title (§9.3.1) [design]
+- 2026-08-09 — A diverging feels-like or notable wind lights up as a tonal fact chip (§9.3.1, §9.6) [design]
 
 ---
 
@@ -3401,5 +3402,30 @@ gets at most one, so anything else added to this card stays below `subtitle`.
 `picksHeading` was a sixth local copy of the eyebrow and now reads
 `TYPE.eyebrow`; the dead `detailSeparator` style left over from the middot
 removal is gone.
+
+---
+
+## 2026-08-09 — A diverging feels-like or notable wind lights up as a tonal fact chip (Section 9.3.1, 9.6)
+
+**What**: the "Right now" detail row's two facts each take a tonal chip when
+their reading is the one worth acting on — `feelsLikeDiverges()` (already
+existed, previously only bold text) and `windKph >= HIGH_WIND_KPH` (new). Both
+use the same treatment.
+
+**Why**: the feels-like emphasis was weight-and-colour only and read as barely
+distinct from the plain line, and wind had no emphasis at all despite being
+half of what the row is for. One shared treatment rather than two, because
+both say the same kind of thing — this reading is out of the ordinary — and
+two different emphases would imply two different severities.
+
+**Resolution**: reuses `HIGH_WIND_KPH` (Section 7), whose own comment already
+names it as Section 9.3's leg-badge wind-display threshold, rather than
+inventing a display threshold beside it. The chip is `conditionLight` — the
+app's existing "notable, not severe" hue (Section 9.1 gives it Windy/Foggy/
+Light rain and the UV badge) — deliberately not `accentWalk`, which is
+reserved for primary interactive emphasis and would read as tappable. Fill,
+weight and colour all move together and the figure is stated in words either
+way, so Section 9.6 holds; the pairing is pinned in `tonalContrast.test.ts`
+and measured at 7.08:1 live.
 
 ---
