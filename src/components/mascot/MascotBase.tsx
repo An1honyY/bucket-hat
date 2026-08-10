@@ -1,74 +1,125 @@
-import Svg, { Ellipse, G, Path } from "react-native-svg";
+import Svg, { G, Path } from "react-native-svg";
 
-// The mascot. Built from the QuiverAI illustration Antony supplied — its
-// palette, its face, beak, feet and the single white face-and-belly shape are
-// all carried over unchanged. Two parts of it are *not* transcriptions, and
-// both are deliberate:
+// The mascot, from the second QuiverAI illustration Antony supplied — the one
+// with the reworked bucket hat.
 //
-// **The body silhouette was rebuilt without wings.** In the source, the
-// flippers are fused into the body path: the outline sweeps out and back to
-// form each wing, and the only separate wing shapes are thin `#2990D9`
-// shading slivers laid on top. Rotating those slivers — which is what a first
-// attempt did — moves a detail mark across the belly and leaves the actual
-// flipper welded to the body, so the character reads as having gained a
-// direction arrow rather than having lifted a limb. There is no way to animate
-// a flipper that is part of the torso outline, so the torso is now a clean egg
-// and the flippers are separate limbs hinged at the shoulders.
+// Everything is that artwork's own path data, verbatim, with a single
+// exception: the torso outline has had its two wing excursions carved out, and
+// those wings are redrawn as separate limbs so they can move.
 //
-// **The hat was redrawn.** Three faults in the original, all reported from
-// looking at it: the brim's front hung low enough to cut across the top of
-// both eyes; the crown was too short to read as a bucket hat; and the brim was
-// drawn as one shape *in front of* the head, so it crossed the forehead. A
-// real hat's brim passes behind the head — you see it to the sides, not across
-// the face. So the brim is drawn *before* the body and the crown *after*: the
-// head hides the brim's middle, leaving the side wings, and the forehead stays
-// visible between the crown and the eyes.
+// That surgery is unavoidable, and it is the third time it has been attempted,
+// so the reasoning is worth stating once properly. In the source, head, body
+// and both wings are a single closed outline: the path runs up one wing,
+// across the top of the head, down the other wing, and around the belly.
+// Nothing that is part of a shape's own contour can be rotated away from it.
+// An earlier attempt rotated the `#258AD6` wing *shading* instead, which slid
+// a detail mark across the belly while the flipper stayed welded to the torso
+// — it read as the penguin sprouting a direction arrow.
 //
-// The original viewBox is preserved. Every coordinate carried over from the
-// source art is expressed in it.
+// What is different this time: the wing coordinates are traced out of the
+// source path's own curve data, and the torso resumes at exactly the points
+// where the source's outline branches into each wing. Earlier attempts
+// replaced the whole body with a hand-drawn approximation and lost the
+// character. Here, at rest, the silhouette is the artwork's.
+//
+// The navy outline is a stroke on the same path rather than a second traced
+// silhouette, which is what keeps it an even width across the torso and the
+// moving wings alike.
 
-const VIEW_BOX = "86 -59.1 174 170";
+const VIEW_BOX = "0 0 150 150";
 
-// Palette, lifted from the source art so nothing here invents a colour.
-const NAVY = "#0B1B37";
-const BLUE = "#32AAFA";
-const BLUE_SHADE = "#2990D9";
+// Palette, lifted from the source art's stylesheet. Nothing invents a colour.
+const NAVY = "#081834";
+const BLUE = "#2FAAF7";
+const BLUE_SHADE = "#258AD6";
+const BLUE_DEEP = "#36506B";
 const WHITE = "#FFFFFF";
-const WHITE_SHADE = "#DDDDDE";
-const PUPIL = "#27282A";
-const BEAK_DARK = "#61320F";
-const BEAK_MID = "#EC9210";
-const BEAK_LIGHT = "#FCAD0B";
-const BEAK_MOUTH = "#5C2F0B";
-const FOOT = "#DB7B1A";
-const FOOT_STROKE = "#5E3111";
-const FOOT_MID = "#FCAF17";
-const FOOT_LIGHT = "#FFD78C";
-const HAT_BRIM = "#BF8F5F";
-const HAT_BRIM_LIGHT = "#CCA070";
-const HAT_CROWN = "#AC8255";
-const HAT_STROKE = "#5E4129";
-const HAT_SHADOW = "#30363D";
+const WHITE_SHADE = "#DDDDDD";
+const EYE = "#242528";
+const BEAK = "#FFB50A";
+const BEAK_DARK = "#66340A";
+const FOOT = "#D97A16";
+const FOOT_STROKE = "#5B2C0B";
+const FOOT_MID = "#FDB016";
+const FOOT_LIGHT = "#E09A48";
+const HAT = "#C49A6C";
+const HAT_MID = "#B78757";
+const HAT_DARK = "#5B3B27";
+
+/**
+ * The torso with the wings removed.
+ *
+ * Traced from the source's blue body path. It follows it exactly — the top of
+ * the head as the straight `l55.9 1.2`, down the right shoulder to (108.5,
+ * 71.4) — and then, where the original swings out into the right wing, carries
+ * straight down the flank to (110.9, 83.6), which is the point the source's
+ * own outline returns to. Same on the left, between (36.8, 101.6) and the
+ * shoulder at (43, 69.9).
+ */
+const TORSO =
+  "M104.4 46.6 " +
+  "C105.5 51.1 107.6 60.4 108.4 69.4 L108.5 71.4 " +
+  "C109.8 76.4 110.6 80.3 110.9 83.6 " +
+  "C111.8 87 113.3 98.6 112.4 108.1 " +
+  "C113 107.5 113.5 106.6 114 105.9 " +
+  "C113.2 118.1 107 126.1 100.9 130.5 " +
+  "C97.6 131.9 94.4 132.5 92.6 133 L92.8 132.5 " +
+  "C84.1 135 74 136.5 62.5 133.9 " +
+  "C60.1 133 49.6 132.9 45.6 128.9 " +
+  "C39.5 122.4 36.5 112 36.8 101.6 " +
+  "C37.1 91.5 39.7 79.8 43 69.9 " +
+  "C43.8 69 44 67.9 44.4 66.9 " +
+  "C45.9 61.6 46.4 55 48.5 45.4 z";
+
+/**
+ * One wing, traced from the source outline's own excursion: shoulder at
+ * (43, 69.9) → out and down to the tip at (21.4, 105.4) → back up the inner
+ * edge to where the torso resumes.
+ *
+ * Only the left is defined; the right is this mirrored about the body's centre
+ * line, so there is one silhouette to maintain rather than two that drift.
+ */
+const WING =
+  // Extra material at the shoulder — the shape starts at (48, 58) rather than
+  // at the joint itself, so several units of flipper sit buried inside the
+  // torso. That overlap is the whole point: rotated, a flipper that began
+  // exactly at its pivot swung its top edge clear of the body and left a gap
+  // at the armpit. The visible silhouette at rest is unchanged, because the
+  // extension is behind the torso.
+  "M48 58 " +
+  "C38 70 23 95.1 21.4 105.4 " +
+  "C20.6 109.9 21.9 111.4 23.6 111.4 " +
+  "C27 111.4 34.9 105.4 35.4 103.9 " +
+  "C35.5 96 36.5 88.5 38.5 83.5 " +
+  "C41 76.5 45 65 48 58 z";
+
+/** Wing detail from the source: the pale outer tip and the darker lower lobe
+ *  where the wing lies against the body. Both travel with the limb. */
+const WING_TIP_SHADE =
+  "m35.9 87.4c-2.4 4.1-7 18.6-13.8 19.1-0.6 5.5 6.3 2.4 13.4-4.8-0.4-6.3 0.6-14.8 0.4-14.3z";
+const WING_LOWER_SHADE =
+  "m36.9 103.5c1.1 6.4 7.9 15 16.5 18.1l6.5 11.9c-3.9-0.5-9.5-1.9-14.3-4.5-5.2-5.4-9.7-15.1-8.7-25.5z";
+const WING_HIGHLIGHT = "m42.4 70.6c-5.5 5.4-18.8 22-21 31.1 2.5-7.6 13.6-21.8 19.7-28.7l1.3-2.4z";
+
+/** The pivot, at the joint rather than at the top of the shape — the shoulder
+ *  extension above it is what stays inside the torso as the limb swings.
+ *  Mirrored about x = 75. */
+const LEFT_SHOULDER = "44, 68";
+const RIGHT_SHOULDER = "106, 68";
 
 export type EyeState = "open" | "happy" | "half" | "wide";
 export type MouthState = "closed" | "open";
 
 export interface MascotPose {
-  /** Pupil offset, in artwork units. ±2 is already a clear glance. */
+  /** Pupil offset, in artwork units. ±1.5 is already a clear glance. */
   gazeX?: number;
   gazeY?: number;
   eyes?: EyeState;
   mouth?: MouthState;
   /** Whole-character tilt, degrees, about the feet. */
   tiltDeg?: number;
-  /**
-   * Flipper swing, degrees, hinged at the shoulder. Positive lifts the tip
-   * away from the body on both sides; the sign is mirrored internally so a
-   * caller never has to think about which side it is addressing.
-   *
-   * Verified by rendering rather than derived: the wing shapes' visual mass
-   * does not sit where their bounding box implies.
-   */
+  /** Flipper swing, degrees. Positive lifts the tip away from the body on
+   *  both sides; the sign is mirrored internally. */
   leftFlipperDeg?: number;
   rightFlipperDeg?: number;
 }
@@ -78,51 +129,46 @@ interface Props {
   pose?: MascotPose;
 }
 
-const LEFT_SHOULDER = "141, 6";
-const RIGHT_SHOULDER = "203, 6";
+function Wing({ side, deg }: { side: "left" | "right"; deg: number }) {
+  const isLeft = side === "left";
+  return (
+    <G rotation={isLeft ? deg : -deg} origin={isLeft ? LEFT_SHOULDER : RIGHT_SHOULDER}>
+      <G scale={`${isLeft ? 1 : -1}, 1`} origin="75, 0">
+        <Path d={WING} fill={NAVY} stroke={NAVY} strokeWidth={3.4} strokeLinejoin="round" />
+        <Path d={WING} fill={BLUE} />
+        <Path d={WING_TIP_SHADE} fill={BLUE_SHADE} />
+        <Path d={WING_HIGHLIGHT} fill="none" stroke={NAVY} strokeWidth={0.89} strokeLinejoin="round" />
+      </G>
+    </G>
+  );
+}
 
 function Eyes({ eyes, gazeX, gazeY }: { eyes: EyeState; gazeX: number; gazeY: number }) {
   if (eyes === "happy") {
     return (
       <G>
-        <Path d="M150 1 q9 -11 18 0" stroke={PUPIL} strokeWidth={3.2} strokeLinecap="round" fill="none" />
-        <Path d="M177 1 q9 -11 18 0" stroke={PUPIL} strokeWidth={3.2} strokeLinecap="round" fill="none" />
+        <Path d="M59 53 q4.5 -6 9 0" stroke={EYE} strokeWidth={2} strokeLinecap="round" fill="none" />
+        <Path d="M81 53 q4.5 -6 9 0" stroke={EYE} strokeWidth={2} strokeLinecap="round" fill="none" />
       </G>
     );
   }
-
-  const pupilScale = eyes === "wide" ? 0.72 : 1;
-
+  const pupilScale = eyes === "wide" ? 0.74 : 1;
   return (
     <G>
-      <Path
-        d="m159.9-13.4c5.8 0 9.1 5.9 9.1 13.4 0 8.3-2.7 10.5-8.5 10.5-6.1 0.5-10.5-3.5-11.5-10.9-0.5-6.6 2.9-13 10.9-13z"
-        fill={WHITE}
-      />
-      <Path
-        d="m186.4-13.4c6.5 0 10.2 5.8 10.2 12.9 0 4.9-1.6 9.8-5.2 10.9-2.9 0.5-7.4-0.1-8.8-1.5-3.1-1.3-6.1-2.8-6.1-9 0-7.7 3.9-13.3 9.9-13.3z"
-        fill={WHITE}
-      />
       <G translateX={gazeX} translateY={gazeY}>
-        <G scale={pupilScale} origin="159.5, -1.2">
-          <Path
-            d="m160.6-6.3c2.3 0 3.9 2.7 3.9 5.4 0 2.5-0.6 4.3-1.7 5.8-1.8-0.9-3.8-0.9-5.3 0.1-1.1-1.1-1.8-3.1-1.5-5.9 0.1-2.5 1.6-5.7 4.2-5.7l0.4 0.3z"
-            fill={PUPIL}
-          />
-          <Ellipse cx={158.5} cy={-2.4} rx={1.26} ry={1.644} fill={WHITE} />
+        <G scale={pupilScale} origin="63.5, 51.5">
+          <Path d="m61.6 56.9c-2.6-3.3-1.2-10.4 2.9-10.3 3.4 0.3 4.5 6.4 1.6 10-1.5-0.6-3.1-0.6-4.5 0.3z" fill={EYE} />
+          <Path d="m63.7 50.4c-0.1-0.8-0.6-1.5-1.3-1.5-0.8 0.1-1 0.7-1 1.6 0 0.6 0.6 1.4 1.2 1.2 0.8-0.1 1-0.6 1.1-1.3z" fill={WHITE} />
         </G>
-        <G scale={pupilScale} origin="186.3, -1.2">
-          <Path
-            d="m186.1-6.3c2.4 0 4.1 2.8 4 6.3 0 2-0.6 3.6-1.5 5.1-2-0.8-3.6-1.1-5.7 0-1-1.1-1.9-2.6-1.9-5.2 0-3.4 1.6-6.5 4.1-6.5l1 0.3z"
-            fill={PUPIL}
-          />
-          <Ellipse cx={184.4} cy={-2.3} rx={1.26} ry={1.704} fill={WHITE} />
+        <G scale={pupilScale} origin="85.5, 51.5">
+          <Path d="m83.4 56.9c-2.8-2.5-2.3-10.8 2.2-10.5 3.5 0.2 5 6.2 2.4 10.6-1.4-0.5-3.1-1-4.9-0.1h0.3z" fill={EYE} />
+          <Path d="m85.5 50.1c-0.1-0.6-0.6-1.5-1.5-1.3-0.9 0.3-1 1.8-0.5 2.6 1.1 1.2 2.4 0 2-1.3z" fill={WHITE} />
         </G>
       </G>
       {eyes === "half" && (
         <G>
-          <Path d="m147 -15 h24 v10 q-12 5 -24 0 z" fill={BLUE} />
-          <Path d="m174 -15 h25 v10 q-12 5 -25 0 z" fill={BLUE} />
+          <Path d="M58.5 45 h11 v6 q-5.5 2.5 -11 0 z" fill={WHITE} />
+          <Path d="M80.5 45 h11 v6 q-5.5 2.5 -11 0 z" fill={WHITE} />
         </G>
       )}
     </G>
@@ -133,52 +179,26 @@ function Mouth({ mouth }: { mouth: MouthState }) {
   return (
     <G>
       <Path
-        d="m173.5 3.8c2.4-0.2 7.6 1.8 9.4 3 1.5 0.8 0.7 3.6-0.4 5.8-2 4.2-5.6 7-9.6 7-3.8 0.2-6.4-3.1-8.5-6.2-2.9-4.9-2.7-6-0.8-6.9 2.1-1 6.9-2.9 9.9-2.7z"
+        d="m74.5 56.6c-2.9 0-8.4 2-8.5 3s2.6 7 6 8.9c4.5 2.1 8.5-1 10.1-4.6 1.4-3.3 1.5-3.9 0.5-4.8-1-0.5-4.7-2.5-8.1-2.5z"
+        fill={BEAK}
+      />
+      <Path
+        d="m74.5 56.1c-2.5 0-8.4 2.3-8.9 3.3s2.8 7 5.5 9.1c3 2.4 7.3 1.1 9.3-0.9 2.2-2.1 3.5-5.1 3.5-7.1 0-1.1-0.9-1.6-2-2.1-2.4-1.3-5.4-2.4-7.4-2.3zm0.4 1c2.7 0 7 1.9 7.2 2.8 0.3 1.7-2.7 8.2-7.7 8.5-4.5 0-7.9-6.3-8.3-8.3-0.1-0.5 5.5-3.1 8.8-3z"
         fill={BEAK_DARK}
       />
-      <Path
-        d="m163.6 7.6c2.4-0.8 5.5-2.6 9.3-2.6 3.1 0 7.1 1.9 8.7 2.6 1 0.5-0.2 4.2-1.7 6.3-2.4 2.9-5.8 5.1-9.8 3.7-3.1-1.1-8.1-7.7-7-9.8l0.5-0.2z"
-        fill={BEAK_MID}
-      />
-      <Path
-        d="m163.9 8c2.6-1 5.1-2.4 8.6-2.4 3 0 5.4 1.3 7.5 2.3 1.6 0.7-2.5 8.5-7 8-5.4 0-10.3-7.9-9.1-7.9z"
-        fill={BEAK_LIGHT}
-      />
       {mouth === "open" ? (
-        <G translateY={2.4}>
+        <G translateY={1.2}>
           <Path
-            d="m164.4 9c1.2-0.6 5.1 2.5 8.5 2.5 3.1 0 6.6-2.9 7.7-2.7 1 0.6-2.5 9.6-7.6 9.5-5 0.3-9.6-8.9-8.6-9.3z"
-            fill={BEAK_MOUTH}
+            d="m67.4 61.1c0.2 2 3.5 7.6 7.1 7.5 4 0 6.9-6.1 6.9-8-0.9-0.7-3.8 2.3-6.9 2.3-2.5 0-7.1-3-7.1-1.8z"
+            fill={BEAK_DARK}
           />
         </G>
       ) : (
         <Path
-          d="m164.4 9c1.2-0.6 5.1 2.5 8.5 2.5 3.1 0 6.6-2.9 7.7-2.7 1 0.6-2.5 8.1-7.6 8-5 0.3-9.6-7.4-8.6-7.8z"
-          fill={BEAK_MOUTH}
+          d="m67.4 61.1c0.2 2 3.5 6.4 7.1 6.3 4 0 6.9-4.9 6.9-6.8-0.9-0.7-3.8 2.3-6.9 2.3-2.5 0-7.1-3-7.1-1.8z"
+          fill={BEAK_DARK}
         />
       )}
-    </G>
-  );
-}
-
-/** One flipper, as a real limb. `side` mirrors the shape about the body's
- *  centre line (x = 172) so there is one silhouette to maintain, not two. */
-function Flipper({ side, deg }: { side: "left" | "right"; deg: number }) {
-  const mirror = side === "left" ? 1 : -1;
-  return (
-    <G
-      rotation={side === "left" ? deg : -deg}
-      origin={side === "left" ? LEFT_SHOULDER : RIGHT_SHOULDER}
-    >
-      <G scale={`${mirror}, 1`} origin="172, 0">
-        {/* Short. The first pass ran nearly the full height of the body and
-            read as arms rather than flippers — a penguin's are stubby, ending
-            around the widest point of the torso rather than reaching the feet.
-            navy backing stands in for an outline, as the body's does. */}
-        <Path d="M146 8 C120 18 111 42 116 66 C119 80 143 82 146 67 C137 48 138 26 153 14 z" fill={NAVY} />
-        <Path d="M147 13 C125 22 117 44 122 64 C125 76 140 77 143 64 C135 47 136 28 151 18 z" fill={BLUE} />
-        <Path d="M139 30 C132 42 131 54 134 63 C135 68 140 68 140 62 C137 52 137 40 141 33 z" fill={BLUE_SHADE} />
-      </G>
     </G>
   );
 }
@@ -196,136 +216,135 @@ export default function MascotBase({ size, pose = {} }: Props) {
 
   return (
     <Svg width={size} height={size} viewBox={VIEW_BOX}>
-      <G id="foot-left">
+      {/* A slight vertical squash, anchored at the feet so he stays standing
+          on the ground. Shorter reads as younger and rounder — the classic
+          chibi trade — and doing it as one transform leaves every traced
+          coordinate in the file matching the source art, which hand-shortening
+          the torso would not. */}
+      <G scale="1, 0.93" origin="75, 143">
+      {/* feet — source art, unchanged, behind the torso */}
+      <G id="feet">
         <Path
-          d="m143 90c-3-0.3-10.6 5.4-11.3 9-0.3 4.3 5.1 2 6.1 2.3 3.1 0.3 3.3 2.7 5.9 3.2 2.5 0.5 5.3-0.7 7.6-1.2s4.7-0.7 7.7-0.3 5.7 0.6 7.3-0.5c1.9-1.5 2.7-8.8-1.8-9.7l-21.5-2.8z"
+          d="m80 136c-0.5 2.6 1 5.2 4.2 5.4 2.6 0.1 5.7-0.4 7.7-0.4 3.4 0.1 6.2 1.7 8.7 1.6 2.2-0.1 2.7-2.6 5.2-3.1s5.7 0.9 6.1-0.2c1.7-2.9-5-8.9-10-8.8l-8.7 1.2"
           fill={FOOT}
-          stroke={FOOT_STROKE}
-          strokeWidth={1.728}
         />
         <Path
-          d="m132.9 99.2c1.6 1.3 4.9-1.6 8 0.7 2.6 1.9 2.6 3.9 8.7 1.9 5.9-1.9 3.3-0.7 3.3-0.7s-1.9-4.2-11.4-7.9c-4 0.4-8.5 5.6-8.6 6z"
+          d="m79.6 136.9c0.2 2.3 1.7 4.4 4.6 4.5 2.6 0.1 5.7-0.5 7.8-0.3 3 0.2 5.9 1.6 8.4 1.5 2.2-0.1 2.7-2.5 5.2-3.1 1.6-0.4 5.2 0.5 6-0.1 2.9-2-3.3-9-9.6-9"
+          fill="none"
+          stroke={FOOT_STROKE}
+          strokeWidth={1.4483}
+          strokeLinecap="round"
+        />
+        <Path
+          d="m92.9 139.2c-0.8-0.3 1.6-2.8 4-4.2 1.7-1 4.8-2.2 5.5-2.2s2.4-0.2 5.1 1.8 3 3.4 1.7 3.7c-1.1 0-3.1-0.7-5.2 0.3-1.5 0.8-2.2 2-3.7 1.9-2.2 0-7-1.3-7.4-1.3z"
           fill={FOOT_MID}
         />
-        <Path d="m132.9 98.9c0-0.5 4.1-7.6 10.3-7.9l0.9 1.2c-0.1 0-5.1-0.6-11.2 6.7z" fill={FOOT_LIGHT} opacity={0.41} />
-      </G>
-      <G id="foot-right">
+        <Path d="m100.1 131.5c-0.2-0.4 2.6-1 5 0.3 2.4 1.4 3.4 3.3 3.4 3.3s-2.1-1.7-3.6-2.1c-1.7-0.4-4.7-0.9-4.8-1.5z" fill={FOOT_LIGHT} />
         <Path
-          d="m194 91 10-1c3-0.3 9.8 3.5 11.6 7.8 1.8 6.4-5.7 1.3-9 4.2-2.2 1.9-2.7 3.5-8 2-2.3-0.7-4.6-1.5-7.7-1.3s-6.9 1-8.9 0.1c-4.6-1.7-4.4-8.8-0.1-10l12.1-1.8z"
+          d="m70.3 137.2c0 1.9-0.4 4.2-3.2 4.3-2.5 0.2-5.5-0.6-8.6-0.2-3.4 0.3-6 1.7-8.5 1.3-2-0.3-2.6-2.4-5.1-2.6-1.9-0.2-4.3 0.6-5.4-0.5-2.2-2.5 3.9-7.6 7.1-8.5l2.6-0.5 15.4 5.1 5.7 1.6z"
           fill={FOOT}
-          stroke={FOOT_STROKE}
-          strokeWidth={1.68}
         />
         <Path
-          d="m193.6 100.5c2.3-4.2 7.3-6.7 11.5-8 3 0 7 4.3 7.9 6 0.1 3.4-4.6-1.5-8.6 2.3-2.8 2.5-4.5 0.7-10.8-0.3z"
+          d="m70.3 137.5c-0.1 1.9-0.6 3.8-3.2 3.9-2.6 0.2-5.6-0.6-8.7-0.2-3.4 0.3-6 1.7-8.5 1.3-2-0.2-2.6-2.4-5.1-2.7-2.1-0.2-4 0.7-5.3-0.3-2.4-2.5 3.2-7.5 7-8.5"
+          fill="none"
+          stroke={FOOT_STROKE}
+          strokeWidth={1.4483}
+          strokeLinecap="round"
+        />
+        <Path
+          d="m40.3 137.9c0 0.8 1.8 0.6 3.7 0.4 3-0.2 4.1 1.8 5.5 2.7 2.4 1.4 7-1.4 8-1.4s0-1.4-3-3.2c-2.2-1.4-4.6-2.8-7.5-2.8-2 0-6.1 2.9-6.7 4.3z"
           fill={FOOT_MID}
         />
-        <Path d="m202.4 91.3c1.2-0.3 5.1-0.4 9.6 5-5.1-4.7-7.9-3.7-7.9-3.7l-1.7-1.3z" fill={FOOT_LIGHT} opacity={0.41} />
+        <Path d="m41.7 135.5c-0.5 0 3.5-3.4 4.9-3.5l1 0.5c-2 0-5.4 3-5.9 3z" fill={FOOT_LIGHT} />
       </G>
 
-      <G rotation={tiltDeg} origin="172, 95">
-        {/* ---- brim, BEHIND the head ----
-            This is the layering fix. Drawn here, the body below covers its
-            middle, so what remains visible is the brim to either side of the
-            head — which is what a brim actually looks like from the front —
-            and the forehead is left clear. */}
-        {/* The supplied hat's own brim, unchanged, lifted 9 units.
-            Redrawing this from scratch was a mistake worth recording: a
-            hand-built brim-and-crown came out reading as a fedora, then as a
-            boxy pot. The original shape was never the problem — only where it
-            sat and what it was drawn in front of.
-            Being *behind* the torso is what does the real work: the head hides
-            its middle, so the brim shows to either side of the face instead of
-            across it, and the low front edge no longer matters because it is
-            covered by the head. */}
-        <G id="hat-brim" translateY={-3}>
-          <Path
-            d="m142.6-26.3c-5.7 8.4-14.6 13.3-15.7 16.7-1.4 6.5 8.6 10.4 9.6 10.5l10.6-4.9 20.9-2.3 28.4 1 11.5 6.3c6.2-2 16.2-4.8 11.5-10.9-3.3-4.1-9-7.7-12.9-13.7 0.4-3-3.5-8.4-5.5-15.3-2.1-6.1-3.5-8.2-9.5-10.4-6.5-2.6-10.1-1.8-16.5-1.1-5 0.5-9.1-1.2-16 0.5-7 2.3-11.1 4.9-12.6 14.6-0.4 3-4 7-3.8 9z"
-            fill={HAT_BRIM}
-            stroke={HAT_STROKE}
-            strokeWidth={1.684}
-          />
-          <Path
-            d="m142.5-26.4c-6.6 9.3-14.5 14-15.6 17.4 5.1-4.3 20.5-8.8 35.1-10 8-1 13.9-0.6 19.4 0 10.2 1 31 5 35.7 9 4 2.5 2.8-0.5 1.8-1.9-3.3-3.7-9.5-7.1-14.8-14.5-5.1-2.1-14.1-5-26.1-5.6-9-0.3-16 0.1-20.5 1-7.1 1.1-13.4 3.2-15 4.6z"
-            fill={HAT_BRIM_LIGHT}
-            stroke={HAT_STROKE}
-            strokeWidth={1.49}
-          />
-          {/* The seam between the floppy outer brim and the flat middle, and
-              the shadow the brim casts. Both are in the source art and both
-              were dropped when the hat was being rebuilt — without them the
-              brim is one undifferentiated slab. */}
-          <Path
-            d="m129.1-7.5c0.3-3.4 16.4-8.5 25.8-9.9 12.5-2.2 23.1-2 31.6-0.7 10.1 1.1 28.1 5.5 30.1 8.3"
-            fill="none"
-            stroke={HAT_STROKE}
-            strokeWidth={1.684}
-          />
-          <Path
-            d="m141.6-9c6-2.8 13.4-4.8 22.9-5 11-0.6 22.6 0 35 4.4l5 1.6-1.4-9.1c-7.6-1.9-22.1-2.4-30.1-2.5-6.5-0.3-23 1.6-29 3l-2.4 7.6z"
-            fill={HAT_SHADOW}
-            opacity={0.16}
-          />
+      <G rotation={tiltDeg} origin="75, 133">
+        {/* wings behind the torso, so they read as attached rather than stuck on */}
+        <Wing side="left" deg={leftFlipperDeg} />
+        <Wing side="right" deg={rightFlipperDeg} />
+
+        {/* torso: the source outline with the wing excursions carved out */}
+        <Path d={TORSO} fill={NAVY} stroke={NAVY} strokeWidth={3.6} strokeLinejoin="round" />
+        <Path d={TORSO} fill={BLUE} />
+
+        {/* Where the flipper lies against the lower body. This stays on the
+            torso rather than travelling with the limb: it's the shading the
+            wing casts on the flank, not part of the wing, and the flippers are
+            short enough not to reach it. */}
+        <Path d={WING_LOWER_SHADE} fill={BLUE_SHADE} />
+        <G scale="-1, 1" origin="75, 0">
+          <Path d={WING_LOWER_SHADE} fill={BLUE_SHADE} />
         </G>
 
-        {/* ---- flippers, behind the torso so they read as attached ---- */}
-        <Flipper side="left" deg={leftFlipperDeg} />
-        <Flipper side="right" deg={rightFlipperDeg} />
-
-        {/* ---- torso ----
-            Pear-shaped, not the egg of the previous pass: narrow across the
-            head and widening steadily to its broadest just above the feet,
-            which is the proportion the supplied artwork had and the thing that
-            made it read as a penguin rather than as a generic blob. Still one
-            clean silhouette with no wings welded into it, so the flippers
-            above can swing freely. */}
-        {/* The bottom stops around y 95, not 105: the feet are drawn before
-            the torso so it overlaps their tops, and a body reaching to 105 hid
-            them almost entirely. */}
+        {/* everything below is source art, unchanged */}
+        <Path d="m108.1 69 3.5 2c3.5 3.1 13.4 12.9 16.4 27.1-3-7.1-9.9-19.1-19.6-27.1l-0.3-2z" fill={BLUE_DEEP} />
         <Path
-          d="M172 -35 C152 -35 143 -14 140 10 C135 40 124 68 129 82 C135 94 154 98 172 98 C190 98 209 94 215 82 C220 68 209 40 204 10 C201 -14 192 -35 172 -35 z"
-          fill={NAVY}
-        />
-        <Path
-          d="M172 -31 C154 -31 146 -12 143 11 C138 40 129 67 133 79 C139 90 156 94 172 94 C188 94 205 90 211 79 C215 67 206 40 201 11 C198 -12 190 -31 172 -31 z"
-          fill={BLUE}
-        />
-
-        {/* the single white face-and-belly shape, carried over unchanged */}
-        <Path
-          d="m191.4 10.4c1.6 8.9 11.7 29.6 12.2 44.1 0.4 22.4-11.1 33.1-30.7 34.1-15.8 0.2-31.5-7.1-31.5-30.6 0-17.1 10-34.5 13.2-46.7-4.7-1.7-5.9-7.4-5.7-11.7 0.1-6.4 3.3-12.1 10.5-12.1 4.8 0 9.5 4.7 9.5 12.1v4.8c0 0.2 1.7-0.6 4.5-0.6s3.7 0.8 3.6 0.6c-0.5-1.5-0.6-3.1-0.6-4.8 0-6.6 3.2-12.2 9.8-12.4 5.9-0.2 10.3 5.9 10.3 13.2 0 5.6-1.9 9.2-5.1 10z"
+          d="m71.4 57-0.1-6.1c-0.4-5.5-3.4-8.4-4.3-9l14.5-0.3c-2.6 2.9-4.4 7.5-3.9 12.5 0.3 1.5 0.4 1.8 0.8 2.9l-1.8-0.4h-3.2l-2 0.4z"
           fill={WHITE}
         />
         <Path
-          d="m146.9 77.5c4.8 6.5 11.6 10.9 25.5 11.3 9.2-0.2 19.2-2.7 26.2-11.4-3.5 1.2-12.7 5.1-26.1 5.1-11.9-0.1-18.3-2.9-25.5-5.1l-0.1 0.1z"
+          d="m71.4 57c-2.5 0.6-4.9 1.6-5.5 2.4-0.5 0.6 1.6 5.2 4.6 8.2 3.1 3.4 8 2.4 10.5-0.5 2-2.1 3-5.2 2.6-7.1-0.2-1-3.6-2.5-5.2-3 2 0.1 6.6 0.6 6.6 0.6l5.6 4c2.4 10.3 9.3 23.4 10.3 35.8 0.6 9-2 32.1-27.3 32-18.1-0.3-26.2-8.4-26.1-27.8 0.1-12 7.1-24 11.5-38.7l5.4-4 7-1.9z"
+          fill={WHITE}
+        />
+        <Path d="m81 57c-0.7-0.1-2.1-0.1-3.1-0.1-0.8-2.8-0.9-9 3.6-14.9l12.5 3.5c2 4 1.9 13.4-3.3 16.9l-0.3-0.2-9.4-5.2z" fill={WHITE} />
+        <Path
+          d="m65.4 42.5c-4 1-7.5 1.6-9.9 2.5-2.5 6-1.9 14.9 3.5 17.9l7-4 5.4-1.9v-6.1c-0.4-4.3-1.8-6.3-3.8-8.5l-2.2 0.1z"
+          fill={WHITE}
+        />
+        <Path
+          d="m52.1 119.4c4.5 1.6 11.5 4.2 21.5 4.2 10.5 0 18-2 23-3.7-4.2 4.7-11.2 9.2-22.6 9.5-8.5 0-18-2.3-21.9-10z"
           fill={WHITE_SHADE}
         />
 
+        {/* Hat before the face, which is the order the source art uses. Drawing
+            it after put its brim-underside stroke straight across the top of
+            both eyes — the stray lines on the face. The strokes are hat
+            construction lines and are meant to sit *under* the eyes. */}
+        <G id="hat">
+          <Path
+            d="m43 58.9c-3.4-0.9-11.5-5.9-11.7-10.9-0.4-4.5 7.7-6.6 11.7-11.4l3-4c-0.5-2.2 1.6-4.7 2.5-6 1.9-2.7 1.1-8.6 3.5-12.7 1.4-3.3 5.5-4.9 8.4-6 4.1-1.9 7.2-1 9.5-0.8 4.6 0.8 8.7-1.2 12.6-1.1 2.5 0 8.5 1.5 11.6 3.9 2.5 1.5 4.3 3.5 4.9 8l2.4 9.2c1.6 1 2.6 3 2.2 6.3 4 8.1 17.4 10.5 16.5 15-0.9 3.6-6 7.6-12.6 10.1l-2.9-11.5c-2.5 0.1-6.5-1.1-10.6-2-5.1-1.4-11.5-4.5-18.4-4.4-6 0-14 3-18.5 4.4-2.1 0.5-3.6 0.1-5.5 0.1l-5.6-0.1-3 13.9z"
+            fill={HAT}
+          />
+          <Path d="m52 27c1.6-3.6 5.5-8.4 10-7.5 3.5 0.6 5.6 2.1 9.9 0.5-1.4 2-3.9 2.5-8.4 1.9-4.9-0.5-8.4 2.2-11.5 5.1z" fill={HAT_MID} />
+          <Path d="m60 9.1c6.4-0.5 9.4 2 13.5 1.8 4-0.3 6.6-2.9 7.5-3 0.9-0.4 0.5-0.8-2-0.8-2.4 0.3-4.9 1.3-7.6 0.9l-4.5-0.6c-1.8-0.3-3.8-0.3-6.9 1.7z" fill={HAT_MID} />
+          <Path d="m91.1 16c0.9 4.4 3.9 7.5 9 9l0.3 1.6-1.5-0.1c-3.9-0.5-7.3-3.6-7.9-8.5v-2h0.1z" fill={HAT_MID} />
+          <Path d="m84.9 35.1c7.2 2.4 9.6 4.8 13.2 5.5 3.9 1 7.4-0.1 7.4 0.5 0 0.5-1.9 1.5-5.4 1.5-3.5-0.1-8.5-2.1-11.5-4.1l-4.2-3.4h0.5z" fill={HAT_MID} />
+          <Path
+            d="m46.5 31.9c5-2.5 15.9-5.3 28.4-5.4 11.7-0.1 23.5 3 28.6 5.6l0.1 1.4-13.1-2.6-13.6-3.4-8.8 0.1-9.2 1.3-12 3h-0.4z"
+            fill={HAT_MID}
+          />
+          <Path d="m51.8 27.1c1.3-1.7 5.8-6 10.3-6l6.8 0.4c-3.8 1.4-7-1.9-14.4 3.6l-2.7 2z" fill={HAT_DARK} />
+          <Path
+            d="m45.6 38.6c-0.2 0.4 0.4 0.4 1 0.4l3.4 0.1c4.9 0 9.4-1.6 14-4.7l1.9-1.3c-2.5 0.3-3.9 1.9-6.3 3-4.6 2.4-7.7 2.5-9.6 2.5h-4.4z"
+            fill={HAT_DARK}
+          />
+          <Path
+            d="m76.4 33.6c-0.3 0.4 0.5 0.3 1.7 0.5 7 0.9 9.3 3.8 13.9 5.8 3.1 1.6 6.4 2.6 10 2-8-0.4-11-2.9-15.6-5.9-2.8-1.6-7.5-2.9-10-2.4z"
+            fill={HAT_DARK}
+          />
+          {[
+            "m32.5 47.5c1.6-1.6 4.5-2.9 7.9-2.6 10 0.5 12.1 1.1 19.2-0.9 4.4-1.4 9.4-3.5 15-3.5 8.4-0.1 15 4 22 5.6 8 2 11.5 0.3 16-0.2 2.9-0.5 5-0.3 5.8 1.7",
+            "m46 33c1.1-0.6 4.6-2.4 9.6-3.1",
+            "m62.1 28.5c3.4-0.6 6.3-1 12.9-0.9 7.4 0 10 1.5 18.9 3.3 4.2 0.7 7.5 1.6 9.2 2.6",
+            "m76.6 33.9c7.8 0.6 9.9 3.2 14.8 5.7 3 1.5 6.6 2.4 10.2 2",
+            "m91.1 16.6c0.5 4.8 2.9 9 9.5 10.4 1.9 0.4 3.4 3.5 2.9 6.5 3.9 6.6 10.6 8.6 15.1 12 1.4 1.1 1.9 2.5 1 4.1-1.6 3-6.2 6.5-11.6 8.3",
+            "m42.9 58.6c-3.4-1-9.9-5-11.4-9.5-1.4-4.5 6-7.1 10.4-11.2 1.6-1.5 3.1-3.4 4.2-5-0.5-2.9 2-5.9 2.4-6.4 2-3 1.5-7 3-11 1-3.4 2.9-4.9 7.5-6.9 5.5-2.6 7.9-1.7 10.4-1.2 6.5 1.2 9.5-1.4 13.2-0.5 2.8 0.2 10.4 2.5 13.5 5.5 2.4 2.1 2.8 5.6 2.9 7.2l1.9 7.5",
+            "m32.5 47.6c1.4-1.1 4.4-3 8.6-2.7l8.9 0.5c8.1 0.2 13.1-3 19.4-4.3 9.7-2.1 15 0.9 22.2 3.4 5.4 1.9 9.3 3 14.5 2.4l3.9-0.8c3.5-0.5 6.5-1.6 8.4 1.5",
+          ].map((d) => (
+            <Path key={d} d={d} fill="none" stroke={HAT_DARK} strokeWidth={1.2047} strokeLinecap="round" />
+          ))}
+          <Path
+            d="m45.6 38.8 4 0.1c4.4 0 8-1.4 10.9-3.3 2.1-1.1 3-2.6 6.6-3.1"
+            fill="none"
+            stroke={HAT_DARK}
+            strokeWidth={0.6024}
+            strokeLinecap="round"
+          />
+        </G>
+
         <Eyes eyes={eyes} gazeX={gazeX} gazeY={gazeY} />
         <Mouth mouth={mouth} />
-
-        {/* ---- crown, in FRONT of the head ----
-            Taller than the original's, which was too shallow to read as a
-            bucket hat, and stopping well above the eyes so the forehead shows
-            between it and them. */}
-        {/* The supplied hat's own crown, in FRONT of the head so it sits on it,
-            lifted with the brim and stretched taller — the "more buckety" note.
-            The scale is anchored at the crown's base so it grows upward rather
-            than sinking into the forehead it just uncovered. */}
-        <G id="hat-crown" translateY={-3}>
-          <G scale="1, 1.15" origin="172, -28">
-            <Path
-              d="m166.6-49.3c6.9 0.3 6.4-1.1 11.9-1.1 2.5-0.5 7.9 0 12 2.1 3.5 1.4 5.4 3.4 6 7.3-0.4 2.5-0.5 2.5 1.9 7.4 1.2 2.7-2.4 3.2-4.2 2.3-2.7-0.7-8.6-2.7-22.1-2.6-15.1 0-15 1.5-19 1-2.6-0.7-6.1-1.9-2.6-4 2.9-1.9-1.9-2.1-1.3-6.5 0.2-4 6.5-7.6 12.7-7.6l4.7 1.7z"
-              fill={HAT_CROWN}
-            />
-            <Path
-              d="m142.5-26.8c-0.4-3.2 3.4-7.7 3.9-10.7 0.7-4.4 1.6-7.5 3.6-10 1.9-2.4 5.7-4.1 9-4.9 4.9-1 9.4 0.4 13.1 0.1 4.5-0.3 9.4-2 15.4-0.1 6 2 8.4 3.4 10 7.4 2.1 5 0.5 2.5 5 13 0.9 2.4 0.5 2.1 1.1 4.4"
-              fill={HAT_CROWN}
-              stroke={HAT_STROKE}
-              strokeWidth={1.49}
-            />
-          </G>
-        </G>
+      </G>
       </G>
     </Svg>
   );
