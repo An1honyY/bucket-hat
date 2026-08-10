@@ -52,6 +52,33 @@ const RIGHT_EYE = { cx: 186.3, cy: -1.2 };
 export type EyeState = "open" | "happy" | "half" | "wide";
 export type MouthState = "closed" | "open";
 
+/**
+ * How the hat sits.
+ *
+ * `original` is the artwork untouched. Both alternatives thin the brim and
+ * lift it, because at the supplied proportions the brim's lower edge lands at
+ * roughly y −7.5 while the eye whites start at y −13.4 — so the rim overlaps
+ * the top of both eyes and eats exactly the part of the face that carries
+ * expression.
+ *
+ * They compress and raise the whole hat rather than surgically shortening the
+ * brim: in the source art the brim and the crown sides are one path, so
+ * "just the brim" cannot be scaled without distorting the crown with it.
+ * A slightly shorter crown is also closer to a real bucket hat than the
+ * original's tall one, so the compression is not a cost.
+ */
+export type HatStyle = "original" | "thin" | "perched";
+
+const HAT_STYLES: Record<HatStyle, { scaleY: number; shiftY: number; rotate: number }> = {
+  original: { scaleY: 1, shiftY: 0, rotate: 0 },
+  // Brim's lower edge lands near y −14: clear of the eyes, still sitting down
+  // on the head the way a bucket hat should.
+  thin: { scaleY: 0.88, shiftY: -2, rotate: 0 },
+  // Higher up the head and tipped back a touch — the way someone actually
+  // wears one. Trades some of the "pulled down" character for a full face.
+  perched: { scaleY: 0.86, shiftY: -7, rotate: -3 },
+};
+
 export interface MascotPose {
   /** Pupil offset, in artwork units. Small numbers go a long way: ±2 is a
    *  clear glance. */
@@ -62,12 +89,22 @@ export interface MascotPose {
   /** Whole-character tilt, degrees. Rotates about the feet so it stays on the
    *  ground rather than pivoting in mid-air. */
   tiltDeg?: number;
+  /** Flipper swing, degrees, hinged at the shoulder. Positive lifts the tip
+   *  away from the body on both sides — the sign is mirrored internally so a
+   *  caller doesn't have to remember which side it's addressing. */
+  leftFlipperDeg?: number;
+  rightFlipperDeg?: number;
 }
 
 interface Props {
   size: number;
   pose?: MascotPose;
+  hat?: HatStyle;
 }
+
+/** Shoulder hinges, read off the wing shapes in the source art. */
+const LEFT_SHOULDER = "131, 61";
+const RIGHT_SHOULDER = "217, 61";
 
 function Eyes({ eyes, gazeX, gazeY }: { eyes: EyeState; gazeX: number; gazeY: number }) {
   if (eyes === "happy") {
@@ -172,8 +209,17 @@ function Mouth({ mouth }: { mouth: MouthState }) {
   );
 }
 
-export default function MascotBase({ size, pose = {} }: Props) {
-  const { gazeX = 0, gazeY = 0, eyes = "open", mouth = "closed", tiltDeg = 0 } = pose;
+export default function MascotBase({ size, pose = {}, hat = "original" }: Props) {
+  const {
+    gazeX = 0,
+    gazeY = 0,
+    eyes = "open",
+    mouth = "closed",
+    tiltDeg = 0,
+    leftFlipperDeg = 0,
+    rightFlipperDeg = 0,
+  } = pose;
+  const hatStyle = HAT_STYLES[hat];
 
   return (
     <Svg width={size} height={size} viewBox={VIEW_BOX}>
@@ -229,11 +275,34 @@ export default function MascotBase({ size, pose = {} }: Props) {
           d="m146.9 77.5c4.8 6.5 11.6 10.9 25.5 11.3 9.2-0.2 19.2-2.7 26.2-11.4-3.5 1.2-12.7 5.1-26.1 5.1-11.9-0.1-18.3-2.9-25.5-5.1l-0.1 0.1z"
           fill={WHITE_SHADE}
         />
-        {/* wing shading */}
-        <Path
-          d="m139.1 87.8c3.4 2.6 10.9 5 16.4 5.6l-8.1-13.8c-5.8-1.6-14.3-9.8-17.4-17.6l-0.9-3c0 14 5.8 24 10 28.8zm54.3 5c3-0.2 7.7-2 10.2-3.4 4.3-3.5 12.9-10.9 14.4-27.8-3.5 5.9-10.1 13.3-18 16.5l-6.6 14.7z"
-          fill={BLUE_SHADE}
-        />
+        {/* Flippers. In the source these are one path holding both wings as
+            subpaths, which makes them a single immovable shape; split here so
+            each can swing from its own shoulder.
+
+            The second subpath began with a relative `m54.3 5` measured from
+            the first subpath's start point (139.1, 87.8) — hence the absolute
+            193.4, 92.8 it becomes below. Getting that wrong silently teleports
+            the right flipper, so it's worth stating.
+
+            They rotate over a smooth body: the silhouette's sides carry no
+            wing bulge of their own, so a raised flipper reveals plain blue
+            rather than a leftover lump. */}
+        {/* Signs verified by rendering, not by reasoning about the geometry —
+            the wing shapes' mass doesn't sit where their bounding box suggests,
+            and the first guess had positive swinging both flippers *inward*
+            across the belly. Positive is now outward/raised on both sides. */}
+        <G id="flipper-left" rotation={leftFlipperDeg} origin={LEFT_SHOULDER}>
+          <Path
+            d="m139.1 87.8c3.4 2.6 10.9 5 16.4 5.6l-8.1-13.8c-5.8-1.6-14.3-9.8-17.4-17.6l-0.9-3c0 14 5.8 24 10 28.8z"
+            fill={BLUE_SHADE}
+          />
+        </G>
+        <G id="flipper-right" rotation={-rightFlipperDeg} origin={RIGHT_SHOULDER}>
+          <Path
+            d="M193.4 92.8c3-0.2 7.7-2 10.2-3.4 4.3-3.5 12.9-10.9 14.4-27.8-3.5 5.9-10.1 13.3-18 16.5l-6.6 14.7z"
+            fill={BLUE_SHADE}
+          />
+        </G>
         <Path
           d="m127.6 40c-3.5 7.5-7.1 18.9-13.5 21.8-2.5 1.6-3.2-0.4-3-0.2 0.5 6.3 4.8 4.9 15.8-4.3-0.4-2.9 0.5-13.9 0.7-17.3zm87.4-4 3.1 18.6c2 2.8 11.4 11 14.9 8.4 1.1-0.6 1-2 1-2-6 3-12.4-12.1-17.4-23.1l-1.6-1.9z"
           fill={BLUE_SHADE}
@@ -247,8 +316,11 @@ export default function MascotBase({ size, pose = {} }: Props) {
         <Eyes eyes={eyes} gazeX={gazeX} gazeY={gazeY} />
         <Mouth mouth={mouth} />
 
-        {/* hat, last so it sits over the head */}
-        <G id="hat">
+        {/* Hat last, so it sits over the head. The scale is anchored at the
+            crown's top (y −49) so compressing it lifts the brim rather than
+            sinking the crown. */}
+        <G id="hat" rotation={hatStyle.rotate} origin="172, -20">
+          <G scale={`1, ${hatStyle.scaleY}`} origin="172, -49" translateY={hatStyle.shiftY}>
           <Path
             d="m142.6-26.3c-5.7 8.4-14.6 13.3-15.7 16.7-1.4 6.5 8.6 10.4 9.6 10.5l10.6-4.9 20.9-2.3 28.4 1 11.5 6.3c6.2-2 16.2-4.8 11.5-10.9-3.3-4.1-9-7.7-12.9-13.7 0.4-3-3.5-8.4-5.5-15.3-2.1-6.1-3.5-8.2-9.5-10.4-6.5-2.6-10.1-1.8-16.5-1.1-5 0.5-9.1-1.2-16 0.5-7 2.3-11.1 4.9-12.6 14.6-0.4 3-4 7-3.8 9z"
             fill={HAT_BRIM}
@@ -282,6 +354,7 @@ export default function MascotBase({ size, pose = {} }: Props) {
             stroke={HAT_STROKE}
             strokeWidth={1.684}
           />
+          </G>
         </G>
       </G>
     </Svg>
