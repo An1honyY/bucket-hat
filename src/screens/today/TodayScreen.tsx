@@ -8,6 +8,7 @@ import { cancelLeaveByNotification } from "../../lib/notifications";
 import type { RootStackParamList } from "../../navigation/types";
 import type { Journey } from "../../types";
 import RightNowCard from "./RightNowCard";
+import MascotPreview from "../../components/mascot/MascotPreview"; // TEMP-MASCOT-BENCH
 import LocalForecastCard from "./LocalForecastCard";
 import JourneyCard from "./JourneyCard";
 import SetupChecklist from "./SetupChecklist";
@@ -80,6 +81,7 @@ export default function TodayScreen() {
           />
         }
       >
+        <MascotPreview />{/* TEMP-MASCOT-BENCH */}
         <RightNowCard {...rightNow} />
 
         <LocalForecastCard
