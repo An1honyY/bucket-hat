@@ -177,6 +177,7 @@ one by date — don't edit the old entry.
 - 2026-08-09 — Today's "Right now" card leads with the temperature, not its own title (§9.3.1) [design]
 - 2026-08-09 — A diverging feels-like or notable wind lights up as a tonal fact chip (§9.3.1, §9.6) [design]
 - 2026-08-09 — One tonal vocabulary for "out of the ordinary"; the UV and wash badges join it (§9.1, §9.6) [design]
+- 2026-08-10 — The mascot is a kororā in the app's own bucket hat; art constraints drove the species (§13.9, §9.7) [design]
 
 ---
 
@@ -3459,5 +3460,48 @@ transit delay pill is a different register (a late service is about a service,
 and it carries an early/late distinction this vocabulary has no room for); and
 the condition badges keep their severity fills, which mean something more
 specific than "notable".
+
+---
+
+## 2026-08-10 — The mascot is a kororā in the app's own bucket hat; art constraints drove the species (Section 13.9, 9.7)
+
+**What**: Phase 21's character is a kororā (little blue penguin), wearing the
+same kōwhai-gold bucket hat as the launcher icon. Drawn as
+`MascotArt.tsx` — a pure component with named groups (`body`, `arms`, `face`,
+`hat`, and the four garment slots) and every pose passed in as a number.
+
+**Why this needed a decision**: the spec is unusually complete about behaviour
+— animation states, slot priority, reduce-motion fallback — and says nothing
+at all about what the animal is. It also flags the art as "a genuine external
+design-asset dependency", so choosing rather than blocking is itself the call.
+
+**Resolution**: picked on the slot constraints rather than on charm. §13.9
+needs a jacket, bottoms and a *held* umbrella, which requires an upright body
+with a waist, legs, and limbs that can carry something. Most of the obvious NZ
+birds fail that — a kiwi is a horizontal teardrop with nothing to hold an
+umbrella with. A penguin is already shaped like someone standing up in a coat,
+and kororā actually live on Auckland's coast, so the regional read (§2.1)
+comes free rather than being decoration.
+
+Four things the drawing got wrong that only appeared once it was rendered at
+size, all worth not repeating:
+
+- The brim was drawn wider than the penguin's own body, which reads as a
+  sombrero. A bucket hat is defined by a *short* brim angled down — this is
+  the one silhouette this app can't afford to get wrong.
+- The garment slots were drawn behind the body, so bottoms never appeared.
+- Flippers drawn inside the body silhouette in a near-body shade made the wave
+  and brow-shade poses identical to idle.
+- The body was dark enough that navy and black garments — two of the twelve
+  swatches, and obvious choices for a coat — merged into it. The body was
+  lightened rather than the swatches, which fixes all twelve at once.
+
+The character's own palette is deliberately *not* theme tokens: it keeps its
+colouring across light/dark and across the weather mood, the way a drawing of
+an animal would. Only the garment slots change colour.
+
+`MascotPreview.tsx` is a dev-only bench rendering every pose and slot
+combination side by side; it is not routed anywhere and should be deleted when
+Phase 21 ships.
 
 ---
