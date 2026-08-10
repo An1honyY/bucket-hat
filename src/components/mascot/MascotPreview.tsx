@@ -11,7 +11,10 @@ const FLIPPERS: { label: string; pose: MascotPose }[] = [
   { label: "right +45", pose: { rightFlipperDeg: 45 } },
   { label: "left +45", pose: { leftFlipperDeg: 45 } },
   { label: "both +70", pose: { leftFlipperDeg: 70, rightFlipperDeg: 70 } },
-  { label: "right −25", pose: { rightFlipperDeg: -25 } },
+  // No inward-swing case. A negative angle folds the flipper against the body
+  // and, now that the wings draw over the torso, it slides under the white
+  // belly and vanishes. That is right for a limb tucking in, but nothing in
+  // §13.9's state table asks for one, so showing it only looked like a bug.
 ];
 
 export default function MascotPreview() {

@@ -42,9 +42,12 @@ const FOOT = "#D97A16";
 const FOOT_STROKE = "#5B2C0B";
 const FOOT_MID = "#FDB016";
 const FOOT_LIGHT = "#E09A48";
-const HAT = "#C49A6C";
-const HAT_MID = "#B78757";
-const HAT_DARK = "#5B3B27";
+// Hat tones sampled from the launcher icon (`assets/header-logo.png`) rather
+// than taken from the illustration, so the companion and the app mark wear the
+// same hat. Its three dominant fills are #d2ae6d, #a3854b and #655132.
+const HAT = "#D2AE6D";
+const HAT_MID = "#A3854B";
+const HAT_DARK = "#655132";
 
 /**
  * The torso with the wings removed.
@@ -99,12 +102,13 @@ const WING =
   "C35.5 96 36.5 88.5 38.5 83.5 " +
   "C43 74 50 68 56 66 z";
 
-/** Wing detail from the source: the pale outer tip and the darker lower lobe
- *  where the wing lies against the body. Both travel with the limb. */
+/** Wing detail from the source: the pale outer tip, which travels with the
+ *  limb. The source's lower lobe shading is deliberately not drawn — it sat as
+ *  a hard shaded line along the flank beside each flipper, and once the
+ *  flippers became separate limbs it read as a stray mark rather than as the
+ *  shadow of the wing it was describing. */
 const WING_TIP_SHADE =
   "m35.9 87.4c-2.4 4.1-7 18.6-13.8 19.1-0.6 5.5 6.3 2.4 13.4-4.8-0.4-6.3 0.6-14.8 0.4-14.3z";
-const WING_LOWER_SHADE =
-  "m36.9 103.5c1.1 6.4 7.9 15 16.5 18.1l6.5 11.9c-3.9-0.5-9.5-1.9-14.3-4.5-5.2-5.4-9.7-15.1-8.7-25.5z";
 const WING_HIGHLIGHT = "m42.4 70.6c-5.5 5.4-18.8 22-21 31.1 2.5-7.6 13.6-21.8 19.7-28.7l1.3-2.4z";
 
 /** The pivot, at the joint rather than at the top of the shape — the shoulder
@@ -265,29 +269,26 @@ export default function MascotBase({ size, pose = {} }: Props) {
       </G>
 
       <G rotation={tiltDeg} origin="75, 133">
-        {/* wings behind the torso, so they read as attached rather than stuck on */}
-        <Wing side="left" deg={leftFlipperDeg} />
-        <Wing side="right" deg={rightFlipperDeg} />
-
-        {/* torso: the source outline with the wing excursions carved out */}
+        {/* torso first: the source outline with the wing excursions carved out */}
         <Path d={TORSO} fill={NAVY} stroke={NAVY} strokeWidth={3.6} strokeLinejoin="round" />
         <Path d={TORSO} fill={BLUE} />
 
-        {/* Where the flipper lies against the lower body. This stays on the
-            torso rather than travelling with the limb: it's the shading the
-            wing casts on the flank, not part of the wing, and the flippers are
-            short enough not to reach it. */}
-        <Path d={WING_LOWER_SHADE} fill={BLUE_SHADE} />
-        <G scale="-1, 1" origin="75, 0">
-          <Path d={WING_LOWER_SHADE} fill={BLUE_SHADE} />
-        </G>
+        {/* Wings *over* the torso, not behind it.
+            Behind, the torso's own navy outline ran between body and flipper
+            and cut the limb off as a separate object. Drawn on top, the
+            flipper's outline continues the body's silhouette instead of being
+            severed by it, which is how they read in the reference art — part
+            of the body rather than pinned to it. The white belly below then
+            covers their inner edges. */}
+        <Wing side="left" deg={leftFlipperDeg} />
+        <Wing side="right" deg={rightFlipperDeg} />
 
         {/* everything below is source art, unchanged */}
         <Path d="m108.1 69 3.5 2c3.5 3.1 13.4 12.9 16.4 27.1-3-7.1-9.9-19.1-19.6-27.1l-0.3-2z" fill={BLUE_DEEP} />
-        <Path
-          d="m71.4 57-0.1-6.1c-0.4-5.5-3.4-8.4-4.3-9l14.5-0.3c-2.6 2.9-4.4 7.5-3.9 12.5 0.3 1.5 0.4 1.8 0.8 2.9l-1.8-0.4h-3.2l-2 0.4z"
-          fill={WHITE}
-        />
+        {/* The source's white wedge between the eyes is deliberately not drawn.
+            It made the bridge of the face white; on the earlier artwork that
+            area is body blue, and the blue is what separates the two eye
+            patches into a pair of eyes rather than one white mask. */}
         <Path
           d="m71.4 57c-2.5 0.6-4.9 1.6-5.5 2.4-0.5 0.6 1.6 5.2 4.6 8.2 3.1 3.4 8 2.4 10.5-0.5 2-2.1 3-5.2 2.6-7.1-0.2-1-3.6-2.5-5.2-3 2 0.1 6.6 0.6 6.6 0.6l5.6 4c2.4 10.3 9.3 23.4 10.3 35.8 0.6 9-2 32.1-27.3 32-18.1-0.3-26.2-8.4-26.1-27.8 0.1-12 7.1-24 11.5-38.7l5.4-4 7-1.9z"
           fill={WHITE}
