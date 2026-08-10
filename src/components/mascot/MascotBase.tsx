@@ -80,18 +80,24 @@ const TORSO =
  * line, so there is one silhouette to maintain rather than two that drift.
  */
 const WING =
-  // Extra material at the shoulder — the shape starts at (48, 58) rather than
-  // at the joint itself, so several units of flipper sit buried inside the
-  // torso. That overlap is the whole point: rotated, a flipper that began
-  // exactly at its pivot swung its top edge clear of the body and left a gap
-  // at the armpit. The visible silhouette at rest is unchanged, because the
-  // extension is behind the torso.
-  "M48 58 " +
-  "C38 70 23 95.1 21.4 105.4 " +
+  // A blade with a rounded top, not a wedge.
+  //
+  // The shoulder extension runs from (56, 66) — well inside the torso, which
+  // at that height reaches to about x 46 — so nothing of it shows at rest;
+  // it only appears as the limb swings out, which is exactly when a shoulder
+  // should appear. An earlier version started at (48, 58), right on the
+  // torso's edge, so the wedge was visible even at rest and its flat cut
+  // showed as a straight edge on the raised flipper.
+  //
+  // The tip keeps the source art's own curve — the rounded point at
+  // (21.4, 105.4) through (23.6, 111.4) and back — because that silhouette is
+  // the most recognisable thing about the flipper.
+  "M56 66 " +
+  "C44 72 26 92 21.4 105.4 " +
   "C20.6 109.9 21.9 111.4 23.6 111.4 " +
   "C27 111.4 34.9 105.4 35.4 103.9 " +
   "C35.5 96 36.5 88.5 38.5 83.5 " +
-  "C41 76.5 45 65 48 58 z";
+  "C43 74 50 68 56 66 z";
 
 /** Wing detail from the source: the pale outer tip and the darker lower lobe
  *  where the wing lies against the body. Both travel with the limb. */
@@ -104,8 +110,8 @@ const WING_HIGHLIGHT = "m42.4 70.6c-5.5 5.4-18.8 22-21 31.1 2.5-7.6 13.6-21.8 19
 /** The pivot, at the joint rather than at the top of the shape — the shoulder
  *  extension above it is what stays inside the torso as the limb swings.
  *  Mirrored about x = 75. */
-const LEFT_SHOULDER = "44, 68";
-const RIGHT_SHOULDER = "106, 68";
+const LEFT_SHOULDER = "50, 70";
+const RIGHT_SHOULDER = "100, 70";
 
 export type EyeState = "open" | "happy" | "half" | "wide";
 export type MouthState = "closed" | "open";
@@ -314,32 +320,22 @@ export default function MascotBase({ size, pose = {} }: Props) {
             fill={HAT_MID}
           />
           <Path d="m51.8 27.1c1.3-1.7 5.8-6 10.3-6l6.8 0.4c-3.8 1.4-7-1.9-14.4 3.6l-2.7 2z" fill={HAT_DARK} />
-          <Path
-            d="m45.6 38.6c-0.2 0.4 0.4 0.4 1 0.4l3.4 0.1c4.9 0 9.4-1.6 14-4.7l1.9-1.3c-2.5 0.3-3.9 1.9-6.3 3-4.6 2.4-7.7 2.5-9.6 2.5h-4.4z"
-            fill={HAT_DARK}
-          />
-          <Path
-            d="m76.4 33.6c-0.3 0.4 0.5 0.3 1.7 0.5 7 0.9 9.3 3.8 13.9 5.8 3.1 1.6 6.4 2.6 10 2-8-0.4-11-2.9-15.6-5.9-2.8-1.6-7.5-2.9-10-2.4z"
-            fill={HAT_DARK}
-          />
+          {/* Four of the source's hat marks are deliberately not drawn: the
+              dark squiggles at (45.6, 38.6) and (76.4, 33.6) and their two
+              thin stroke twins. In the artwork they suggest folds in the
+              brim, but they sit *below* the brim's lower edge, so on the
+              character they land on the forehead either side of the eyes and
+              read as scratches on his face — the marks that weren't there on
+              the earlier hat. */}
           {[
             "m32.5 47.5c1.6-1.6 4.5-2.9 7.9-2.6 10 0.5 12.1 1.1 19.2-0.9 4.4-1.4 9.4-3.5 15-3.5 8.4-0.1 15 4 22 5.6 8 2 11.5 0.3 16-0.2 2.9-0.5 5-0.3 5.8 1.7",
             "m46 33c1.1-0.6 4.6-2.4 9.6-3.1",
             "m62.1 28.5c3.4-0.6 6.3-1 12.9-0.9 7.4 0 10 1.5 18.9 3.3 4.2 0.7 7.5 1.6 9.2 2.6",
-            "m76.6 33.9c7.8 0.6 9.9 3.2 14.8 5.7 3 1.5 6.6 2.4 10.2 2",
             "m91.1 16.6c0.5 4.8 2.9 9 9.5 10.4 1.9 0.4 3.4 3.5 2.9 6.5 3.9 6.6 10.6 8.6 15.1 12 1.4 1.1 1.9 2.5 1 4.1-1.6 3-6.2 6.5-11.6 8.3",
             "m42.9 58.6c-3.4-1-9.9-5-11.4-9.5-1.4-4.5 6-7.1 10.4-11.2 1.6-1.5 3.1-3.4 4.2-5-0.5-2.9 2-5.9 2.4-6.4 2-3 1.5-7 3-11 1-3.4 2.9-4.9 7.5-6.9 5.5-2.6 7.9-1.7 10.4-1.2 6.5 1.2 9.5-1.4 13.2-0.5 2.8 0.2 10.4 2.5 13.5 5.5 2.4 2.1 2.8 5.6 2.9 7.2l1.9 7.5",
-            "m32.5 47.6c1.4-1.1 4.4-3 8.6-2.7l8.9 0.5c8.1 0.2 13.1-3 19.4-4.3 9.7-2.1 15 0.9 22.2 3.4 5.4 1.9 9.3 3 14.5 2.4l3.9-0.8c3.5-0.5 6.5-1.6 8.4 1.5",
           ].map((d) => (
             <Path key={d} d={d} fill="none" stroke={HAT_DARK} strokeWidth={1.2047} strokeLinecap="round" />
           ))}
-          <Path
-            d="m45.6 38.8 4 0.1c4.4 0 8-1.4 10.9-3.3 2.1-1.1 3-2.6 6.6-3.1"
-            fill="none"
-            stroke={HAT_DARK}
-            strokeWidth={0.6024}
-            strokeLinecap="round"
-          />
         </G>
 
         <Eyes eyes={eyes} gazeX={gazeX} gazeY={gazeY} />
