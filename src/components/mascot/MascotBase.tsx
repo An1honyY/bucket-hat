@@ -48,6 +48,7 @@ const HAT_BRIM = "#BF8F5F";
 const HAT_BRIM_LIGHT = "#CCA070";
 const HAT_CROWN = "#AC8255";
 const HAT_STROKE = "#5E4129";
+const HAT_SHADOW = "#30363D";
 
 export type EyeState = "open" | "happy" | "half" | "wide";
 export type MouthState = "closed" | "open";
@@ -170,12 +171,13 @@ function Flipper({ side, deg }: { side: "left" | "right"; deg: number }) {
       origin={side === "left" ? LEFT_SHOULDER : RIGHT_SHOULDER}
     >
       <G scale={`${mirror}, 1`} origin="172, 0">
-        {/* Fuller than the first attempt, which was a thin crescent that read
-            as spindly against the egg-shaped torso. navy backing stands in for
-            an outline, exactly as the body's does. */}
-        <Path d="M144 0 C120 14 110 46 115 80 C118 94 142 96 145 81 C136 56 138 24 152 8 z" fill={NAVY} />
-        <Path d="M145 5 C124 18 115 47 120 77 C123 88 138 90 141 78 C133 54 135 27 150 12 z" fill={BLUE} />
-        <Path d="M138 26 C130 42 129 60 133 74 C134 80 139 80 139 74 C135 58 135 40 140 30 z" fill={BLUE_SHADE} />
+        {/* Short. The first pass ran nearly the full height of the body and
+            read as arms rather than flippers — a penguin's are stubby, ending
+            around the widest point of the torso rather than reaching the feet.
+            navy backing stands in for an outline, as the body's does. */}
+        <Path d="M146 8 C120 18 111 42 116 66 C119 80 143 82 146 67 C137 48 138 26 153 14 z" fill={NAVY} />
+        <Path d="M147 13 C125 22 117 44 122 64 C125 76 140 77 143 64 C135 47 136 28 151 18 z" fill={BLUE} />
+        <Path d="M139 30 C132 42 131 54 134 63 C135 68 140 68 140 62 C137 52 137 40 141 33 z" fill={BLUE_SHADE} />
       </G>
     </G>
   );
@@ -236,7 +238,7 @@ export default function MascotBase({ size, pose = {} }: Props) {
             its middle, so the brim shows to either side of the face instead of
             across it, and the low front edge no longer matters because it is
             covered by the head. */}
-        <G id="hat-brim" translateY={-9}>
+        <G id="hat-brim" translateY={-3}>
           <Path
             d="m142.6-26.3c-5.7 8.4-14.6 13.3-15.7 16.7-1.4 6.5 8.6 10.4 9.6 10.5l10.6-4.9 20.9-2.3 28.4 1 11.5 6.3c6.2-2 16.2-4.8 11.5-10.9-3.3-4.1-9-7.7-12.9-13.7 0.4-3-3.5-8.4-5.5-15.3-2.1-6.1-3.5-8.2-9.5-10.4-6.5-2.6-10.1-1.8-16.5-1.1-5 0.5-9.1-1.2-16 0.5-7 2.3-11.1 4.9-12.6 14.6-0.4 3-4 7-3.8 9z"
             fill={HAT_BRIM}
@@ -249,19 +251,43 @@ export default function MascotBase({ size, pose = {} }: Props) {
             stroke={HAT_STROKE}
             strokeWidth={1.49}
           />
+          {/* The seam between the floppy outer brim and the flat middle, and
+              the shadow the brim casts. Both are in the source art and both
+              were dropped when the hat was being rebuilt — without them the
+              brim is one undifferentiated slab. */}
+          <Path
+            d="m129.1-7.5c0.3-3.4 16.4-8.5 25.8-9.9 12.5-2.2 23.1-2 31.6-0.7 10.1 1.1 28.1 5.5 30.1 8.3"
+            fill="none"
+            stroke={HAT_STROKE}
+            strokeWidth={1.684}
+          />
+          <Path
+            d="m141.6-9c6-2.8 13.4-4.8 22.9-5 11-0.6 22.6 0 35 4.4l5 1.6-1.4-9.1c-7.6-1.9-22.1-2.4-30.1-2.5-6.5-0.3-23 1.6-29 3l-2.4 7.6z"
+            fill={HAT_SHADOW}
+            opacity={0.16}
+          />
         </G>
 
         {/* ---- flippers, behind the torso so they read as attached ---- */}
         <Flipper side="left" deg={leftFlipperDeg} />
         <Flipper side="right" deg={rightFlipperDeg} />
 
-        {/* ---- torso: a clean egg, no wings welded on ---- */}
+        {/* ---- torso ----
+            Pear-shaped, not the egg of the previous pass: narrow across the
+            head and widening steadily to its broadest just above the feet,
+            which is the proportion the supplied artwork had and the thing that
+            made it read as a penguin rather than as a generic blob. Still one
+            clean silhouette with no wings welded into it, so the flippers
+            above can swing freely. */}
+        {/* The bottom stops around y 95, not 105: the feet are drawn before
+            the torso so it overlaps their tops, and a body reaching to 105 hid
+            them almost entirely. */}
         <Path
-          d="M172 -35 C202 -35 216 -7 216 28 C216 70 202 100 172 100 C142 100 128 70 128 28 C128 -7 142 -35 172 -35 z"
+          d="M172 -35 C152 -35 143 -14 140 10 C135 40 124 68 129 82 C135 94 154 98 172 98 C190 98 209 94 215 82 C220 68 209 40 204 10 C201 -14 192 -35 172 -35 z"
           fill={NAVY}
         />
         <Path
-          d="M172 -31 C200 -31 212 -6 212 28 C212 68 199 96 172 96 C145 96 132 68 132 28 C132 -6 144 -31 172 -31 z"
+          d="M172 -31 C154 -31 146 -12 143 11 C138 40 129 67 133 79 C139 90 156 94 172 94 C188 94 205 90 211 79 C215 67 206 40 201 11 C198 -12 190 -31 172 -31 z"
           fill={BLUE}
         />
 
@@ -286,8 +312,8 @@ export default function MascotBase({ size, pose = {} }: Props) {
             lifted with the brim and stretched taller — the "more buckety" note.
             The scale is anchored at the crown's base so it grows upward rather
             than sinking into the forehead it just uncovered. */}
-        <G id="hat-crown" translateY={-9}>
-          <G scale="1, 1.25" origin="172, -30">
+        <G id="hat-crown" translateY={-3}>
+          <G scale="1, 1.15" origin="172, -28">
             <Path
               d="m166.6-49.3c6.9 0.3 6.4-1.1 11.9-1.1 2.5-0.5 7.9 0 12 2.1 3.5 1.4 5.4 3.4 6 7.3-0.4 2.5-0.5 2.5 1.9 7.4 1.2 2.7-2.4 3.2-4.2 2.3-2.7-0.7-8.6-2.7-22.1-2.6-15.1 0-15 1.5-19 1-2.6-0.7-6.1-1.9-2.6-4 2.9-1.9-1.9-2.1-1.3-6.5 0.2-4 6.5-7.6 12.7-7.6l4.7 1.7z"
               fill={HAT_CROWN}
