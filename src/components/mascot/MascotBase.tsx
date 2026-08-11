@@ -1,4 +1,4 @@
-import Svg, { G, Path } from "react-native-svg";
+import Svg, { Ellipse, G, Path } from "react-native-svg";
 
 // The mascot, from the second QuiverAI illustration Antony supplied — the one
 // with the reworked bucket hat.
@@ -32,7 +32,6 @@ const VIEW_BOX = "0 0 150 150";
 const NAVY = "#081834";
 const BLUE = "#2FAAF7";
 const BLUE_SHADE = "#258AD6";
-const BLUE_DEEP = "#36506B";
 const WHITE = "#FFFFFF";
 const WHITE_SHADE = "#DDDDDD";
 const EYE = "#242528";
@@ -119,8 +118,8 @@ const WING_OUTLINE =
   // before the flipper even emerged. The shoulder is left unstroked on
   // purpose: no line where limb meets body is exactly what makes it read as
   // part of the body.
-  "M43 77 " +
-  "C35.5 85 24.8 96 21.4 105.4 " +
+  "M40 83 " +
+  "C32.5 90 24 97.5 21.4 105.4 " +
   "C20.6 109.9 21.9 111.4 23.6 111.4 " +
   "C27 111.4 34.9 105.4 35.4 103.9";
 
@@ -311,19 +310,33 @@ export default function MascotBase({ size, pose = {} }: Props) {
         <Wing side="left" deg={leftFlipperDeg} />
         <Wing side="right" deg={rightFlipperDeg} />
 
-        {/* everything below is source art, unchanged */}
-        <Path d="m108.1 69 3.5 2c3.5 3.1 13.4 12.9 16.4 27.1-3-7.1-9.9-19.1-19.6-27.1l-0.3-2z" fill={BLUE_DEEP} />
-        {/* The source's wedge between the eyes, kept but filled *blue* instead
-            of white. Two reasons it can't simply be deleted: white there makes
-            the two eye patches read as one mask rather than as a pair of eyes,
-            and the torso's own top edge — a straight line across the head at
-            y ≈ 46, carrying the 3.6pt navy outline — runs right through this
-            area. With nothing drawn over it that outline showed as a dark bar
-            on the forehead. Blue covers it and gives the bridge its colour. */}
+        {/* The source's `#36506B` sliver at (108, 69) is not drawn. It is the
+            right wing's inner highlight, and carving the wings out of the
+            torso orphaned it: measured, it spans x 108–128 while the torso's
+            right edge sits at x ≈ 110, so it floated outside the body as a
+            hairline crescent with nothing to belong to. The left wing's
+            equivalent went the same way. */}
+        {/* Blue across the whole forehead, not just the bridge.
+            The torso's own top edge is a straight line from (48.5, 45.4) to
+            (104.4, 46.6) carrying the 3.6pt navy outline, so a dark bar runs
+            right across the head under the hat. Patching only between the eyes
+            left the rest of that bar showing either side of them. This covers
+            the full width; the hat draws afterwards and takes back whatever it
+            should cover. */}
+        <Ellipse cx={76} cy={45} rx={30} ry={9} fill={BLUE} />
+        {/* The source's wedge between the eyes, kept but filled blue rather
+            than white: white there makes the two eye patches read as one mask
+            instead of as a pair of eyes. */}
         <Path
           d="m71.4 57-0.1-6.1c-0.4-5.5-3.4-8.4-4.3-9l14.5-0.3c-2.6 2.9-4.4 7.5-3.9 12.5 0.3 1.5 0.4 1.8 0.8 2.9l-1.8-0.4h-3.2l-2 0.4z"
           fill={BLUE}
         />
+        {/* Solid white behind each eye. The source draws the two eye patches as
+            separate paths that meet the belly path along a seam, and at large
+            sizes body blue showed through that seam. A backing shape under each
+            one removes the class of problem rather than chasing the one gap. */}
+        <Ellipse cx={63} cy={52} rx={8} ry={9.5} fill={WHITE} />
+        <Ellipse cx={86} cy={52} rx={8} ry={9.5} fill={WHITE} />
         <Path
           d="m71.4 57c-2.5 0.6-4.9 1.6-5.5 2.4-0.5 0.6 1.6 5.2 4.6 8.2 3.1 3.4 8 2.4 10.5-0.5 2-2.1 3-5.2 2.6-7.1-0.2-1-3.6-2.5-5.2-3 2 0.1 6.6 0.6 6.6 0.6l5.6 4c2.4 10.3 9.3 23.4 10.3 35.8 0.6 9-2 32.1-27.3 32-18.1-0.3-26.2-8.4-26.1-27.8 0.1-12 7.1-24 11.5-38.7l5.4-4 7-1.9z"
           fill={WHITE}
