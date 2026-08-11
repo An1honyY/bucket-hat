@@ -178,6 +178,7 @@ one by date — don't edit the old entry.
 - 2026-08-09 — A diverging feels-like or notable wind lights up as a tonal fact chip (§9.3.1, §9.6) [design]
 - 2026-08-09 — One tonal vocabulary for "out of the ordinary"; the UV and wash badges join it (§9.1, §9.6) [design]
 - 2026-08-10 — The mascot is a kororā in the app's own bucket hat; art constraints drove the species (§13.9, §9.7) [design]
+- 2026-08-12 — The mascot is Antony's supplied artwork with the wings carved out of the torso; a handoff README sits beside it (§13.9) [design, supersedes the 2026-08-10 hand-drawn kororā]
 
 ---
 
@@ -3503,5 +3504,48 @@ an animal would. Only the garment slots change colour.
 `MascotPreview.tsx` is a dev-only bench rendering every pose and slot
 combination side by side; it is not routed anywhere and should be deleted when
 Phase 21 ships.
+
+---
+
+## 2026-08-12 — The mascot is Antony's supplied artwork with the wings carved out of the torso (Section 13.9)
+
+Supersedes the 2026-08-10 entry, which recorded a hand-drawn kororā chosen on
+slot constraints. That character was replaced outright: Antony supplied a
+finished penguin illustration, then a second version of it with a reworked
+bucket hat, and the second is what ships. The species reasoning in that entry
+no longer applies to anything in the codebase — only its list of drawing
+mistakes is still worth reading.
+
+**What**: `MascotBase.tsx` is that artwork's own path data, with one structural
+change — the torso outline has its two wing excursions carved out, and the
+wings are redrawn as separate limbs hinged at the shoulders.
+
+**Why this needed a decision**: in the source, head, body and both wings are a
+single closed outline. Nothing that forms part of a shape's own contour can be
+rotated away from it, so §13.9's wave, sun-squint and umbrella-huddle states
+were unbuildable as drawn. An earlier attempt rotated the wing *shading*
+instead, which slid a detail mark across the belly while the flipper stayed
+welded to the body — it read as the penguin sprouting a direction arrow.
+
+**Resolution**: the wing coordinates are traced from the source path's own
+curve data and the torso resumes exactly where the original branches into each
+wing, so at rest the silhouette is the artwork's. Two properties are
+load-bearing and easy to undo by accident: the wing's root is a straight chord
+*through the pivot* (so it cannot swing clear of the body and open a gap at the
+armpit), and the limb draws *behind* the torso with a full closed outline (so
+the outline stops where it meets the body without any hand-tuned trimming).
+
+The 0.93 vertical squash that shortens the character is baked into the
+coordinates rather than applied as a wrapping transform. A global transform
+meant the file's numbers were not the screen's, which silently invalidated a
+round of pixel measurements taken against them. Consequence: y values no longer
+match the supplied SVG — multiply by 0.93 about y = 143 to compare.
+
+Several source paths are deliberately not drawn — an orphaned wing highlight,
+hat marks that land on the forehead as scratches, the white wedge between the
+eyes (kept but filled blue). Each is documented at its site.
+
+`src/components/mascot/README.md` carries the working notes: the pose API, the
+traps, and the remaining phases.
 
 ---
