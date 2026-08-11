@@ -102,14 +102,33 @@ const WING =
   "C35.5 96 36.5 88.5 38.5 83.5 " +
   "C43 74 50 68 56 66 z";
 
-/** Wing detail from the source: the pale outer tip, which travels with the
- *  limb. The source's lower lobe shading is deliberately not drawn — it sat as
- *  a hard shaded line along the flank beside each flipper, and once the
- *  flippers became separate limbs it read as a stray mark rather than as the
- *  shadow of the wing it was describing. */
+/**
+ * The wing's *outer* contour only, as an open path.
+ *
+ * The limb is filled by WING and outlined by this, rather than by stroking
+ * WING itself. A closed stroke draws down the inner edge too, and since the
+ * wings sit over the torso that inner line landed across the body and the
+ * belly as a hard dark arc — the stray mark beside each flipper. Outlining
+ * only the outside is what lets the limb read as part of the body: there is
+ * simply no line where the two meet.
+ */
+const WING_OUTLINE =
+  // Starts at (43, 77), which is where the wing crosses the torso's edge —
+  // not at the shape's own top. Beginning it up at (56, 66) drew the stroke
+  // from inside the body outward, painting a navy streak across the flank
+  // before the flipper even emerged. The shoulder is left unstroked on
+  // purpose: no line where limb meets body is exactly what makes it read as
+  // part of the body.
+  "M43 77 " +
+  "C35.5 85 24.8 96 21.4 105.4 " +
+  "C20.6 109.9 21.9 111.4 23.6 111.4 " +
+  "C27 111.4 34.9 105.4 35.4 103.9";
+
+/** The source's darker shading inside the flipper tip. The source's pale rim
+ *  highlight is not drawn: it is a hairline stroke that, once the limb could
+ *  rotate, swung out over the belly and read as a scratch. */
 const WING_TIP_SHADE =
   "m35.9 87.4c-2.4 4.1-7 18.6-13.8 19.1-0.6 5.5 6.3 2.4 13.4-4.8-0.4-6.3 0.6-14.8 0.4-14.3z";
-const WING_HIGHLIGHT = "m42.4 70.6c-5.5 5.4-18.8 22-21 31.1 2.5-7.6 13.6-21.8 19.7-28.7l1.3-2.4z";
 
 /** The pivot, at the joint rather than at the top of the shape — the shoulder
  *  extension above it is what stays inside the torso as the limb swings.
@@ -144,10 +163,19 @@ function Wing({ side, deg }: { side: "left" | "right"; deg: number }) {
   return (
     <G rotation={isLeft ? deg : -deg} origin={isLeft ? LEFT_SHOULDER : RIGHT_SHOULDER}>
       <G scale={`${isLeft ? 1 : -1}, 1`} origin="75, 0">
-        <Path d={WING} fill={NAVY} stroke={NAVY} strokeWidth={3.4} strokeLinejoin="round" />
+        {/* Fill first, then an outline on the outer edge only — never a stroke
+            on the closed shape, which would draw a line down the inner edge
+            and across the body. */}
         <Path d={WING} fill={BLUE} />
         <Path d={WING_TIP_SHADE} fill={BLUE_SHADE} />
-        <Path d={WING_HIGHLIGHT} fill="none" stroke={NAVY} strokeWidth={0.89} strokeLinejoin="round" />
+        <Path
+          d={WING_OUTLINE}
+          fill="none"
+          stroke={NAVY}
+          strokeWidth={3.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </G>
     </G>
   );
@@ -285,10 +313,17 @@ export default function MascotBase({ size, pose = {} }: Props) {
 
         {/* everything below is source art, unchanged */}
         <Path d="m108.1 69 3.5 2c3.5 3.1 13.4 12.9 16.4 27.1-3-7.1-9.9-19.1-19.6-27.1l-0.3-2z" fill={BLUE_DEEP} />
-        {/* The source's white wedge between the eyes is deliberately not drawn.
-            It made the bridge of the face white; on the earlier artwork that
-            area is body blue, and the blue is what separates the two eye
-            patches into a pair of eyes rather than one white mask. */}
+        {/* The source's wedge between the eyes, kept but filled *blue* instead
+            of white. Two reasons it can't simply be deleted: white there makes
+            the two eye patches read as one mask rather than as a pair of eyes,
+            and the torso's own top edge — a straight line across the head at
+            y ≈ 46, carrying the 3.6pt navy outline — runs right through this
+            area. With nothing drawn over it that outline showed as a dark bar
+            on the forehead. Blue covers it and gives the bridge its colour. */}
+        <Path
+          d="m71.4 57-0.1-6.1c-0.4-5.5-3.4-8.4-4.3-9l14.5-0.3c-2.6 2.9-4.4 7.5-3.9 12.5 0.3 1.5 0.4 1.8 0.8 2.9l-1.8-0.4h-3.2l-2 0.4z"
+          fill={BLUE}
+        />
         <Path
           d="m71.4 57c-2.5 0.6-4.9 1.6-5.5 2.4-0.5 0.6 1.6 5.2 4.6 8.2 3.1 3.4 8 2.4 10.5-0.5 2-2.1 3-5.2 2.6-7.1-0.2-1-3.6-2.5-5.2-3 2 0.1 6.6 0.6 6.6 0.6l5.6 4c2.4 10.3 9.3 23.4 10.3 35.8 0.6 9-2 32.1-27.3 32-18.1-0.3-26.2-8.4-26.1-27.8 0.1-12 7.1-24 11.5-38.7l5.4-4 7-1.9z"
           fill={WHITE}
