@@ -1,12 +1,12 @@
 import { isSweatyConditions, recordWear, toRecommendationSnapshot } from "./wearTracking";
 import { updateClothingWearTracking } from "../db/repositories/clothing";
 import { updateShoeWearTracking } from "../db/repositories/shoes";
-import type { Recommendation, RecommendationSignals } from "./recommend";
-import type { ClothingItem, Journey, JourneyLeg, ShoeItem } from "../types";
+import type { Recommendation } from "./recommend";
+import type { ClothingItem, Journey, JourneyLeg, RecommendationSignals, ShoeItem } from "../types";
 
 // §13.9's presentational signals ride along on every Recommendation, but wear
 // tracking never reads them — one neutral set for every fixture below.
-const SIGNALS: RecommendationSignals = { warmthLevel: 0, highUv: false, windAmplified: false, isHot: false };
+const SIGNALS: RecommendationSignals = { warmthLevel: 0, highUv: false, windAmplified: false, isHot: false, hasUmbrella: false };
 
 jest.mock("../db/repositories/clothing", () => ({ updateClothingWearTracking: jest.fn() }));
 jest.mock("../db/repositories/shoes", () => ({ updateShoeWearTracking: jest.fn() }));
@@ -178,6 +178,14 @@ describe("toRecommendationSnapshot", () => {
     expect(snapshot.umbrellaName).toBe("Compact");
     expect(snapshot.notes).toEqual(["Rain expected"]);
     expect(typeof snapshot.snapshotAt).toBe("string");
+  });
+
+  it("carries the signals through, so a frozen journey keeps its mascot (§13.9)", () => {
+    // Without this the mascot vanishes the moment a journey passes its
+    // leave-by — which for a "leave now" journey is the instant you open it.
+    const signals: RecommendationSignals = { warmthLevel: 4, highUv: false, windAmplified: true, isHot: false, hasUmbrella: true };
+    const snapshot = toRecommendationSnapshot({ layers: [], accessories: [], notes: [], signals });
+    expect(snapshot.signals).toEqual(signals);
   });
 
   it("umbrellaName/shoeName are null when neither was recommended", () => {

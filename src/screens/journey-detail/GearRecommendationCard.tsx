@@ -5,6 +5,8 @@ import { cardElevationStyle } from "../../theme/tokens";
 import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
 import GearThumbnail from "../../components/GearThumbnail";
+import Mascot, { mascotFeetOffset } from "../../components/mascot/Mascot";
+import { mascotStateFor } from "../../lib/mascot";
 import type { GearAddTarget } from "../../navigation/types";
 import type { RecommendationSnapshot } from "../../types";
 import { displayGearLabel, gearPickLabel } from "../../lib/gearLabel";
@@ -26,6 +28,9 @@ import { displayGearLabel, gearPickLabel } from "../../lib/gearLabel";
 // own photo is the strongest version of that (§3.3's thumbnail rule, §9.0's
 // "personal" read). Fallbacks have no photo by definition, which is exactly
 // why they belong in the second list rather than mixed into the first.
+/** §9.7 — "a smaller ~64×64pt instance in the top-right corner". */
+const MASCOT_SIZE = 64;
+
 function layerIconKind(pick: LayerPick): ClothingIconKind {
   const type = "layerType" in pick ? pick.layerType : pick.type;
   if (type === "accessory") return accessoryIconKind("fallbackText" in pick ? pick.fallbackText : pick.name);
@@ -172,6 +177,16 @@ export default function GearRecommendationCard({ recommendation, snapshot, onAdd
     ];
     return (
       <View style={styles.card}>
+        {/* Frozen journeys keep their companion. The snapshot stores the
+            signals it was computed from (§13.9), so a trip taken in a cold
+            snap still shows a shivering mascot rather than one re-derived
+            from today's weather. Rows written before Phase 21 have no
+            signals and simply show none. */}
+        {snapshot.signals && (
+          <View style={styles.mascotPerch} pointerEvents="none">
+            <Mascot size={MASCOT_SIZE} state={mascotStateFor(snapshot.signals)} />
+          </View>
+        )}
         <View style={styles.list}>
           {rows.map((row) => (
             <View key={row.key} style={styles.row}>
@@ -207,6 +222,18 @@ export default function GearRecommendationCard({ recommendation, snapshot, onAdd
 
   return (
     <View style={styles.card}>
+      {/* §9.7 — the secondary instance, reflecting *this journey's*
+          recommendation rather than the weather right now, which is the
+          whole reason it isn't just a second copy of Today's.
+
+          Perched on the card's top-right corner rather than placed inside
+          it: the rows below truncate to one line, so a mascot in the content
+          area would have a long item name running under it. Standing him on
+          the edge means the two can never collide however he leans. */}
+      <View style={styles.mascotPerch} pointerEvents="none">
+        <Mascot size={MASCOT_SIZE} state={mascotStateFor(recommendation.signals)} />
+      </View>
+
       {/* No heading of its own: the screen's "What to wear" section label
           sits directly above this card, and a second title inside it just
           said the same thing twice. */}
@@ -289,6 +316,9 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       gap: SPACING.md,
       ...cardElevationStyle(theme),
     },
+    // Standing on the card's top edge, inset from the right corner so the
+    // radius doesn't cut under his feet.
+    mascotPerch: { position: "absolute", right: SPACING.lg, top: -mascotFeetOffset(MASCOT_SIZE) },
     list: { gap: SPACING.sm },
     row: { flexDirection: "row", alignItems: "center", gap: SPACING.md, minHeight: 40 },
     // Keeps the snapshot rows' glyphs on the same left edge the photo

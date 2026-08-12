@@ -28,8 +28,24 @@ import type { MascotState } from "../../lib/mascot";
 // pose and states.ts stays data. See states.ts for why the body animates on
 // Reanimated while the limbs and face are keyframed.
 
-/** The feet, as the CSS-style percentage pair a view transform pivots about. */
-const FEET_ORIGIN = `${(TILT_ORIGIN.x / VIEW_BOX_UNITS) * 100}% ${(TILT_ORIGIN.y / VIEW_BOX_UNITS) * 100}%`;
+/** The feet, as the CSS-style percentage pair a view transform pivots about.
+ *  Exported because a wrapper that squashes him has to pivot about the same
+ *  point, or the crouch reads as the whole character shrinking rather than as
+ *  his torso dropping over his feet. */
+export const MASCOT_FEET_ORIGIN = `${(TILT_ORIGIN.x / VIEW_BOX_UNITS) * 100}% ${(TILT_ORIGIN.y / VIEW_BOX_UNITS) * 100}%`;
+
+/**
+ * Distance from the top of the rendered box down to the soles, in px.
+ *
+ * The artwork leaves about 11% of its height empty below the feet, so laying
+ * a mascot out by its box puts him floating that far above whatever he is
+ * meant to be standing on. Callers position him with `-mascotFeetOffset(size)`
+ * to stand him on an edge — which is the whole idea of the placements in
+ * §9.7, and consistent with a character whose every motion pivots on a foot.
+ */
+export function mascotFeetOffset(size: number): number {
+  return Math.round((TILT_ORIGIN.y / VIEW_BOX_UNITS) * size);
+}
 
 /**
  * Tracks the OS reduce-motion setting, live. §13.9 requires respecting it,
@@ -37,7 +53,7 @@ const FEET_ORIGIN = `${(TILT_ORIGIN.x / VIEW_BOX_UNITS) * 100}% ${(TILT_ORIGIN.y
  * setting on to stop a moving thing should see it stop, not have to reopen
  * the screen.
  */
-function useReduceMotion(): boolean {
+export function useReduceMotion(): boolean {
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
@@ -70,18 +86,15 @@ interface Props {
    */
   greetToken?: unknown;
   /**
-   * Forces the reduce-motion fallback on or off instead of reading the OS.
-   * Only MascotPreview passes it — the static poses are the half of this
-   * component a screenshot can't otherwise reach, and "verified by reading
-   * the code" is not the standard the rest of this folder was held to.
-   * Delete alongside the bench (see the README's task 5).
+   * Merged *over* the current frame, so it wins. Used for poses that belong to
+   * something happening to him rather than to the weather — the flippers going
+   * up for a hop. Null the rest of the time.
    */
-  reduceMotionOverride?: boolean;
+  poseOverride?: MascotPose | null;
 }
 
-export default function Mascot({ size, state, greetToken, reduceMotionOverride }: Props) {
-  const osReduceMotion = useReduceMotion();
-  const reduceMotion = reduceMotionOverride ?? osReduceMotion;
+export default function Mascot({ size, state, greetToken, poseOverride }: Props) {
+  const reduceMotion = useReduceMotion();
   const [greeting, setGreeting] = useState(true);
   const [cursor, setCursor] = useState({ beat: 0, frame: 0 });
 
@@ -232,7 +245,8 @@ export default function Mascot({ size, state, greetToken, reduceMotionOverride }
   // The shiver underlay goes *under* the frame so a frame that sets `eyes`
   // still wins — idle's blink lands even while shivering.
   const framePose = reduceMotion ? animation.reduced : beat.frames[Math.min(cursor.frame, beat.frames.length - 1)].pose;
-  const pose: MascotPose = shivering ? { ...SHIVER_UNDERLAY, ...framePose } : framePose;
+  const shivered: MascotPose = shivering ? { ...SHIVER_UNDERLAY, ...framePose } : framePose;
+  const pose: MascotPose = poseOverride ? { ...shivered, ...poseOverride } : shivered;
 
   return (
     <Animated.View
@@ -251,7 +265,7 @@ export default function Mascot({ size, state, greetToken, reduceMotionOverride }
       aria-hidden
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ width: size, height: size, transformOrigin: FEET_ORIGIN }, bodyStyle]}
+      style={[{ width: size, height: size, transformOrigin: MASCOT_FEET_ORIGIN }, bodyStyle]}
     >
       <MascotBase size={size} pose={pose} />
     </Animated.View>

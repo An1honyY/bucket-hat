@@ -13,6 +13,7 @@ import type {
   ClothingType,
   Journey,
   JourneyLeg,
+  RecommendationSignals,
   ShoeItem,
   UmbrellaItem,
   WarmthCalibration,
@@ -36,32 +37,6 @@ export type LayerPick = ClothingItem | { fallbackText: string; layerType: Clothi
 // an exported constant rather than the string literal keeps the two ends
 // from drifting apart silently.
 export const GENERIC_PICKS_NOTE = "Generic picks — add your gear for suggestions from your own wardrobe";
-
-/**
- * The engine's own intermediate conclusions, surfaced for presentation.
- *
- * Phase 21's mascot (§13.9) picks its state from these. It exists because
- * `warmthLevel` in particular cannot be honestly re-derived outside this file
- * — by the time it's final it has absorbed the user's calibration offset, the
- * §7.8 environment deltas, the §7.9 warmup discount and the §6.1 AC-contrast
- * floor — so any second implementation would be a different number wearing
- * the same name. The other three are cheap to recompute but are exposed
- * alongside it for the same reason: one definition of "hot", "windy" and
- * "high UV", not two that drift.
- *
- * Strictly one-directional. Nothing in this file reads `signals` back; it is
- * assembled at the return and never feeds a recommendation.
- */
-export interface RecommendationSignals {
-  /** 0 (warm) … 4 (freezing), after every adjustment above has been applied. */
-  warmthLevel: 0 | 1 | 2 | 3 | 4;
-  /** §7.6 — max effective UV across outdoor legs (incl. the high-reflection offset) met `HIGH_UV_INDEX`. */
-  highUv: boolean;
-  /** §7.8 — an outdoor leg is annotated `windEffect: "amplified"` and its felt wind clears `WIND_CHILL_KPH`. */
-  windAmplified: boolean;
-  /** §7.15 — an outdoor leg's `apparentTempC` met `HOT_C`. */
-  isHot: boolean;
-}
 
 export interface Recommendation {
   layers: LayerPick[];
@@ -729,6 +704,12 @@ export function recommendGear(
     // one. `windAmplified` deliberately reports the leg, not the bump: a
     // formal journey skips the extra layer (§7.10) but the wind is still
     // blowing, and that is what the mascot is reacting to.
-    signals: { warmthLevel, highUv: maxEffectiveUvOf(outdoorLegs) >= HIGH_UV_INDEX, windAmplified: !!windLeg, isHot },
+    signals: {
+      warmthLevel,
+      highUv: maxEffectiveUvOf(outdoorLegs) >= HIGH_UV_INDEX,
+      windAmplified: !!windLeg,
+      isHot,
+      hasUmbrella: !!umbrella && "id" in umbrella,
+    },
   };
 }

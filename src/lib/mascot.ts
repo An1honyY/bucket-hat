@@ -6,7 +6,8 @@
 // put on them. Nothing here may influence what gets recommended, and nothing
 // here derives a new threshold — every trigger below is one of the engine's
 // own named constants, read through `Recommendation.signals`.
-import { BOTTOMS_COLD_WARMTH_LEVEL, type Recommendation } from "./recommend";
+import { BOTTOMS_COLD_WARMTH_LEVEL } from "./recommend";
+import type { RecommendationSignals } from "../types";
 
 /**
  * The exclusive, pose-driving state. `shivering` (below) is the one modifier
@@ -25,24 +26,30 @@ export interface MascotState {
   shivering: boolean;
 }
 
-/** An umbrella the user actually owns, as opposed to a `fallbackText` stand-in. */
-function isRealItem(pick: Recommendation["umbrella"]): boolean {
-  return !!pick && "id" in pick;
-}
+/**
+ * What to show before there is a `Recommendation` to read — a cold start, or
+ * a weather fetch that failed. §9.7 is explicit that the mascot never gets a
+ * loading state of its own, so he stands there idling rather than being
+ * withheld until the data lands.
+ */
+export const MASCOT_IDLE: MascotState = { primary: "idle", shivering: false };
 
 /**
- * Map an already-computed `Recommendation` onto §13.9's state table.
+ * Map the engine's own conclusions onto §13.9's state table.
  *
- * Pure, and deliberately takes the whole `Recommendation` rather than a
- * journey: the Journey Detail instance has to reflect *that journey's*
- * recommendation rather than the weather right now (§13.9), and passing the
- * thing it is illustrating is what makes that impossible to get wrong.
+ * Pure, and takes `RecommendationSignals` rather than a whole
+ * `Recommendation` or a journey. That is what lets a *frozen*
+ * `RecommendationSnapshot` drive the same states as a live recommendation —
+ * it stores this same block — so a journey whose leave-by has passed still
+ * shows the companion it was frozen with instead of losing it. A "leave now"
+ * journey freezes the moment you open it, so that is not an edge case; it is
+ * the most common Journey Detail view there is.
  *
  * The wave is not here. It fires on focus/mount, which is a fact about the
  * screen rather than about the weather, so it belongs to the component.
  */
-export function mascotStateFor(recommendation: Recommendation): MascotState {
-  const { warmthLevel, highUv, windAmplified, isHot } = recommendation.signals;
+export function mascotStateFor(signals: RecommendationSignals): MascotState {
+  const { warmthLevel, highUv, windAmplified, isHot, hasUmbrella } = signals;
 
   // §7.13's genuine-cold-snap threshold, reused rather than restated.
   const shivering = warmthLevel >= BOTTOMS_COLD_WARMTH_LEVEL;
@@ -54,7 +61,7 @@ export function mascotStateFor(recommendation: Recommendation): MascotState {
   // because it is the state with the least for the user to do about it — the
   // three above all correspond to something the card is telling them to carry.
   let primary: MascotStateName = "idle";
-  if (isRealItem(recommendation.umbrella)) primary = "umbrellaHuddle";
+  if (hasUmbrella) primary = "umbrellaHuddle";
   else if (windAmplified) primary = "windBlown";
   else if (highUv) primary = "sunSquint";
   // Guarded on `!shivering` as well as `isHot`. §13.9 argues the two can't

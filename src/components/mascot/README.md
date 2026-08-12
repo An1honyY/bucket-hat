@@ -1,8 +1,9 @@
 # Mascot — handoff
 
 Phase 21 (`docs/13-extended-features.md` §13.9, `docs/09-design-system.md` §9.7).
-The character is **built and poseable** and the **animation layer is done**;
-the care loop and the actual placement are not. Read this before touching
+The character is **built, animated and placed** — he is on Today and on
+Journey Detail. What's left is the care loop, the paper-doll garment layer,
+and the swatch picker that feeds it. Read this before touching
 `MascotBase.tsx` — most of it is scar tissue from mistakes that cost several
 rounds each.
 
@@ -11,12 +12,83 @@ rounds each.
 | File | State |
 |---|---|
 | `MascotBase.tsx` | The character. Pure, declarative — every pose is a number passed in. **Done.** |
-| `Mascot.tsx` | The animated component: state → motion, reduce-motion fallback, decorative a11y. **Done.** |
+| `Mascot.tsx` | The animated component: state → motion, reduce-motion fallback, decorative a11y. Also `mascotFeetOffset()`, for standing him on an edge. **Done.** |
 | `states.ts` | What each state looks like and how it moves, as a list of **beats**. Change poses and timings here. Its header explains the two-mechanism split (Reanimated body, keyframed limbs) and why. |
-| `../../lib/mascot.ts` | `mascotStateFor()` — the pure selector, tested against the engine's own fixtures. **Done.** |
-| `poses.ts` | The reference sheet the *character* was judged on. Not what ships. |
-| `MascotPreview.tsx` | **Temporary bench.** Not routed; wired into `TodayScreen` by hand. Delete when Phase 21 ships. |
-| `../../theme/mascotSwatches.ts` | `MascotSwatch` → hex, plus the neutral placeholder. Tested. Unused so far. |
+| `../../lib/mascot.ts` | `mascotStateFor(signals)` — the pure selector, tested against the engine's own fixtures. **Done.** |
+| `poses.ts` | The reference sheet the *character* was judged on. Nothing renders it; kept for task 4's tap reactions. |
+| `../../theme/mascotSwatches.ts` | `MascotSwatch` → hex, plus the neutral placeholder. Tested. Still unused — the garment overlays it tints don't exist. |
+
+## Where he is
+
+| Surface | Size | Fed by |
+|---|---|---|
+| Today, standing on whichever card you've scrolled to | 96 | `useRightNow`'s recommendation; `MASCOT_IDLE` until one exists |
+| Journey Detail, perched on the gear card's top-right | 64 | that journey's live recommendation, or its frozen snapshot's `signals` |
+
+Both stand him on an edge with `-mascotFeetOffset(size)`, which closes the
+~11% of empty box the artwork leaves under his soles. Laid out by the box
+alone he hovers, which is the exact look the weight shift exists to avoid.
+
+**He must be painted over the cards, not between them.** On Today he is
+absolutely positioned as the *last* child of a stack containing every card
+(`PerchedMascot` + `useMascotPerches`). Laid out in the flow he was an earlier
+sibling, so the next card's background painted over his feet and he read as
+sunk into the surface rather than standing on it. Being last covers web and
+iOS; Android needs the `elevation: 12` on the floating style too, because
+elevation decides draw order there and every card carries elevation 6.
+
+On Today he also **hops between perches as you scroll**, landing on the
+topmost one with room to hold him. Scroll-driven rather than on a timer: it
+can't strand him off screen, needs no clock, and it motivates the movement.
+
+**A perch is declared, never derived.** He is 96pt tall and stands *above* the
+line he's on, so he always occupies ~86pt of whatever is up there. Making
+every card a perch put him squarely over the hourly forecast strip, because
+every card but the first has content pressed against its top edge. Today
+declares three, each a place the screen knows is clear:
+
+| # | Where | Align | Covers |
+|---|---|---|---|
+| 0 | above the "Right now" card | centre | nothing (reserved clearance) |
+| 1 | the hourly card's top corner | right | nothing |
+| 2 | the first journey card's top | right | nothing |
+
+Measured, not eyeballed: at `SPACING.sm` of clearance perch 1's hat brim
+clipped the last 14px of the "Right now" card's bottom gear chip, so
+`forecastPerch` is sized to clear it. Re-check that number if the chip row's
+wrapping changes.
+
+`PerchAlign` exists for those last two: the space above each is a short row
+(an "as of" stamp, a section label) whose far end is empty, so he belongs at
+that end rather than centred over the content.
+
+**Spacing between perches is a feature, not a leftover.** With only two, the
+gap was 619px against an 812px viewport — a hop's far end was off screen, so
+he appeared to leap away rather than across. Three brings it to ~315 and
+~340px, both ends visible. If you add a screen, aim for hops well inside a
+viewport height.
+
+Two things deliberately *not* perches: every journey card (his body would land
+on the departure time, which sits top-right exactly where he stands) and the
+checklist row. And only one place in the layout pays for him —
+`perchClearance` above the first card, plus a token `SPACING.sm` on the
+forecast card. **An umbrella overhead will need real room**; `forecastPerch`
+is where to add it.
+
+The hop is built like a cartoon jump — crouch, launch, hold, absorb — because
+the arc alone reads as being carried rather than jumping. The crouch is a
+`scaleY` about the same feet origin the weight shift pivots on, so the torso
+drops over stationary feet instead of the whole character shrinking; the
+flippers go up on the crouch and come down on landing, which is why the
+airborne timer is deliberately shorter than the squash it overlaps.
+
+**The state comes from `Recommendation.signals`, not from the recommendation.**
+That indirection is load-bearing: a `RecommendationSnapshot` stores the same
+signals block, so a frozen journey keeps the companion it was frozen with. It
+is not an edge case — `freezeIfDue` fires on Journey Detail load, so a
+"leave now" journey is frozen the instant you open it, and without this the
+mascot would be missing from the most common Journey Detail view there is.
+Snapshots written before Phase 21 have no signals and render no mascot.
 
 The artwork is a **penguin in the app's bucket hat**, ported from an SVG Antony
 supplied (QuiverAI). It is his drawing, not a redraw — treat the path data as
@@ -135,6 +207,16 @@ lobe shading, four hat marks that land on the forehead as scratches, and the
 white wedge between the eyes (kept, but filled blue). Don't "restore" them
 without rendering the result.
 
+**`onLayout` does not fire when a view merely moves.** On web
+react-native-web implements it with a `ResizeObserver`, which reports size
+changes only — so a card that shifts down because the one above it grew never
+re-reports its position. Measured: the forecast card grows when its data
+lands, and the checklist below it kept a perch 445px up the page, parking the
+mascot in empty space. `useMascotPerches` therefore treats `onLayout` as a
+*signal to re-measure* and reads the real position with `measureLayout`.
+Anything else in this app that positions against another view's layout has
+the same trap waiting.
+
 **`accessibilityElementsHidden` / `importantForAccessibility` do nothing on
 web.** Measured in the browser: react-native-web emits neither — they are
 iOS- and Android-only — so the SVG sat in the accessibility tree unmarked
@@ -157,13 +239,17 @@ rises and plateaus but **never decays** — see `DECISIONS.md` 2026-08-09
 state (`docs/03-data-models.md` §3.1). Care modulates expressiveness only;
 weather still decides which state shows.
 
-**Task 5 — placement.** Primary above the "Right now" card on Today (current
-conditions); smaller secondary on Journey Detail reflecting *that journey's*
-`Recommendation`, not now. Both feed `mascotStateFor(recommendation)`; pass
-something that changes on focus as `greetToken` so the greeting replays.
-Ship the `MascotSwatch` picker in the gear add/edit form via this phase's own
-additive migration. Delete `MascotPreview.tsx` — and with it `Mascot`'s
-`reduceMotionOverride` prop, which exists only for the bench.
+**Task 5 — placement. Done**, except for one piece deliberately held back:
+§13.9 has the `MascotSwatch` picker shipping in the gear add/edit form this
+phase, and it hasn't. The picker's own copy is "this only affects how your
+companion looks" — which would be false until the garment overlays below
+exist, since nothing renders `color`. It is a form control, a migration and a
+promise the app can't keep yet; it belongs with the overlays, in one change.
+
+The bench (`MascotPreview.tsx`) and `Mascot`'s `reduceMotionOverride` prop
+went with this task, as planned. If you need a bench again, note that the
+override was the only way to *see* the reduce-motion poses without changing
+an OS setting.
 
 **Missing art, in one list.** Three of §13.9's states describe a drawing that
 doesn't exist yet, and each currently ships without it: the shiver's **breath
@@ -181,14 +267,22 @@ colour **must** render neutral grey rather than being omitted or guessed —
 
 Verified on **web**, both themes, at 215/150/96/64px: every state's live and
 reduce-motion rendering, the greeting's full keyframe sequence, the blink
-cycle, and that all 28 mounted instances carry `aria-hidden`.
+cycle, and that mounted instances carry `aria-hidden`. Both placements were
+measured in the real app against real Auckland weather — feet on the card
+edge to within half a pixel, nothing clipped by an ancestor, no overlap with
+the section label or the card's own rows, no horizontal page overflow.
 
 - **Native is unverified.** The new risk there is `Mascot.tsx`'s wrapper —
   Reanimated shared values plus `transformOrigin` on a `View` style.
-- **Reduce motion was verified through `reduceMotionOverride`, not the OS
-  setting.** The `AccessibilityInfo` read and its `reduceMotionChanged`
-  listener have not been exercised against a real toggle; §13.9's manual test
-  plan covers it.
+- **Reduce motion has not been exercised against a real OS toggle.** The
+  static poses were verified while the bench still had its override prop; the
+  `AccessibilityInfo` read and its `reduceMotionChanged` listener have not
+  been. §13.9's manual test plan covers it.
+- **Only the idle state has been seen in situ.** Auckland was 14°C and
+  raining with no owned umbrella, which resolves to idle. The other five were
+  verified on the bench before it was deleted, but not in the real layout —
+  the leaning ones (wind-blown at 7°, sun-squint at 5°) are the ones worth a
+  second look if you can catch that weather.
 - **The static shiver is weak.** Stripped of its jitter it is just half-lidded
   eyes, and without the breath puff there is nothing else to hold. Acceptable
   because the cold is stated in text on the card, but it is the one

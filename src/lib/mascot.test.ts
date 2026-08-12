@@ -58,7 +58,7 @@ function inventory(overrides: Partial<Inventory> = {}): Inventory {
 
 /** Run the real engine, then the selector — never one without the other. */
 function stateFor(legs: JourneyLeg[], inv: Inventory = inventory()) {
-  return mascotStateFor(recommendGear(journeyWithLegs(legs), inv, NO_CALIBRATION, "no-preference"));
+  return mascotStateFor(recommendGear(journeyWithLegs(legs), inv, NO_CALIBRATION, "no-preference").signals);
 }
 
 describe("mascotStateFor — each state's trigger boundary (§13.9)", () => {
@@ -96,7 +96,7 @@ describe("mascotStateFor — each state's trigger boundary (§13.9)", () => {
 
   it("wind-blown still fires on a formal journey, where the engine skips the warmth bump (§7.10)", () => {
     const journey = { ...journeyWithLegs([walkLeg({ windEffect: "amplified", weather: weather({ windKph: 10 }) })]), formal: true };
-    const result = mascotStateFor(recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference"));
+    const result = mascotStateFor(recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference").signals);
     expect(result.primary).toBe("windBlown");
   });
 
@@ -165,8 +165,8 @@ describe("mascotStateFor — reads the recommendation it is illustrating", () =>
     const journey = journeyWithLegs(legs);
     const runsCold: WarmthCalibration = { offsetLevels: 1, sampleCount: 5 };
 
-    expect(mascotStateFor(recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference")).shivering).toBe(false);
-    expect(mascotStateFor(recommendGear(journey, inventory(), runsCold, "no-preference")).shivering).toBe(true);
+    expect(mascotStateFor(recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference").signals).shivering).toBe(false);
+    expect(mascotStateFor(recommendGear(journey, inventory(), runsCold, "no-preference").signals).shivering).toBe(true);
   });
 });
 

@@ -15,6 +15,14 @@ import type { MascotPose } from "./MascotBase";
 // actually render, and where the two overlap (wave, sun-squint) the numbers
 // differ — see the notes below. If you are changing how a state looks, change
 // states.ts; this file is a reference sheet.
+//
+// Nothing renders these right now: MascotPreview, the bench that did, was
+// deleted when the mascot took its real places on Today and Journey Detail.
+// They are kept rather than dropped because task 4's tap reactions
+// (DECISIONS.md 2026-08-09, "responsive, not needy") want exactly this
+// vocabulary — curious, content, surprised — and because a pose written as a
+// typed constant stops compiling when the pose API changes, which a note in
+// a document does not.
 
 export const REFERENCE_POSES: { key: string; label: string; note: string; pose: MascotPose }[] = [
   {

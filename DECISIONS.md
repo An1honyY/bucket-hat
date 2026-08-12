@@ -183,6 +183,9 @@ one by date — don't edit the old entry.
 - 2026-08-12 — Mascot motion splits across Reanimated and keyframes; the flippers can't reach the face (§13.9, §9.7) [design]
 - 2026-08-12 — The mascot shifts his weight foot to foot; he never bobs (§13.9, §9.7) [design, supersedes the bob/sway in today's motion-split entry]
 - 2026-08-12 — Idle is a bag of beats with rests in it, not a loop (§13.9, §9.7) [design]
+- 2026-08-12 — A frozen snapshot keeps its mascot signals (§13.9, §3, §7.3) [design, bug fix]
+- 2026-08-12 — The mascot stands on the card he belongs to; the swatch picker waits for the overlays (§9.7) [design]
+- 2026-08-12 — The mascot floats over Today's cards and hops between them (§9.7) [design, bug fix]
 
 ---
 
@@ -3636,5 +3639,72 @@ with it separate, the bag could deal every rest consecutively and did,
 producing a measured eleven seconds of nothing that read as a hung view.
 Idle is the only multi-beat state; the weather states stay one looping beat,
 and should, since a shivering penguin has no business pausing.
+
+---
+
+## 2026-08-12 — A frozen snapshot keeps its mascot signals (§13.9, §3, §7.3)
+
+**What**: `RecommendationSignals` moved to `src/types/index.ts`, gained
+`hasUmbrella`, and is now stored on `RecommendationSnapshot`.
+`mascotStateFor()` takes the signals block rather than a whole
+`Recommendation`, so a frozen journey and a live one drive it identically.
+
+**Why**: the mascot was wired to the live recommendation only, and
+`freezeIfDue` fires on Journey Detail load — so a "leave now" journey is
+frozen the instant you open it and lost its companion immediately. That is
+not an edge case; it is the most common Journey Detail view there is.
+Re-deriving from today's weather instead would caption last week's gear with
+this morning's sky.
+
+**Resolution**: optional on the snapshot, the same additive treatment
+`layerTypes` already set, so pre-Phase-21 rows render no mascot rather than
+needing a backfill. The block stays presentation-only in both directions —
+if something wants to *change* a recommendation it belongs in the engine.
+
+---
+
+## 2026-08-12 — The mascot stands on the card he belongs to (§9.7)
+
+**What**: both instances are positioned by `mascotFeetOffset(size)` — Today's
+96pt one standing on the "Right now" card's top edge, Journey Detail's 64pt
+one perched on the gear card's top-right corner. The gear-card instance is
+absolutely positioned outside the card's content box.
+
+**Why**: the artwork leaves ~11% of its height empty below the soles, so
+laying either out by its box alone leaves him hovering — the exact look the
+weight-shift animation was built to avoid. And a mascot placed *inside* the
+gear card would have a truncating item name running under it.
+
+**Resolution**: the swatch picker §13.9 assigns to this phase is deliberately
+not shipped with it. Its own copy promises the colour "only affects how your
+companion looks", which stays false until the garment overlays exist; it
+belongs with them, in one change.
+
+---
+
+## 2026-08-12 — The mascot floats over Today's cards and hops between them (§9.7)
+
+**What**: on Today he is absolutely positioned as the last child of a stack
+holding every card, and hops to the topmost card with room for him as you
+scroll (`PerchedMascot`, `useMascotPerches`). Journey Detail's instance is
+unchanged — it is already a child of the card it sits on.
+
+**Why**: laid out in the flow he was an earlier sibling than the card below,
+so its background painted over his feet and he read as sunk into it rather
+than standing on it. Antony asked for the feet to sit over the card and for
+him to be able to move between them; both need the same thing, which is for
+him to stop being a row in the stack.
+
+**Resolution**: scroll-driven rather than timed, so he can never hop off
+screen and strand himself, and pinned to the first card under reduce motion.
+Perches are *declared*, not derived from the card list: he stands above the
+line he's on, so a perch per card put him over the hourly forecast strip.
+Today declares two, each somewhere the screen knows is clear, and `PerchAlign`
+puts him at the empty end of a short row rather than centred over content.
+
+Two platform traps are load-bearing and commented at their sites: `elevation`
+is needed on top of draw order because Android ranks by elevation, and
+`onLayout` must be treated as a cue to `measureLayout` rather than as data,
+because on web it never fires for a view that only moves.
 
 ---

@@ -89,6 +89,10 @@ export function toRecommendationSnapshot(recommendation: Recommendation): Recomm
     shoeName: pickName(recommendation.shoes),
     umbrellaName: pickName(recommendation.umbrella),
     notes: recommendation.notes,
+    // §13.9 — frozen with everything else, so the mascot on a past journey
+    // reflects that journey's weather rather than disappearing or, worse,
+    // being re-derived from today's.
+    signals: recommendation.signals,
     snapshotAt: new Date().toISOString(),
   };
 }
