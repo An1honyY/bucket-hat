@@ -7,6 +7,7 @@ import {
   GARMENT_SEAM_WIDTH,
   JACKET_BODY,
   JACKET_CUFF,
+  JACKET_HOOD,
   JACKET_HIGHLIGHT,
   JACKET_SEAMS,
   JACKET_SLEEVE,
@@ -442,6 +443,20 @@ export default function MascotBase({ size, pose = {}, garments }: Props) {
                 opacity={0.5}
               />
             ))}
+            {/* Hood last, over the shoulders it is attached to. Drawn *under*
+                the body it was invisible: the two occupy the same part of the
+                silhouette, so all that showed was the few units it protrudes
+                past the flank, which read as a pair of straps. On top, its own
+                outline is what separates hood from coat — which is the whole
+                difference between a hooded jacket and a t-shirt pulled up to
+                his ears. */}
+            <Path
+              d={JACKET_HOOD}
+              fill={garments.jacket}
+              stroke={GARMENT_OUTLINE}
+              strokeWidth={GARMENT_OUTLINE_WIDTH}
+              strokeLinejoin="round"
+            />
           </G>
         )}
 

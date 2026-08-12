@@ -1,4 +1,4 @@
-import { MASCOT_NEUTRAL, MASCOT_SWATCH_HEX, mascotSwatchHex } from "./mascotSwatches";
+import { MASCOT_DEFAULT_GARMENT, MASCOT_SWATCH_HEX, mascotSwatchHex } from "./mascotSwatches";
 import type { MascotSwatch } from "../types";
 
 // docs/13-extended-features.md §13.9 — the graceful fallback is called out as
@@ -25,14 +25,14 @@ describe("mascotSwatchHex", () => {
     expect(Object.keys(MASCOT_SWATCH_HEX).sort()).toEqual([...ALL_SWATCHES].sort());
   });
 
-  it("falls back to neutral for an untagged item", () => {
-    expect(mascotSwatchHex(undefined)).toBe(MASCOT_NEUTRAL);
+  it("falls back to the default garment colour for an untagged item", () => {
+    expect(mascotSwatchHex(undefined)).toBe(MASCOT_DEFAULT_GARMENT);
   });
 
   it("falls back to neutral for a value that isn't a swatch at all", () => {
     // A row written by a newer version, or a corrupt one. §9.7: fail silently
     // to the placeholder, never throw.
-    expect(mascotSwatchHex("chartreuse" as MascotSwatch)).toBe(MASCOT_NEUTRAL);
+    expect(mascotSwatchHex("chartreuse" as MascotSwatch)).toBe(MASCOT_DEFAULT_GARMENT);
   });
 
   it("gives every swatch a distinct colour", () => {
@@ -40,11 +40,13 @@ describe("mascotSwatchHex", () => {
     expect(new Set(hexes).size).toBe(hexes.length);
   });
 
-  it("keeps every swatch distinguishable from the neutral placeholder", () => {
-    // Otherwise "untagged" and "actually grey" would look identical, and the
-    // user would have no way to tell the mascot didn't know.
-    for (const [name, hex] of Object.entries(MASCOT_SWATCH_HEX)) {
-      expect(`${name}:${hex.toLowerCase()}`).not.toBe(`${name}:${MASCOT_NEUTRAL.toLowerCase()}`);
-    }
+  it("the default garment colour is one of the real swatches", () => {
+    // This used to assert the opposite — that the fallback was distinct from
+    // every swatch, so "untagged" could never be mistaken for a real colour.
+    // That was traded away deliberately (see MASCOT_DEFAULT_GARMENT): almost
+    // every garment is untagged, so the fallback is the mascot's usual look
+    // and needs to be a colour rather than a placeholder. Pinned so nobody
+    // "restores" a grey without reading why it went.
+    expect(Object.values(MASCOT_SWATCH_HEX)).toContain(MASCOT_DEFAULT_GARMENT);
   });
 });

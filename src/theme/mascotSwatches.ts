@@ -29,11 +29,18 @@ export const MASCOT_SWATCH_HEX: Record<MascotSwatch, string> = {
   brown: "#8A6244",
 };
 
-/** §13.9 — an item with no `color` set renders a neutral placeholder rather
- *  than guessing or omitting the overlay. `color` is a Phase 21 field, so most
- *  existing wardrobes have none of it and the mascot must not look broken for
- *  someone who never goes back to tag anything. */
-export const MASCOT_NEUTRAL = "#8E8EA0";
+/**
+ * What an item with no `color` set is drawn in. §13.9 calls for a "neutral
+ * grey placeholder"; this is deliberately orange instead — Antony's call, and
+ * the better one. `color` is a Phase 21 field, so nearly every garment hits
+ * this path, which makes it the mascot's *usual* look rather than a rare
+ * fallback. Grey read as broken; a real colour reads as a coat.
+ *
+ * The cost, accepted: an untagged item and one tagged `orange` are now
+ * indistinguishable on the mascot. The Gear form is where you check what a
+ * garment is actually tagged.
+ */
+export const MASCOT_DEFAULT_GARMENT = MASCOT_SWATCH_HEX.orange;
 
 /** The stroke drawn around every garment slot, so a light swatch (white, or
  *  the neutral) still reads as a distinct piece of clothing against the
@@ -48,6 +55,6 @@ export const MASCOT_GARMENT_OUTLINE = "#1E2033";
  * to deal with.
  */
 export function mascotSwatchHex(swatch: MascotSwatch | undefined): string {
-  if (!swatch) return MASCOT_NEUTRAL;
-  return MASCOT_SWATCH_HEX[swatch] ?? MASCOT_NEUTRAL;
+  if (!swatch) return MASCOT_DEFAULT_GARMENT;
+  return MASCOT_SWATCH_HEX[swatch] ?? MASCOT_DEFAULT_GARMENT;
 }

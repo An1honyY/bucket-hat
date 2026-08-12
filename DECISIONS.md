@@ -187,6 +187,8 @@ one by date — don't edit the old entry.
 - 2026-08-12 — The mascot stands on the card he belongs to; the swatch picker waits for the overlays (§9.7) [design]
 - 2026-08-12 — The mascot floats over Today's cards and hops between them (§9.7) [design, bug fix]
 - 2026-08-12 — The mascot's sleeves are their own draw pass, over the torso (§13.9) [design]
+- 2026-08-12 — The mascot's default garment colour is orange, not neutral grey (§13.9) [design, supersedes §13.9's stated grey placeholder]
+- 2026-08-12 — The mascot's hood draws over its own shoulders (§13.9) [design]
 
 ---
 
@@ -3729,5 +3731,45 @@ way the torso buries the flipper's. Garment colours ride in
 `signals.garments` as swatch *names*, so a frozen snapshot keeps its outfit
 and the hex lookup stays with the design tokens. An unset colour renders
 neutral grey and is distinguished from an empty slot by `null` versus absent.
+
+---
+
+## 2026-08-12 — The mascot's default garment colour is orange, not neutral grey (§13.9)
+
+**What**: an item with no `color` set now renders in the orange swatch.
+`MASCOT_NEUTRAL` is renamed `MASCOT_DEFAULT_GARMENT`, and the test asserting
+the fallback was distinct from every swatch now asserts the opposite.
+
+**Why**: §13.9 specifies "a neutral grey placeholder", on the reasoning that
+the user should be able to tell the mascot doesn't know the colour. Rendered,
+grey read as broken rather than as unknown — and because `color` is a Phase 21
+field, the fallback is what almost every garment uses, so it is the mascot's
+normal appearance rather than an edge case.
+
+**Resolution**: Antony chose orange. The trade is explicit — an untagged item
+and one tagged `orange` now look identical on the mascot, and the Gear form is
+where you check what something is actually tagged. Revisit if the swatch
+picker ever needs to nudge people into tagging.
+
+---
+
+## 2026-08-12 — The mascot's hood draws over its own shoulders (§13.9)
+
+**What**: the jacket gained a real hood, drawn last in the garment group —
+over the body rather than under it — and the body's neckline dropped to a low,
+almost-horizontal line at chest height.
+
+**Why**: the first version folded the hood into the body as a collar rising to
+the hat brim, and Antony read it exactly as it was: "a shirt that goes up to
+his ears". Under the body a separate hood was no better, because hood and
+shoulders occupy the same part of the silhouette — only the few units
+protruding past the flank showed, which looked like straps.
+
+**Resolution**: on top, the hood's own outline is what distinguishes it from
+the coat, which is the entire visual difference between a hooded jacket and a
+t-shirt. The low neckline is the other half: a penguin this round has no neck,
+so a collar sitting high on it never reads. Pocket seams were also mirrored —
+they run high-inner to low-outer, as a pouch does; the other way they met in a
+V and read as a seam down his belly.
 
 ---

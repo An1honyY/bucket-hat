@@ -17,7 +17,7 @@ rounds each.
 | `../../lib/mascot.ts` | `mascotStateFor(signals)` — the pure selector, tested against the engine's own fixtures. **Done.** |
 | `poses.ts` | The reference sheet the *character* was judged on. Nothing renders it; kept for task 4's tap reactions. |
 | `garments.ts` | §13.9's paper-doll clothing. The jacket exists; bottoms and the umbrella don't. |
-| `../../theme/mascotSwatches.ts` | `MascotSwatch` → hex, plus the neutral placeholder. Tested, and now what tints the jacket. |
+| `../../theme/mascotSwatches.ts` | `MascotSwatch` → hex, plus `MASCOT_DEFAULT_GARMENT` (orange — see below). Tested, and what tints the jacket. |
 
 ## Where he is
 
@@ -305,7 +305,15 @@ no colour and renders neutral grey, a value renders that swatch. §13.9 requires
 the neutral case — `color` is a Phase 21 field, so almost every existing
 wardrobe hits it.
 
-Two things about the jacket that rendering decided, not reasoning:
+Three things about the jacket that rendering decided, not reasoning:
+
+- **The hood draws over the shoulders, last in the group.** Under the body it
+  was invisible: hood and shoulders occupy the same part of the silhouette, so
+  all that showed was the few units it protrudes past the flank, reading as a
+  pair of straps. On top, its own outline is what separates hood from coat —
+  and that outline is the whole difference between a hooded jacket and a
+  t-shirt pulled up to his ears.
+
 
 - **The sleeve draws over the torso, in its own pass.** The obvious placement,
   inside the wing group beside the flipper, renders *nothing*: the wings draw
@@ -318,9 +326,21 @@ Two things about the jacket that rendering decided, not reasoning:
   covered all but about two units of it. Offsetting it outward by ~2 units is
   both what a real coat does and what makes it visible.
 
+The neckline sits low and almost flat, at chest height, with a band of white
+throat above it. Swept up to the cheeks it strangled him — a penguin this
+round has no neck for a collar to sit on.
+
 Slot priority for the torso follows §13.9: jacket if one was picked, else
 midlayer, else base. A *fallback* pick still dresses him — the engine saying
 "wear a jacket" without naming one is still saying to wear a jacket.
+
+**The default garment colour is orange, not §13.9's "neutral grey".** Antony's
+call and the better one: `color` is a Phase 21 field, so nearly every garment
+takes the fallback, which makes it the mascot's usual look rather than a rare
+placeholder. Grey read as broken. The accepted cost is that an untagged item
+and one tagged `orange` are indistinguishable on the mascot;
+`mascotSwatches.test.ts` pins this so nobody restores the grey without reading
+why it went.
 
 **Not built yet: bottoms and the umbrella.** The umbrella is the awkward one —
 its canopy goes above the hat, and the hat crown already reaches y≈16 in a

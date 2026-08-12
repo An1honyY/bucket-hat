@@ -29,55 +29,82 @@ export const GARMENT_SHADE = "#000000";
 export const GARMENT_SHADE_OPACITY = 0.1;
 
 /**
- * The jacket body, hood included.
+ * The hood — a real one, drawn behind the body and around the head.
  *
- * One shape rather than a separate hood: everything above the brow is behind
- * the hat anyway (the hat draws after this), so what actually reads as a hood
- * is the collar rising past the cheeks. The opening is cut to clear both eye
- * patches — it passes outside x 55–94 at eye height and dips to y 81 under
- * the beak, which sits inside it.
+ * The first attempt folded this into the body as a collar that simply rose to
+ * the hat brim. It read as a t-shirt pulled up to his ears, because a collar
+ * that high has no reason to be there. A hood does: it sits *outside* the
+ * head's silhouette (about 5 units proud of it), which is what says "there is
+ * fabric around his head" rather than "his shirt is too big".
+ *
+ * A horseshoe, open at the bottom where the body's shoulders cover it. The
+ * top third is under the hat and never seen, so it is only roughed in; the
+ * inner edge is cut to clear both eye patches, passing outside x 55–94 at eye
+ * height.
+ */
+export const JACKET_HOOD =
+  // Widest at the temples, tucking back inside the body's edge by the time it
+  // reaches the chest — left proud down there it read as a lump at the waist.
+  "M46 97" +
+  "C34 84 34 66 44 53" +
+  "C53 43 97 43 106 53" +
+  "C116 66 116 84 104 97" +
+  // inner edge, back up around the right of the face
+  "C101 89 99 82 97 74" +
+  "C96 64 95 56 93 51" +
+  "C86 46 64 46 57 51" +
+  "C55 56 54 64 53 74" +
+  "C51 82 49 89 46 97 z";
+
+/**
+ * The jacket body: rounded shoulders, and a low, nearly flat neckline.
+ *
+ * The neckline is the fix for the same t-shirt problem. Swept up to the
+ * cheeks it strangled him; a penguin this round has no neck to speak of, so
+ * the opening sits low on the chest (y ≈ 80) and stays almost horizontal,
+ * leaving a band of white throat above it. The shoulders still rise to y 68 —
+ * that is where the sleeves attach, and dropping them too would have left the
+ * arms unconnected.
  *
  * The flanks trace the torso's own outline so the two share a silhouette
  * rather than the jacket floating inside it.
  */
 export const JACKET_BODY =
-  "M46 52" +
+  "M46 68" +
   // down the left flank, on the torso's line
-  "C44.6 60 44.2 67 43 75.02" +
-  "C39.7 84.22 37.1 95.1 36.8 104.5" +
-  "C36.75 106.5 36.85 108.5 37.1 110.5" +
+  "C44 76 41 88 38.5 100" +
+  "C37.6 105 37.1 108 37.1 110.5" +
   // hem, dipping in the middle the way a heavy hem hangs
   "C48 116.5 61 119.5 75 119.8" +
   "C89 119.5 102 116.5 112.9 110.5" +
-  "C113.15 108.5 113.25 106.5 113.2 104.5" +
+  "C112.9 108 112.4 105 111.5 100" +
   // up the right flank
-  "C112.9 95.1 110.3 84.22 107 75.02" +
-  "C105.8 67 105.4 60 104 52" +
-  // the opening: down around the right cheek, under the beak, up the left
-  "C102.6 60 100.8 65 99 66.4" +
-  "C95.5 72 89.5 77 84 79.6" +
-  "C81 81 78 81.6 75 81.6" +
-  "C72 81.6 69 81 66 79.6" +
-  "C60.5 77 54.5 72 51 66.4" +
-  "C49.2 65 47.4 60 46 52 z";
+  "C109 88 106 76 104 68" +
+  // right shoulder into the neckline
+  "C101 73 97 77 92 79" +
+  "C87 80.5 81 81.2 75 81.3" +
+  "C69 81.2 63 80.5 58 79" +
+  "C53 77 49 73 46 68 z";
 
-/** The placket fold at the throat, and the two pocket seams. Stroked, not
- *  filled, so they read as stitching at any tint. */
+/** The neckline's inner fold, and the pouch pocket. Stroked, not filled, so
+ *  they read as stitching at any tint. */
 export const JACKET_SEAMS = [
-  // the collar's inner fold, echoing the opening a few units below it
-  "M55 71.5 C59.5 77.5 66 82.5 75 84.6 C84 82.5 90.5 77.5 95 71.5",
-  // pockets
-  "M55.5 96 C57.5 103 61.5 107.5 66.5 109.5",
-  "M94.5 96 C92.5 103 88.5 107.5 83.5 109.5",
+  // the collar's fold, echoing the neckline a few units below it
+  "M55 78 C61 82.5 68 84.8 75 85 C82 84.8 89 82.5 95 78",
+  // A front pouch, the way the reference draws it: each opening runs from
+  // high near the centre *outward* and down. Mirrored the other way — outer
+  // top to inner bottom — the two lines meet in a V and read as a seam down
+  // his belly rather than as a pocket.
+  "M69 94.5 C63.5 99 58.5 103.5 55.5 110",
+  "M81 94.5 C86.5 99 91.5 103.5 94.5 110",
 ];
 
 /** A soft light down the left edge, matching where the source art puts its
  *  own highlight on the body. */
 export const JACKET_HIGHLIGHT =
-  "M46 52 C44.6 60 44.2 67 43 75.02 C39.7 84.22 37.1 95.1 36.8 104.5" +
-  "C36.75 106.5 36.85 108.5 37.1 110.5 C39.5 111.8 42 112.9 44.6 113.8" +
-  "C43.6 111 43.1 107.7 43.2 104.5 C43.5 95.4 46 84.9 49.2 76" +
-  "C50.4 68 50.8 60 52.2 52.6 z";
+  "M46 68 C44 76 41 88 38.5 100 C37.6 105 37.1 108 37.1 110.5" +
+  "C39.5 111.8 42 112.9 44.6 113.8 C43.6 111 43.1 107.7 43.2 104.5" +
+  "C43.5 96 45.5 86 48 77.5 C48.8 73.5 49 70.5 49.4 68 z";
 
 /**
  * One sleeve, in the wing's own coordinate space and mirrored with it.
