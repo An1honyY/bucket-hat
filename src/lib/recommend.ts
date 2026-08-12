@@ -37,6 +37,32 @@ export type LayerPick = ClothingItem | { fallbackText: string; layerType: Clothi
 // from drifting apart silently.
 export const GENERIC_PICKS_NOTE = "Generic picks — add your gear for suggestions from your own wardrobe";
 
+/**
+ * The engine's own intermediate conclusions, surfaced for presentation.
+ *
+ * Phase 21's mascot (§13.9) picks its state from these. It exists because
+ * `warmthLevel` in particular cannot be honestly re-derived outside this file
+ * — by the time it's final it has absorbed the user's calibration offset, the
+ * §7.8 environment deltas, the §7.9 warmup discount and the §6.1 AC-contrast
+ * floor — so any second implementation would be a different number wearing
+ * the same name. The other three are cheap to recompute but are exposed
+ * alongside it for the same reason: one definition of "hot", "windy" and
+ * "high UV", not two that drift.
+ *
+ * Strictly one-directional. Nothing in this file reads `signals` back; it is
+ * assembled at the return and never feeds a recommendation.
+ */
+export interface RecommendationSignals {
+  /** 0 (warm) … 4 (freezing), after every adjustment above has been applied. */
+  warmthLevel: 0 | 1 | 2 | 3 | 4;
+  /** §7.6 — max effective UV across outdoor legs (incl. the high-reflection offset) met `HIGH_UV_INDEX`. */
+  highUv: boolean;
+  /** §7.8 — an outdoor leg is annotated `windEffect: "amplified"` and its felt wind clears `WIND_CHILL_KPH`. */
+  windAmplified: boolean;
+  /** §7.15 — an outdoor leg's `apparentTempC` met `HOT_C`. */
+  isHot: boolean;
+}
+
 export interface Recommendation {
   layers: LayerPick[];
   bottoms?: LayerPick;
@@ -45,6 +71,7 @@ export interface Recommendation {
   umbrella?: UmbrellaItem | { fallbackText: string; isGenericAssumption?: boolean };
   severeWeatherAdvisory?: string;
   notes: string[];
+  signals: RecommendationSignals;
 }
 
 export interface Inventory {
@@ -82,7 +109,10 @@ const STATIONARY_WAIT_MIN_MINUTES = 10;
 const STATIONARY_WAIT_WINDY_MIN_MINUTES = 5;
 const ITEM_WARMTH_SCALE_MAX = 10; // §3.6 — ClothingItem.warmth's 1-10 range; pickLayer()'s targetWarmth math below depends on this directly
 const WARMTH_LEVEL_TO_ITEM_SCALE = ITEM_WARMTH_SCALE_MAX / 4; // maps the 0-4 warmthLevel range onto the 1-10 item warmth scale
-const BOTTOMS_COLD_WARMTH_LEVEL = 4;
+// Exported — §13.9's mascot reads `signals.warmthLevel` against this exact
+// constant rather than hard-coding 4, so the shiver state and the thermal-
+// bottoms pick can never disagree about what a genuine cold snap is.
+export const BOTTOMS_COLD_WARMTH_LEVEL = 4;
 const HOT_C = 24;
 const SEVERE_WEATHER_SEVERITY = 4;
 const SEVERE_GUST_KPH = 60;
@@ -248,14 +278,21 @@ function pickLayer(
 // §7.6 — sun and low-light gear. Reads highReflection/sunEffect fields
 // that stay undefined until Phase 6's annotation matching exists (same
 // "shape is right, dead until the data exists" pattern as hikeSamples).
+// Hoisted out of applySunProtection so recommendGear can report the same
+// number as a signal (§13.9) without a second copy of the reflection offset.
+// `-Infinity` for a journey with no outdoor legs, which fails every
+// comparison below — the right answer for "no sun exposure at all".
+function maxEffectiveUvOf(outdoorLegs: JourneyLeg[]): number {
+  return Math.max(...outdoorLegs.map((l) => l.weather!.uvIndex + (l.highReflection ? HIGH_REFLECTION_UV_OFFSET : 0)));
+}
+
 function applySunProtection(
   accessories: LayerPick[],
   available: ClothingItem[],
   outdoorLegs: JourneyLeg[],
   notes: string[]
 ) {
-  const effectiveUv = (l: JourneyLeg) => l.weather!.uvIndex + (l.highReflection ? HIGH_REFLECTION_UV_OFFSET : 0);
-  const maxEffectiveUv = Math.max(...outdoorLegs.map(effectiveUv));
+  const maxEffectiveUv = maxEffectiveUvOf(outdoorLegs);
   if (maxEffectiveUv < HIGH_UV_INDEX) return;
   const sunglasses = available.find((c) => c.tags?.includes("sunglasses"));
   accessories.push(sunglasses ?? { fallbackText: "Sunglasses or a hat", layerType: "accessory" });
@@ -680,5 +717,18 @@ export function recommendGear(
     notes.push(GENERIC_PICKS_NOTE);
   }
 
-  return { layers, bottoms, accessories, shoes, umbrella, severeWeatherAdvisory, notes };
+  return {
+    layers,
+    bottoms,
+    accessories,
+    shoes,
+    umbrella,
+    severeWeatherAdvisory,
+    notes,
+    // §13.9 — presentation-only, assembled last so `warmthLevel` is the final
+    // one. `windAmplified` deliberately reports the leg, not the bump: a
+    // formal journey skips the extra layer (§7.10) but the wind is still
+    // blowing, and that is what the mascot is reacting to.
+    signals: { warmthLevel, highUv: maxEffectiveUvOf(outdoorLegs) >= HIGH_UV_INDEX, windAmplified: !!windLeg, isHot },
+  };
 }

@@ -29,6 +29,14 @@
       "runtimeArgs": ["expo", "start", "--web", "--port", "8083"],
       "port": 8083,
       "autoPort": false
+    },
+    {
+      "comment": "A third web port, for when two sessions already hold 8081 and 8083. Same reasoning as expo-web-alt for the explicit --port and autoPort: false.",
+      "name": "expo-web-alt2",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--web", "--port", "8085"],
+      "port": 8085,
+      "autoPort": false
     }
   ]
 }

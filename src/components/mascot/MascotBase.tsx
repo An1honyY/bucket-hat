@@ -34,7 +34,21 @@ import Svg, { Ellipse, G, Path } from "react-native-svg";
 // than re-wrap. Note the source art's own y values therefore no longer match
 // the QuiverAI file: multiply by 0.93 about y = 143 to compare.
 
-const VIEW_BOX = "0 0 150 150";
+/** Artwork units per side. Exported so a wrapper can convert the pivot below
+ *  into its own coordinate space without hard-coding 150 a second time. */
+export const VIEW_BOX_UNITS = 150;
+const VIEW_BOX = `0 0 ${VIEW_BOX_UNITS} ${VIEW_BOX_UNITS}`;
+
+/** Where the whole character pivots: the feet, not the centre. `tiltDeg` uses
+ *  it below, and Mascot.tsx's animated lean has to pivot about the same point
+ *  or the two rotations disagree about where the ground is. */
+export const TILT_ORIGIN = { x: 75, y: 133.7 };
+
+/** Half the distance between the two feet's centres (they sit at x ≈ 55 and
+ *  x ≈ 95 in the paths below). Mascot.tsx offsets the pivot by this to rock
+ *  the character over one foot rather than about the point between them —
+ *  rotating about `TILT_ORIGIN` sends the far foot through the ground. */
+export const HALF_STANCE = 20;
 
 // Palette, lifted from the source art's stylesheet. Nothing invents a colour.
 const NAVY = "#081834";
@@ -133,6 +147,12 @@ export interface MascotPose {
    *  both sides; the sign is mirrored internally. */
   leftFlipperDeg?: number;
   rightFlipperDeg?: number;
+  /** Foot lift, artwork units off the ground. Deliberately moves the foot
+   *  *alone* — the feet sit outside the tilt group, so the torso stays exactly
+   *  where it is and this reads as a tap rather than as a hop. 4 is a clear
+   *  tap; the foot is only about 11 units tall. */
+  leftFootLift?: number;
+  rightFootLift?: number;
 }
 
 interface Props {
@@ -228,12 +248,18 @@ export default function MascotBase({ size, pose = {} }: Props) {
     tiltDeg = 0,
     leftFlipperDeg = 0,
     rightFlipperDeg = 0,
+    leftFootLift = 0,
+    rightFootLift = 0,
   } = pose;
 
   return (
     <Svg width={size} height={size} viewBox={VIEW_BOX}>
-      {/* feet — source art, unchanged, behind the torso */}
-      <G id="feet">
+      {/* Feet — source art, unchanged, behind the torso, and split into one
+          group per foot so each can lift on its own. The source draws all
+          eight paths as one block; the only change is where the two groups
+          begin. Each foot's four paths are its fill, its outline stroke, its
+          mid tone and its highlight, in that order. */}
+      <G id="foot-right" translateY={-rightFootLift}>
         <Path
           d="m80 136.49 c-0.5 2.42 1 4.84 4.2 5.02 2.6 0.09 5.7 -0.37 7.7 -0.37 3.4 0.09 6.2 1.58 8.7 1.49 2.2 -0.09 2.7 -2.42 5.2 -2.88 s5.7 0.84 6.1 -0.19 c1.7 -2.7 -5 -8.28 -10 -8.18 l-8.7 1.12"
           fill={FOOT}
@@ -250,6 +276,9 @@ export default function MascotBase({ size, pose = {} }: Props) {
           fill={FOOT_MID}
         />
         <Path d="m100.1 132.31 c-0.2 -0.37 2.6 -0.93 5 0.28 2.4 1.3 3.4 3.07 3.4 3.07 s-2.1 -1.58 -3.6 -1.95 c-1.7 -0.37 -4.7 -0.84 -4.8 -1.39 z" fill={FOOT_LIGHT} />
+      </G>
+
+      <G id="foot-left" translateY={-leftFootLift}>
         <Path
           d="m70.3 137.61 c0 1.77 -0.4 3.91 -3.2 4 -2.5 0.19 -5.5 -0.56 -8.6 -0.19 -3.4 0.28 -6 1.58 -8.5 1.21 -2 -0.28 -2.6 -2.23 -5.1 -2.42 -1.9 -0.19 -4.3 0.56 -5.4 -0.46 -2.2 -2.33 3.9 -7.07 7.1 -7.9 l2.6 -0.46 15.4 4.74 5.7 1.49 z"
           fill={FOOT}
@@ -268,7 +297,7 @@ export default function MascotBase({ size, pose = {} }: Props) {
         <Path d="m41.7 136.03 c-0.5 0 3.5 -3.16 4.9 -3.26 l1 0.47 c-2 0 -5.4 2.79 -5.9 2.79 z" fill={FOOT_LIGHT} />
       </G>
 
-      <G rotation={tiltDeg} origin="75, 133.7">
+      <G rotation={tiltDeg} origin={`${TILT_ORIGIN.x}, ${TILT_ORIGIN.y}`}>
         {/* Wings behind the torso. Everything inboard of the body's edge — the
             root, and the part of the wing's outline that would run across the
             flank — is covered by the torso drawn over it, so the outline ends

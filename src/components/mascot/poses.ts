@@ -8,9 +8,13 @@ import type { MascotPose } from "./MascotBase";
 // moment the pose API changes, whereas this file stops compiling. Everything
 // here is a real, renderable pose.
 //
-// Nothing consumes these yet. Phase 21's `mascotStateFor()` (docs/13 §13.9)
-// maps engine signals onto the states below; until then they're the shortlist
-// the character was judged on, preserved so the work isn't repeated.
+// These are the shortlist the *character* was judged on, and they stay for
+// that: a fixed set of expressions to check the art against.
+//
+// They are no longer what ships. `states.ts` holds the poses §13.9's states
+// actually render, and where the two overlap (wave, sun-squint) the numbers
+// differ — see the notes below. If you are changing how a state looks, change
+// states.ts; this file is a reference sheet.
 
 export const REFERENCE_POSES: { key: string; label: string; note: string; pose: MascotPose }[] = [
   {
@@ -51,13 +55,18 @@ export const REFERENCE_POSES: { key: string; label: string; note: string; pose: 
   {
     key: "wave",
     label: "Wave",
-    note: "One flipper up. §13.9's on-focus greeting; the raise is what the wave animation drives.",
+    note:
+      "One flipper up. §13.9's on-focus greeting; the raise is what the wave animation drives. " +
+      "The shipped wave peaks at 86°, not 55 — rendered, 55° is an arm held out rather than up.",
     pose: { rightFlipperDeg: 55, eyes: "happy" },
   },
   {
     key: "shield",
     label: "Sun-squint",
-    note: "§13.9's HIGH_UV_INDEX state — a flipper up near the brow, eyes narrowed.",
+    note:
+      "§13.9's HIGH_UV_INDEX state. Written as 'a flipper up near the brow' — but at 48° it " +
+      "renders as pointing, not shading, which is why states.ts uses 88°. Kept as the record " +
+      "of what the pose was meant to be.",
     pose: { leftFlipperDeg: 48, eyes: "half" },
   },
 ];

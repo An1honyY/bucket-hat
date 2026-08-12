@@ -179,6 +179,10 @@ one by date — don't edit the old entry.
 - 2026-08-09 — One tonal vocabulary for "out of the ordinary"; the UV and wash badges join it (§9.1, §9.6) [design]
 - 2026-08-10 — The mascot is a kororā in the app's own bucket hat; art constraints drove the species (§13.9, §9.7) [design]
 - 2026-08-12 — The mascot is Antony's supplied artwork with the wings carved out of the torso; a handoff README sits beside it (§13.9) [design, supersedes the 2026-08-10 hand-drawn kororā]
+- 2026-08-12 — The engine reports its own conclusions as `Recommendation.signals` (§13.9, §7) [design]
+- 2026-08-12 — Mascot motion splits across Reanimated and keyframes; the flippers can't reach the face (§13.9, §9.7) [design]
+- 2026-08-12 — The mascot shifts his weight foot to foot; he never bobs (§13.9, §9.7) [design, supersedes the bob/sway in today's motion-split entry]
+- 2026-08-12 — Idle is a bag of beats with rests in it, not a loop (§13.9, §9.7) [design]
 
 ---
 
@@ -3547,5 +3551,90 @@ eyes (kept but filled blue). Each is documented at its site.
 
 `src/components/mascot/README.md` carries the working notes: the pose API, the
 traps, and the remaining phases.
+
+---
+
+## 2026-08-12 — The engine reports its own conclusions as `Recommendation.signals` (§13.9, §7)
+
+**What**: `recommendGear()` now returns a `signals` block — final `warmthLevel`
+plus `highUv` / `windAmplified` / `isHot` — and Phase 21's `mascotStateFor()`
+(`src/lib/mascot.ts`) reads only that, never the journey.
+
+**Why**: §13.9 says the mascot maps signals "the engine already computes,
+nothing new derived", but `warmthLevel` was module-private and cannot be
+honestly recomputed outside `recommend.ts` — by the time it is final it has
+absorbed the calibration offset, the §7.8 environment deltas, the §7.9 warmup
+discount and the §6.1 AC-contrast floor. Any second implementation would be a
+different number wearing the same name.
+
+**Resolution**: one-directional and presentation-only — nothing in
+`recommend.ts` reads `signals` back, and the field is assembled at the return.
+Extend it only for another presentational consumer of an *existing* engine
+conclusion; anything that wants to change a recommendation belongs in the
+engine, not here.
+
+---
+
+## 2026-08-12 — Mascot motion splits across Reanimated and keyframes (§13.9, §9.7)
+
+**What**: the mascot's body (the weight shift, any held lean, the shiver
+jitter) animates on Reanimated via a wrapping `Animated.View`; its limbs and
+face are held poses with explicit durations, swapped from JS. §13.9's brow-shading and fanning
+hands are approximated, because the flippers cannot reach the face.
+
+**Why**: the alternative was threading shared values into `MascotBase` and
+animating `react-native-svg` props directly, which would make its "every pose
+is a number passed in" purity conditional and leans on the least-supported
+corner of both libraries on react-native-web — the surface this component is
+actually verified on. Separately, rendering showed the limb is shoulder-mounted
+and longer than the body is tall: at 48° it reads as pointing, and past ~90°
+the hat brim swallows it.
+
+**Resolution**: poses and timings live in `states.ts`, one file to change when
+the art does; raises stay at or under 90° and states are distinguished by rate
+and pose rather than by putting a flipper on the face. Redraw the limb in the
+source art before trying to make a state literal.
+
+---
+
+## 2026-08-12 — The mascot shifts his weight foot to foot; he never bobs (§13.9, §9.7)
+
+**What**: idle and every other state rock side to side about whichever foot
+the lean puts the weight on, replacing a vertical bob and a sway that rotated
+about the point between the feet.
+
+**Why**: Antony asked when the floating animation made sense, and it doesn't —
+a bob lifts both feet at once, which on a bird standing on the ground reads as
+hovering. The sway it sat beside was wrong for a related reason: rotating
+about the midpoint drives the far foot through the floor.
+
+**Resolution**: one motion covers both, and it is physically honest — the
+planted foot is pinned (measured under 0.1px at 215px) and the free one lifts.
+The pivot moves by offsetting the transform rather than animating
+`transformOrigin`, so it can swap feet without a jump. Anything that wants to
+move the character vertically should be treated as a mistake unless he is
+meant to leave the ground.
+
+---
+
+## 2026-08-12 — Idle is a bag of beats with rests in it, not a loop (§13.9, §9.7)
+
+**What**: a mascot state is now a list of *beats* — frames plus body motion —
+and idle deals eight of them from a shuffled bag: a weight shift, a tap of
+each foot, a two-flipper ruffle, and four rests. `MascotPose` gained
+`leftFootLift`/`rightFootLift`, and `MascotBase` splits its feet into a group
+each so a foot can move while the torso does not.
+
+**Why**: Antony asked for foot and flipper taps and for "little wait times
+where the penguin sits still — a real living creature wouldn't be moving
+constantly without rest". A single looping animation per state can express
+neither. Dealing from a bag rather than running a written sequence is what
+keeps a permanently-visible character from visibly coming round.
+
+**Resolution**: the blink lives *inside* `rest()`, not as a beat of its own —
+with it separate, the bag could deal every rest consecutively and did,
+producing a measured eleven seconds of nothing that read as a hung view.
+Idle is the only multi-beat state; the weather states stay one looping beat,
+and should, since a shivering penguin has no business pausing.
 
 ---
