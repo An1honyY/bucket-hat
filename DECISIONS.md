@@ -188,7 +188,7 @@ one by date — don't edit the old entry.
 - 2026-08-12 — The mascot floats over Today's cards and hops between them (§9.7) [design, bug fix]
 - 2026-08-12 — The mascot's sleeves are their own draw pass, over the torso (§13.9) [design]
 - 2026-08-12 — The mascot's default garment colour is orange, not neutral grey (§13.9) [design, supersedes §13.9's stated grey placeholder]
-- 2026-08-12 — The mascot's hood draws over its own shoulders (§13.9) [design]
+- 2026-08-12 — The mascot's jacket is a single path, hood included (§13.9) [design]
 
 ---
 
@@ -3753,7 +3753,7 @@ picker ever needs to nudge people into tagging.
 
 ---
 
-## 2026-08-12 — The mascot's hood draws over its own shoulders (§13.9)
+## 2026-08-12 — The mascot's jacket is a single path, hood included (§13.9)
 
 **What**: the jacket gained a real hood, drawn last in the garment group —
 over the body rather than under it — and the body's neckline dropped to a low,
@@ -3765,11 +3765,13 @@ his ears". Under the body a separate hood was no better, because hood and
 shoulders occupy the same part of the silhouette — only the few units
 protruding past the flank showed, which looked like straps.
 
-**Resolution**: on top, the hood's own outline is what distinguishes it from
-the coat, which is the entire visual difference between a hooded jacket and a
-t-shirt. The low neckline is the other half: a penguin this round has no neck,
-so a collar sitting high on it never reads. Pocket seams were also mirrored —
-they run high-inner to low-outer, as a pouch does; the other way they met in a
-V and read as a seam down his belly.
+**Resolution**: hood and body are **one path**, with the face opening and a
+V-neck cut out as a single `evenodd` hole. Two intermediate attempts — hood
+under the body, then over it — each failed the same way: the garment is one
+piece of fabric, and building it from two pieces puts a line where the
+reference has none. The hood is now just where the outer contour bulges past
+the head, easing back to the torso's line by the chest; carried lower it sits
+where the flippers hang and swallows both sleeves. Pocket seams were also
+mirrored — high-inner to low-outer, as a pouch does.
 
 ---

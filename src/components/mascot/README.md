@@ -305,14 +305,25 @@ no colour and renders neutral grey, a value renders that swatch. §13.9 requires
 the neutral case — `color` is a Phase 21 field, so almost every existing
 wardrobe hits it.
 
-Three things about the jacket that rendering decided, not reasoning:
+**The jacket is one path, not several.** Hood and body share a single outer
+contour, with the face opening and V-neck cut out as one `evenodd` hole. Three
+constructions failed before this, all for the same reason — the garment is one
+piece of fabric, and every attempt to build it from two put a line where the
+reference has none:
 
-- **The hood draws over the shoulders, last in the group.** Under the body it
-  was invisible: hood and shoulders occupy the same part of the silhouette, so
-  all that showed was the few units it protrudes past the flank, reading as a
-  pair of straps. On top, its own outline is what separates hood from coat —
-  and that outline is the whole difference between a hooded jacket and a
-  t-shirt pulled up to his ears.
+1. hood folded into the body as a rising collar → "a shirt that goes up to his
+   ears"; a collar that high has no reason to exist;
+2. separate hood *under* the body → invisible, since hood and shoulders occupy
+   the same part of the silhouette and only the sliver past the flank showed;
+3. separate hood *over* the body → visible, but its outline cut across the
+   shoulders. Two garments, not one.
+
+So the hood is simply where the outer contour bulges past the head — about 12
+units proud at the temples, back on the torso's line by the chest. Carried
+lower it sits exactly where the flippers hang and swallows both sleeves, which
+is the trap to avoid if you retune it.
+
+Two more things rendering decided:
 
 
 - **The sleeve draws over the torso, in its own pass.** The obvious placement,
@@ -326,9 +337,10 @@ Three things about the jacket that rendering decided, not reasoning:
   covered all but about two units of it. Offsetting it outward by ~2 units is
   both what a real coat does and what makes it visible.
 
-The neckline sits low and almost flat, at chest height, with a band of white
-throat above it. Swept up to the cheeks it strangled him — a penguin this
-round has no neck for a collar to sit on.
+The opening is a keyhole: wide around the face, narrowing to a V at mid-chest,
+so the white of his face runs down into the white of his chest. That is the
+reference's collar and it suits him — a penguin this round has no neck for a
+high collar to sit on, and a flat horizontal neckline (tried) reads as a bib.
 
 Slot priority for the torso follows §13.9: jacket if one was picked, else
 midlayer, else base. A *fallback* pick still dresses him — the engine saying

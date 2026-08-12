@@ -5,9 +5,8 @@ import {
   GARMENT_OUTLINE,
   GARMENT_OUTLINE_WIDTH,
   GARMENT_SEAM_WIDTH,
-  JACKET_BODY,
+  JACKET,
   JACKET_CUFF,
-  JACKET_HOOD,
   JACKET_HIGHLIGHT,
   JACKET_SEAMS,
   JACKET_SLEEVE,
@@ -422,10 +421,17 @@ export default function MascotBase({ size, pose = {}, garments }: Props) {
             for someone who never went back to tag anything. */}
         {garments?.jacket && (
           <G id="jacket">
+            {/* Sleeves *under* the coat. Over it, the sleeve's own outline cut
+                a line across each shoulder — two garments again. Under it, the
+                coat buries the root and the arm reads as flowing out of it,
+                which is what the reference does. */}
             <Sleeve side="left" deg={leftFlipperDeg} fill={garments.jacket} />
             <Sleeve side="right" deg={rightFlipperDeg} fill={garments.jacket} />
+            {/* Hood and body in one stroke, with the face opening and V-neck
+                as a single evenodd hole — see JACKET. */}
             <Path
-              d={JACKET_BODY}
+              d={JACKET}
+              fillRule="evenodd"
               fill={garments.jacket}
               stroke={GARMENT_OUTLINE}
               strokeWidth={GARMENT_OUTLINE_WIDTH}
@@ -443,20 +449,6 @@ export default function MascotBase({ size, pose = {}, garments }: Props) {
                 opacity={0.5}
               />
             ))}
-            {/* Hood last, over the shoulders it is attached to. Drawn *under*
-                the body it was invisible: the two occupy the same part of the
-                silhouette, so all that showed was the few units it protrudes
-                past the flank, which read as a pair of straps. On top, its own
-                outline is what separates hood from coat — which is the whole
-                difference between a hooded jacket and a t-shirt pulled up to
-                his ears. */}
-            <Path
-              d={JACKET_HOOD}
-              fill={garments.jacket}
-              stroke={GARMENT_OUTLINE}
-              strokeWidth={GARMENT_OUTLINE_WIDTH}
-              strokeLinejoin="round"
-            />
           </G>
         )}
 
