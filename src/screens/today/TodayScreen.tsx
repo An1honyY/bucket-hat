@@ -11,7 +11,7 @@ import RightNowCard from "./RightNowCard";
 import { mascotFeetOffset, useReduceMotion } from "../../components/mascot/Mascot";
 import PerchedMascot from "../../components/mascot/PerchedMascot";
 import { useMascotPerches } from "../../components/mascot/useMascotPerches";
-import { mascotStateFor, MASCOT_IDLE } from "../../lib/mascot";
+import { mascotGarmentFills, mascotStateFor, MASCOT_IDLE } from "../../lib/mascot";
 import LocalForecastCard from "./LocalForecastCard";
 import JourneyCard from "./JourneyCard";
 import SetupChecklist from "./SetupChecklist";
@@ -181,6 +181,7 @@ export default function TodayScreen() {
             greetToken={focusCount}
             target={mascotPerch}
             instant={reduceMotion}
+            garments={rightNow.recommendation ? mascotGarmentFills(rightNow.recommendation.signals) : undefined}
           />
         </View>
       </ScrollView>

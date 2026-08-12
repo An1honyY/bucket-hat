@@ -1,4 +1,16 @@
 import Svg, { Ellipse, G, Path } from "react-native-svg";
+import {
+  GARMENT_HIGHLIGHT,
+  GARMENT_HIGHLIGHT_OPACITY,
+  GARMENT_OUTLINE,
+  GARMENT_OUTLINE_WIDTH,
+  GARMENT_SEAM_WIDTH,
+  JACKET_BODY,
+  JACKET_CUFF,
+  JACKET_HIGHLIGHT,
+  JACKET_SEAMS,
+  JACKET_SLEEVE,
+} from "./garments";
 
 // The mascot, from the second QuiverAI illustration Antony supplied — the one
 // with the reworked bucket hat.
@@ -155,16 +167,67 @@ export interface MascotPose {
   rightFootLift?: number;
 }
 
+/**
+ * §13.9's clothing slots, already resolved to fills. Absent means the slot is
+ * empty; a present-but-uncoloured item arrives as the neutral grey rather than
+ * as `undefined`, so "owns it, hasn't tagged it" and "isn't wearing one" stay
+ * distinguishable here.
+ */
+export interface MascotGarmentFills {
+  jacket?: string;
+}
+
 interface Props {
   size: number;
   pose?: MascotPose;
+  garments?: MascotGarmentFills;
 }
 
-function Wing({ side, deg }: { side: "left" | "right"; deg: number }) {
+/**
+ * The rotation and mirroring every limb-attached shape shares. Extracted
+ * because the flipper and its sleeve have to turn together but cannot be
+ * drawn together: the flipper goes behind the torso and the sleeve in front
+ * of it (see Sleeve below).
+ */
+function Limb({ side, deg, children }: { side: "left" | "right"; deg: number; children: React.ReactNode }) {
   const isLeft = side === "left";
   return (
     <G rotation={isLeft ? deg : -deg} origin={isLeft ? LEFT_SHOULDER : RIGHT_SHOULDER}>
       <G scale={`${isLeft ? 1 : -1}, 1`} origin="75, 0">
+        {children}
+      </G>
+    </G>
+  );
+}
+
+/**
+ * A sleeve, drawn *over* the torso while still turning with its flipper.
+ *
+ * The obvious placement — inside the wing group with the flipper — renders
+ * nothing at rest: the wings draw behind the torso, and the sleeve covers
+ * precisely the upper part of the limb that the torso hides. So it gets its
+ * own pass after the body, and the jacket body drawn after *it* buries the
+ * root, exactly the way the torso buries the flipper's root.
+ */
+function Sleeve({ side, deg, fill }: { side: "left" | "right"; deg: number; fill: string }) {
+  return (
+    <Limb side={side} deg={deg}>
+      <Path d={JACKET_SLEEVE} fill={fill} stroke={GARMENT_OUTLINE} strokeWidth={GARMENT_OUTLINE_WIDTH} strokeLinejoin="round" />
+      <Path
+        d={JACKET_CUFF}
+        fill="none"
+        stroke={GARMENT_OUTLINE}
+        strokeWidth={GARMENT_SEAM_WIDTH}
+        strokeLinecap="round"
+        opacity={0.55}
+      />
+    </Limb>
+  );
+}
+
+function Wing({ side, deg }: { side: "left" | "right"; deg: number }) {
+  return (
+    <Limb side={side} deg={deg}>
         {/* A full closed outline, and the whole limb draws *behind* the torso.
             That pairing is what makes the outline stop exactly where it meets
             the body: the torso simply covers everything inboard of its own
@@ -172,10 +235,9 @@ function Wing({ side, deg }: { side: "left" | "right"; deg: number }) {
             hand-tuned start point to drift. Outlining only the outer edge
             instead left the blue unbordered along the bottom of a raised
             flipper. */}
-        <Path d={WING} fill={BLUE} stroke={NAVY} strokeWidth={3.4} strokeLinejoin="round" />
-        <Path d={WING_TIP_SHADE} fill={BLUE_SHADE} />
-      </G>
-    </G>
+      <Path d={WING} fill={BLUE} stroke={NAVY} strokeWidth={3.4} strokeLinejoin="round" />
+      <Path d={WING_TIP_SHADE} fill={BLUE_SHADE} />
+    </Limb>
   );
 }
 
@@ -239,7 +301,7 @@ function Mouth({ mouth }: { mouth: MouthState }) {
   );
 }
 
-export default function MascotBase({ size, pose = {} }: Props) {
+export default function MascotBase({ size, pose = {}, garments }: Props) {
   const {
     gazeX = 0,
     gazeY = 0,
@@ -349,6 +411,39 @@ export default function MascotBase({ size, pose = {} }: Props) {
           d="m52.1 121.05 c4.5 1.49 11.5 3.91 21.5 3.91 10.5 0 18 -1.86 23 -3.44 -4.2 4.37 -11.2 8.56 -22.6 8.84 -8.5 0 -18 -2.14 -21.9 -9.3 z"
           fill={WHITE_SHADE}
         />
+
+        {/* §13.9's paper-doll layer, over the body and under the hat — so the
+            brim covers the top of the hood exactly as it does in the
+            reference, and the eyes and beak below still draw over everything.
+            An unset colour arrives here already resolved to the neutral grey
+            (mascotSwatchHex), never omitted: `color` is a Phase 21 field, so
+            most wardrobes have none and the mascot must not look undressed
+            for someone who never went back to tag anything. */}
+        {garments?.jacket && (
+          <G id="jacket">
+            <Sleeve side="left" deg={leftFlipperDeg} fill={garments.jacket} />
+            <Sleeve side="right" deg={rightFlipperDeg} fill={garments.jacket} />
+            <Path
+              d={JACKET_BODY}
+              fill={garments.jacket}
+              stroke={GARMENT_OUTLINE}
+              strokeWidth={GARMENT_OUTLINE_WIDTH}
+              strokeLinejoin="round"
+            />
+            <Path d={JACKET_HIGHLIGHT} fill={GARMENT_HIGHLIGHT} opacity={GARMENT_HIGHLIGHT_OPACITY} />
+            {JACKET_SEAMS.map((d) => (
+              <Path
+                key={d}
+                d={d}
+                fill="none"
+                stroke={GARMENT_OUTLINE}
+                strokeWidth={GARMENT_SEAM_WIDTH}
+                strokeLinecap="round"
+                opacity={0.5}
+              />
+            ))}
+          </G>
+        )}
 
         {/* Hat before the face, which is the order the source art uses. Drawing
             it after put its brim-underside stroke straight across the top of

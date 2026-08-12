@@ -1,9 +1,9 @@
 # Mascot — handoff
 
 Phase 21 (`docs/13-extended-features.md` §13.9, `docs/09-design-system.md` §9.7).
-The character is **built, animated and placed** — he is on Today and on
-Journey Detail. What's left is the care loop, the paper-doll garment layer,
-and the swatch picker that feeds it. Read this before touching
+The character is **built, animated, placed and wearing a jacket**. What's
+left is the umbrella and bottoms slots, the swatch picker that lets anyone
+choose their colours, and the care loop. Read this before touching
 `MascotBase.tsx` — most of it is scar tissue from mistakes that cost several
 rounds each.
 
@@ -16,7 +16,8 @@ rounds each.
 | `states.ts` | What each state looks like and how it moves, as a list of **beats**. Change poses and timings here. Its header explains the two-mechanism split (Reanimated body, keyframed limbs) and why. |
 | `../../lib/mascot.ts` | `mascotStateFor(signals)` — the pure selector, tested against the engine's own fixtures. **Done.** |
 | `poses.ts` | The reference sheet the *character* was judged on. Nothing renders it; kept for task 4's tap reactions. |
-| `../../theme/mascotSwatches.ts` | `MascotSwatch` → hex, plus the neutral placeholder. Tested. Still unused — the garment overlays it tints don't exist. |
+| `garments.ts` | §13.9's paper-doll clothing. The jacket exists; bottoms and the umbrella don't. |
+| `../../theme/mascotSwatches.ts` | `MascotSwatch` → hex, plus the neutral placeholder. Tested, and now what tints the jacket. |
 
 ## Where he is
 
@@ -287,3 +288,43 @@ the section label or the card's own rows, no horizontal page overflow.
   eyes, and without the breath puff there is nothing else to hold. Acceptable
   because the cold is stated in text on the card, but it is the one
   reduce-motion pose that doesn't carry its state on its own.
+
+## The paper-doll layer (§13.9)
+
+`garments.ts` holds the clothing. Only the **fill** is tinted, from the
+recommended item's `MascotSwatch`; the outline, seams and shading are fixed,
+and the two shading layers are plain white/black at low alpha rather than
+lighter/darker variants of the tint — so any swatch keeps its modelling and a
+pale one can't dissolve into the belly.
+
+The data path is `recommendGear` → `signals.garments` (swatch *names*, stored,
+so a frozen snapshot keeps its outfit) → `mascotGarmentFills` (hex) →
+`MascotBase`. Three states per slot and the difference is load-bearing:
+**absent** means nothing was recommended, **null** means something was but has
+no colour and renders neutral grey, a value renders that swatch. §13.9 requires
+the neutral case — `color` is a Phase 21 field, so almost every existing
+wardrobe hits it.
+
+Two things about the jacket that rendering decided, not reasoning:
+
+- **The sleeve draws over the torso, in its own pass.** The obvious placement,
+  inside the wing group beside the flipper, renders *nothing*: the wings draw
+  behind the torso and the sleeve covers exactly the part of the limb the
+  torso hides. It gets a second rotating group after the body, and the jacket
+  body drawn after it buries the root — the same trick the torso plays on the
+  flipper. `Limb` exists to share the rotation between the two passes.
+- **The sleeve is wider than the flipper.** Traced exactly onto the wing's own
+  curves it came out the same width as the blade, and the jacket body then
+  covered all but about two units of it. Offsetting it outward by ~2 units is
+  both what a real coat does and what makes it visible.
+
+Slot priority for the torso follows §13.9: jacket if one was picked, else
+midlayer, else base. A *fallback* pick still dresses him — the engine saying
+"wear a jacket" without naming one is still saying to wear a jacket.
+
+**Not built yet: bottoms and the umbrella.** The umbrella is the awkward one —
+its canopy goes above the hat, and the hat crown already reaches y≈16 in a
+0–150 viewBox, so there is no room for it. It needs the viewBox to gain
+headroom when that slot is filled, which changes `mascotFeetOffset` (feet stop
+being at a fixed 89.1% of the box) and therefore every placement that stands
+him on an edge. Do that as its own change, and re-measure the perches after.

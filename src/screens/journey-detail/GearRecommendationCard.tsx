@@ -6,7 +6,7 @@ import { RADIUS, SPACING, TYPE } from "../../theme/typography";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
 import GearThumbnail from "../../components/GearThumbnail";
 import Mascot, { mascotFeetOffset } from "../../components/mascot/Mascot";
-import { mascotStateFor } from "../../lib/mascot";
+import { mascotGarmentFills, mascotStateFor } from "../../lib/mascot";
 import type { GearAddTarget } from "../../navigation/types";
 import type { RecommendationSnapshot } from "../../types";
 import { displayGearLabel, gearPickLabel } from "../../lib/gearLabel";
@@ -184,7 +184,11 @@ export default function GearRecommendationCard({ recommendation, snapshot, onAdd
             signals and simply show none. */}
         {snapshot.signals && (
           <View style={styles.mascotPerch} pointerEvents="none">
-            <Mascot size={MASCOT_SIZE} state={mascotStateFor(snapshot.signals)} />
+            <Mascot
+              size={MASCOT_SIZE}
+              state={mascotStateFor(snapshot.signals)}
+              garments={mascotGarmentFills(snapshot.signals)}
+            />
           </View>
         )}
         <View style={styles.list}>
@@ -231,7 +235,11 @@ export default function GearRecommendationCard({ recommendation, snapshot, onAdd
           area would have a long item name running under it. Standing him on
           the edge means the two can never collide however he leans. */}
       <View style={styles.mascotPerch} pointerEvents="none">
-        <Mascot size={MASCOT_SIZE} state={mascotStateFor(recommendation.signals)} />
+        <Mascot
+          size={MASCOT_SIZE}
+          state={mascotStateFor(recommendation.signals)}
+          garments={mascotGarmentFills(recommendation.signals)}
+        />
       </View>
 
       {/* No heading of its own: the screen's "What to wear" section label

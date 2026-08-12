@@ -247,6 +247,24 @@ export type GearFeedback = "much_too_cold" | "too_cold" | "just_right" | "too_wa
  *
  * Strictly one-directional. Nothing in the engine reads these back.
  */
+/**
+ * What the mascot is wearing (Section 13.9's paper-doll layer), as swatch
+ * names rather than colours — the hex lookup belongs with the design tokens,
+ * not in stored data.
+ *
+ * Three states per slot, and the difference matters: the field **absent**
+ * means nothing was recommended for that slot, **null** means something was
+ * but it has no `color` set, and a value means it has one. Only the first of
+ * those should leave the mascot without the garment; the second wears it in
+ * the neutral grey, because `color` is a Phase 21 field and most wardrobes
+ * have none of it.
+ */
+export interface RecommendationGarments {
+  jacket?: MascotSwatch | null;
+  bottoms?: MascotSwatch | null;
+  umbrella?: MascotSwatch | null;
+}
+
 export interface RecommendationSignals {
   /** 0 (warm) … 4 (freezing), after every adjustment has been applied. */
   warmthLevel: 0 | 1 | 2 | 3 | 4;
@@ -258,6 +276,9 @@ export interface RecommendationSignals {
   isHot: boolean;
   /** An umbrella the user actually owns was resolved, as opposed to a fallbackText stand-in. */
   hasUmbrella: boolean;
+  /** Section 13.9's clothing slots. Optional: snapshots frozen before the
+   *  paper-doll layer existed simply render an undressed mascot. */
+  garments?: RecommendationGarments;
 }
 
 // A frozen, display-only copy of what recommendGear() returned at the time

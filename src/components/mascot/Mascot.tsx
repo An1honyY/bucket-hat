@@ -9,7 +9,13 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import MascotBase, { HALF_STANCE, TILT_ORIGIN, VIEW_BOX_UNITS, type MascotPose } from "./MascotBase";
+import MascotBase, {
+  HALF_STANCE,
+  TILT_ORIGIN,
+  VIEW_BOX_UNITS,
+  type MascotGarmentFills,
+  type MascotPose,
+} from "./MascotBase";
 import {
   createBeatBag,
   GREETING,
@@ -91,9 +97,11 @@ interface Props {
    * up for a hop. Null the rest of the time.
    */
   poseOverride?: MascotPose | null;
+  /** §13.9's paper-doll slots, already resolved to fills. */
+  garments?: MascotGarmentFills;
 }
 
-export default function Mascot({ size, state, greetToken, poseOverride }: Props) {
+export default function Mascot({ size, state, greetToken, poseOverride, garments }: Props) {
   const reduceMotion = useReduceMotion();
   const [greeting, setGreeting] = useState(true);
   const [cursor, setCursor] = useState({ beat: 0, frame: 0 });
@@ -267,7 +275,7 @@ export default function Mascot({ size, state, greetToken, poseOverride }: Props)
       importantForAccessibility="no-hide-descendants"
       style={[{ width: size, height: size, transformOrigin: MASCOT_FEET_ORIGIN }, bodyStyle]}
     >
-      <MascotBase size={size} pose={pose} />
+      <MascotBase size={size} pose={pose} garments={garments} />
     </Animated.View>
   );
 }

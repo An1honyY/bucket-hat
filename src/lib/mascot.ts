@@ -8,6 +8,8 @@
 // own named constants, read through `Recommendation.signals`.
 import { BOTTOMS_COLD_WARMTH_LEVEL } from "./recommend";
 import type { RecommendationSignals } from "../types";
+import { mascotSwatchHex } from "../theme/mascotSwatches";
+import type { MascotGarmentFills } from "../components/mascot/MascotBase";
 
 /**
  * The exclusive, pose-driving state. `shivering` (below) is the one modifier
@@ -24,6 +26,25 @@ export interface MascotState {
    * both at once. `{ primary: "idle", shivering: true }` is the plain shiver.
    */
   shivering: boolean;
+}
+
+/**
+ * Resolve §13.9's clothing slots to the fills the component draws.
+ *
+ * The absent/null distinction from `RecommendationGarments` survives exactly
+ * one more step and dies here: an absent slot stays absent, and a null one —
+ * a garment that was recommended but has no `color` — becomes the neutral
+ * grey. That is §13.9's graceful fallback, and it is required rather than
+ * optional: `color` is a Phase 21 field, so the overwhelming majority of
+ * existing wardrobes have none of it, and omitting the overlay instead would
+ * leave the mascot undressed for almost everybody.
+ */
+export function mascotGarmentFills(signals: RecommendationSignals): MascotGarmentFills {
+  const { garments } = signals;
+  if (!garments) return {};
+  const fills: MascotGarmentFills = {};
+  if ("jacket" in garments) fills.jacket = mascotSwatchHex(garments.jacket ?? undefined);
+  return fills;
 }
 
 /**

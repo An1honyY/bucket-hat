@@ -9,8 +9,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Mascot, { MASCOT_FEET_ORIGIN, mascotFeetOffset } from "./Mascot";
+import type { MascotGarmentFills, MascotPose } from "./MascotBase";
 import { perchOffsetX, type Perch } from "./useMascotPerches";
-import type { MascotPose } from "./MascotBase";
 import type { MascotState } from "../../lib/mascot";
 
 // The mascot, absolutely positioned over a stack of cards and hopping between
@@ -47,9 +47,10 @@ interface Props {
   target: Perch | null;
   /** Skips the whole hop and places him directly — reduce motion, and the first placement. */
   instant: boolean;
+  garments?: MascotGarmentFills;
 }
 
-export default function PerchedMascot({ size, state, greetToken, target, instant }: Props) {
+export default function PerchedMascot({ size, state, greetToken, target, instant, garments }: Props) {
   const x = useSharedValue(0);
   const y = useSharedValue(0);
   const lift = useSharedValue(0);
@@ -151,7 +152,13 @@ export default function PerchedMascot({ size, state, greetToken, target, instant
       pointerEvents="none"
       style={[styles.floating, { transformOrigin: MASCOT_FEET_ORIGIN }, hopStyle]}
     >
-      <Mascot size={size} state={state} greetToken={greetToken} poseOverride={airborne ? AIRBORNE_POSE : null} />
+      <Mascot
+        size={size}
+        state={state}
+        greetToken={greetToken}
+        poseOverride={airborne ? AIRBORNE_POSE : null}
+        garments={garments}
+      />
     </Animated.View>
   );
 }

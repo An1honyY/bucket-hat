@@ -186,6 +186,7 @@ one by date — don't edit the old entry.
 - 2026-08-12 — A frozen snapshot keeps its mascot signals (§13.9, §3, §7.3) [design, bug fix]
 - 2026-08-12 — The mascot stands on the card he belongs to; the swatch picker waits for the overlays (§9.7) [design]
 - 2026-08-12 — The mascot floats over Today's cards and hops between them (§9.7) [design, bug fix]
+- 2026-08-12 — The mascot's sleeves are their own draw pass, over the torso (§13.9) [design]
 
 ---
 
@@ -3706,5 +3707,27 @@ Two platform traps are load-bearing and commented at their sites: `elevation`
 is needed on top of draw order because Android ranks by elevation, and
 `onLayout` must be treated as a cue to `measureLayout` rather than as data,
 because on web it never fires for a view that only moves.
+
+---
+
+## 2026-08-12 — The mascot's sleeves are their own draw pass, over the torso (§13.9)
+
+**What**: §13.9's paper-doll layer ships its first slot — a hooded jacket
+tinted from the recommended item's `MascotSwatch`. The sleeves are drawn in a
+second rotating pass *after* the body rather than alongside the flipper, and
+are cut wider than the limb they cover.
+
+**Why**: both were found by rendering. Placed with the flipper the sleeve is
+invisible — the wings draw behind the torso and the sleeve covers exactly the
+part of the limb the torso hides. Traced onto the wing's own curves it then
+came out the same width as the blade, and the jacket body covered all but
+about two units of it.
+
+**Resolution**: `Limb` shares the rotation between the flipper pass and the
+sleeve pass, and the jacket body drawn last buries the sleeve's root the same
+way the torso buries the flipper's. Garment colours ride in
+`signals.garments` as swatch *names*, so a frozen snapshot keeps its outfit
+and the hex lookup stays with the design tokens. An unset colour renders
+neutral grey and is distinguished from an empty slot by `null` versus absent.
 
 ---

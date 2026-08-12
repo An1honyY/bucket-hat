@@ -13,6 +13,8 @@ import type {
   ClothingType,
   Journey,
   JourneyLeg,
+  MascotSwatch,
+  RecommendationGarments,
   RecommendationSignals,
   ShoeItem,
   UmbrellaItem,
@@ -289,6 +291,40 @@ function applyDarknessGear(accessories: LayerPick[], available: ClothingItem[], 
   } else {
     notes.push("Part of this trip is in the dark — something reflective would help");
   }
+}
+
+/**
+ * §13.9's paper-doll slots, read off the picks that were already made.
+ *
+ * Slot priority for the torso mirrors the layers stack's own visual priority
+ * (§9.3): jacket if one was picked, else midlayer, else base.
+ *
+ * A *fallback* pick still dresses him. The engine saying "wear a jacket"
+ * without naming one from the wardrobe is still the engine saying to wear a
+ * jacket, and §13.9's graceful-fallback rule is explicit that the overlay
+ * appears in neutral grey rather than being omitted — which is what `null`
+ * here means, as against the field being absent for an empty slot.
+ */
+function garmentsFor(
+  layers: LayerPick[],
+  bottoms: Recommendation["bottoms"],
+  umbrella: Recommendation["umbrella"]
+): RecommendationGarments {
+  const swatch = (pick: { color?: MascotSwatch } | { fallbackText: string } | undefined) => {
+    if (!pick) return undefined;
+    return "id" in pick ? (pick as { color?: MascotSwatch }).color ?? null : null;
+  };
+  const typeOf = (l: LayerPick) => ("layerType" in l ? l.layerType : l.type);
+  const torso =
+    layers.find((l) => typeOf(l) === "jacket") ??
+    layers.find((l) => typeOf(l) === "midlayer") ??
+    layers.find((l) => typeOf(l) === "base");
+
+  const garments: RecommendationGarments = {};
+  if (torso) garments.jacket = swatch(torso);
+  if (bottoms) garments.bottoms = swatch(bottoms);
+  if (umbrella) garments.umbrella = swatch(umbrella);
+  return garments;
 }
 
 export function recommendGear(
@@ -710,6 +746,7 @@ export function recommendGear(
       windAmplified: !!windLeg,
       isHot,
       hasUmbrella: !!umbrella && "id" in umbrella,
+      garments: garmentsFor(layers, bottoms, umbrella),
     },
   };
 }
