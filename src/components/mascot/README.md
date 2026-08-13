@@ -323,6 +323,19 @@ units proud at the temples, back on the torso's line by the chest. Carried
 lower it sits exactly where the flippers hang and swallows both sleeves, which
 is the trap to avoid if you retune it.
 
+**The sleeve is outlined on its outer edge and cuff only, and draws over the
+coat.** Stroked all the way round it put a navy line across each shoulder; the
+reference has none there — torso and sleeve are one colour with one silhouette
+and only the outside and the cuff are edges. Drawing the sleeve *after* the
+coat is what lets its fill cover the coat's flank outline exactly where the
+arm is in front of the body.
+
+The outline also starts at (36.5, 77.9), not at the shoulder root: that is the
+outer edge split at t = 0.5, where the arm crosses the coat's flank at rest,
+so the two outlines meet. Run from the root, its first half lies inside the
+coat and draws a stray diagonal across the shoulder. The *fill* still runs to
+the root, so a raised flipper never detaches from the body.
+
 Two more things rendering decided:
 
 

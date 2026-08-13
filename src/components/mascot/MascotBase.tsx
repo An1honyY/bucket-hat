@@ -6,7 +6,7 @@ import {
   GARMENT_OUTLINE_WIDTH,
   GARMENT_SEAM_WIDTH,
   JACKET,
-  JACKET_CUFF,
+  JACKET_SLEEVE_EDGE,
   JACKET_HIGHLIGHT,
   JACKET_SEAMS,
   JACKET_SLEEVE,
@@ -212,14 +212,18 @@ function Limb({ side, deg, children }: { side: "left" | "right"; deg: number; ch
 function Sleeve({ side, deg, fill }: { side: "left" | "right"; deg: number; fill: string }) {
   return (
     <Limb side={side} deg={deg}>
-      <Path d={JACKET_SLEEVE} fill={fill} stroke={GARMENT_OUTLINE} strokeWidth={GARMENT_OUTLINE_WIDTH} strokeLinejoin="round" />
+      {/* Fill unstroked, outline only where the sleeve genuinely has an edge.
+          Stroked all the way round it drew a navy line across the shoulder;
+          the reference has none — the colour runs straight from torso into
+          sleeve, and only the silhouette and the cuff are outlined. */}
+      <Path d={JACKET_SLEEVE} fill={fill} />
       <Path
-        d={JACKET_CUFF}
+        d={JACKET_SLEEVE_EDGE}
         fill="none"
         stroke={GARMENT_OUTLINE}
-        strokeWidth={GARMENT_SEAM_WIDTH}
+        strokeWidth={GARMENT_OUTLINE_WIDTH}
         strokeLinecap="round"
-        opacity={0.55}
+        strokeLinejoin="round"
       />
     </Limb>
   );
@@ -421,12 +425,6 @@ export default function MascotBase({ size, pose = {}, garments }: Props) {
             for someone who never went back to tag anything. */}
         {garments?.jacket && (
           <G id="jacket">
-            {/* Sleeves *under* the coat. Over it, the sleeve's own outline cut
-                a line across each shoulder — two garments again. Under it, the
-                coat buries the root and the arm reads as flowing out of it,
-                which is what the reference does. */}
-            <Sleeve side="left" deg={leftFlipperDeg} fill={garments.jacket} />
-            <Sleeve side="right" deg={rightFlipperDeg} fill={garments.jacket} />
             {/* Hood and body in one stroke, with the face opening and V-neck
                 as a single evenodd hole — see JACKET. */}
             <Path
@@ -437,6 +435,13 @@ export default function MascotBase({ size, pose = {}, garments }: Props) {
               strokeWidth={GARMENT_OUTLINE_WIDTH}
               strokeLinejoin="round"
             />
+            {/* Sleeves *over* the coat, and drawn after it on purpose: their
+                fill covers the coat's flank outline exactly where the arm is
+                in front of the body, which is the only way the two colours
+                meet with no line between them. Below the cuff the coat's own
+                outline resumes. */}
+            <Sleeve side="left" deg={leftFlipperDeg} fill={garments.jacket} />
+            <Sleeve side="right" deg={rightFlipperDeg} fill={garments.jacket} />
             <Path d={JACKET_HIGHLIGHT} fill={GARMENT_HIGHLIGHT} opacity={GARMENT_HIGHLIGHT_OPACITY} />
             {JACKET_SEAMS.map((d) => (
               <Path

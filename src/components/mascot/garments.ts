@@ -70,20 +70,31 @@ export const JACKET =
   "C110 86 112.5 81 114.5 74" +
   "C116.5 65 113.5 55 104 47" +
   "C95 41 55 41 46 47 z" +
-  // The hole: face opening narrowing to the V.
-  "M54 50" +
-  "C51.5 60 53 70 57 77" +
-  "C62 84 68.5 87.5 75 89" +
-  "C81.5 87.5 88 84 93 77" +
-  "C97 70 98.5 60 96 50" +
-  "C88 45.5 62 45.5 54 50 z";
+  // The hole. Each side of the hood's front edge rolls to a thick rounded
+  // end at the collarbone, and the two are joined by a short flat placket
+  // rather than meeting at a point — the reference's collar does not come to
+  // a V, it stops.
+  "M55 48" +
+  "C52.5 58 53.5 69 57 77" +
+  "C59.5 82 62.5 86 66 88.5" +
+  "C68.5 90 70 90.8 71.5 91" +
+  "L78.5 91" +
+  "C80 90.8 81.5 90 84 88.5" +
+  "C87.5 86 90.5 82 93 77" +
+  "C96.5 69 97.5 58 95 48" +
+  "C87 43.5 63 43.5 55 48 z";
 
-/** A front pouch. Each opening runs from high near the centre *outward* and
- *  down, the way the reference draws it; mirrored — outer top to inner bottom
- *  — the two meet in a V and read as a seam down his belly instead. */
+/**
+ * A front pouch. Each opening runs from high near the centre *outward* and
+ * down — mirrored, the two meet in a V and read as a seam down his belly.
+ *
+ * The curvature is the point, not just the slope: the reference bows these
+ * hard, almost a quarter circle, so they read as the mouth of a pocket. Drawn
+ * near-straight they were just two scratches.
+ */
 export const JACKET_SEAMS = [
-  "M69 96 C63.5 100 58.5 104.5 55.5 111",
-  "M81 96 C86.5 100 91.5 104.5 94.5 111",
+  "M70 95 C63.5 96.5 58.5 101 56.5 110",
+  "M80 95 C86.5 96.5 91.5 101 93.5 110",
 ];
 
 /** A soft light down the left edge, following the new outer contour so the
@@ -116,9 +127,27 @@ export const JACKET_SLEEVE =
   "C41.5 70.5 30.5 83 24.3 96.5" +
   // the cuff, across the limb
   "C27.5 101 33.5 103.5 40.5 103.2" +
-  // inner edge, deliberately pushed *inside* the torso so the jacket body
-  // buries the root the way the torso buries the flipper's
+  // inner edge, deliberately pushed *inside* the torso so the coat's own fill
+  // covers the root
   "C45 97 50 91 54 86.5 z";
 
-/** The cuff on its own, stroked over the sleeve so the opening reads. */
-export const JACKET_CUFF = "M24.3 96.5 C27.5 101 33.5 103.5 40.5 103.2";
+/**
+ * The sleeve's *outline* — outer edge and cuff only, never the inner edge.
+ *
+ * This is the shape that makes the arm read as part of the coat rather than
+ * as a separate piece stuck onto it. Stroked all the way round, the sleeve
+ * drew a hard navy line across the shoulder; the reference has none there,
+ * the colour simply runs from torso into sleeve and only the silhouette and
+ * the cuff carry an outline. So the fill is drawn unstroked and this open
+ * path supplies the two edges that are genuinely edges.
+ */
+export const JACKET_SLEEVE_EDGE =
+  // Starts at (36.5, 77.9) — the outer edge split at t = 0.5, which is where
+  // the arm crosses the coat's flank at rest, so the two outlines meet and
+  // read as one silhouette. Run from the root instead and the first half of
+  // it lies *inside* the coat, drawing a stray diagonal across the shoulder.
+  // The fill still runs all the way to the root, so a raised flipper never
+  // detaches from the body.
+  "M36.54 77.94" +
+  "C31.7 83.25 27.4 89.75 24.3 96.5" +
+  "C27.5 101 33.5 103.5 40.5 103.2";
