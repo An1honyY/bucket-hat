@@ -803,7 +803,7 @@ export default function JourneyDetailScreen({ route, navigation }: Props) {
             </View>
           )}
 
-          <View style={[styles.section, styles.gearSection]}>
+          <View style={styles.section}>
             <Text style={styles.sectionLabel}>What to wear</Text>
             {journey.recommendationSnapshot ? (
               <GearRecommendationCard snapshot={journey.recommendationSnapshot} />
@@ -1025,13 +1025,6 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // margin and one vertical rhythm for the lot.
     body: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.xxl * 2, gap: SPACING.lg },
     section: { gap: SPACING.sm },
-    // The gear card carries §9.7's mascot on its top-right corner, and he is
-    // taller than he looks: an open umbrella reaches 78px above his feet at
-    // 64pt against the hat's 50. Measured here, the hat cleared the "Follow
-    // this journey" button above by 4px and the canopy overlapped it by 38, so
-    // this is `body`'s own gap plus the 40 the umbrella needs. It buys room
-    // above whatever happens to precede the section, which varies by journey.
-    gearSection: { marginTop: SPACING.xxxl + SPACING.sm },
     timeline: {
       paddingTop: SPACING.lg,
       paddingHorizontal: SPACING.md,

@@ -33,9 +33,7 @@ function journey(departTime: string): Journey {
 }
 
 function recommendation(overrides: Partial<Recommendation> = {}): Recommendation {
-  // §13.9's presentational signals; nothing this file tests reads them.
-  const signals = { warmthLevel: 0, highUv: false, windAmplified: false, isHot: false, hasUmbrella: false } as const;
-  return { layers: [], accessories: [], notes: [], signals, ...overrides };
+  return { layers: [], accessories: [], notes: [], ...overrides };
 }
 
 describe("notifications", () => {

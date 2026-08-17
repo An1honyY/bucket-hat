@@ -2,7 +2,6 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "comment": "The web preview. If 8081 is already taken, stop whatever holds it rather than adding a second config on another port — Expo CLI ignores an assigned PORT env var and binds its own default regardless, so any alternative port has to be passed as an explicit --port flag with autoPort:false to match, and a spare config per parallel session is how this file grew a tail.",
       "name": "expo-web",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["expo", "start", "--web", "--port", "8081"],
@@ -21,6 +20,14 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["expo", "start", "--dev-client", "--host", "lan", "--port", "8082"],
       "port": 8082,
+      "autoPort": false
+    },
+    {
+      "comment": "Web preview on a port of its own, so it can run alongside a device Metro on 8081 without either fighting for it. `autoPort` is deliberately false: Expo CLI does not honour the assigned PORT env var and binds its own default 8081 regardless, so the port has to be passed as an explicit --port flag and declared here to match.",
+      "name": "expo-web-alt",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--web", "--port", "8083"],
+      "port": 8083,
       "autoPort": false
     }
   ]
