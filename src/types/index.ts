@@ -230,6 +230,57 @@ export interface RecurrenceRule {
 // converge more precisely (Section 7.5). Ordered coldest to warmest.
 export type GearFeedback = "much_too_cold" | "too_cold" | "just_right" | "too_warm" | "much_too_warm";
 
+/**
+ * The engine's own intermediate conclusions, surfaced for presentation.
+ *
+ * Phase 21's mascot (Section 13.9) picks its state from these and from
+ * nothing else. It exists because `warmthLevel` in particular cannot be
+ * honestly re-derived outside recommendGear() — by the time it's final it has
+ * absorbed the user's calibration offset, the Section 7.8 environment deltas,
+ * the Section 7.9 warmup discount and the Section 6.1 AC-contrast floor — so
+ * any second implementation would be a different number wearing the same
+ * name. The rest are cheap to recompute but ride along for the same reason:
+ * one definition of "hot", "windy" and "high UV", not two that drift.
+ *
+ * Lives here rather than beside the engine because it is persisted: a frozen
+ * RecommendationSnapshot carries a copy (below).
+ *
+ * Strictly one-directional. Nothing in the engine reads these back.
+ */
+/**
+ * What the mascot is wearing (Section 13.9's paper-doll layer), as swatch
+ * names rather than colours — the hex lookup belongs with the design tokens,
+ * not in stored data.
+ *
+ * Three states per slot, and the difference matters: the field **absent**
+ * means nothing was recommended for that slot, **null** means something was
+ * but it has no `color` set, and a value means it has one. Only the first of
+ * those should leave the mascot without the garment; the second wears it in
+ * the neutral grey, because `color` is a Phase 21 field and most wardrobes
+ * have none of it.
+ */
+export interface RecommendationGarments {
+  jacket?: MascotSwatch | null;
+  bottoms?: MascotSwatch | null;
+  umbrella?: MascotSwatch | null;
+}
+
+export interface RecommendationSignals {
+  /** 0 (warm) … 4 (freezing), after every adjustment has been applied. */
+  warmthLevel: 0 | 1 | 2 | 3 | 4;
+  /** Section 7.6 — max effective UV across outdoor legs (incl. the high-reflection offset) met HIGH_UV_INDEX. */
+  highUv: boolean;
+  /** Section 7.8 — an outdoor leg is annotated windEffect "amplified" and its felt wind clears WIND_CHILL_KPH. */
+  windAmplified: boolean;
+  /** Section 7.15 — an outdoor leg's apparentTempC met HOT_C. */
+  isHot: boolean;
+  /** An umbrella the user actually owns was resolved, as opposed to a fallbackText stand-in. */
+  hasUmbrella: boolean;
+  /** Section 13.9's clothing slots. Optional: snapshots frozen before the
+   *  paper-doll layer existed simply render an undressed mascot. */
+  garments?: RecommendationGarments;
+}
+
 // A frozen, display-only copy of what recommendGear() returned at the time
 // it mattered — History (Section 4.4) reads this instead of re-running the
 // live engine.
@@ -246,6 +297,12 @@ export interface RecommendationSnapshot {
   shoeName: string | null;
   umbrellaName: string | null;
   notes: string[];
+  // What the mascot was showing when this was frozen (Section 13.9), so a
+  // trip taken in a cold snap still has a shivering companion when you look
+  // back at it — rather than the cheerful idle one that re-deriving from
+  // today's weather would give. Same additive treatment as `layerTypes`:
+  // optional, so rows written before Phase 21 simply render no mascot.
+  signals?: RecommendationSignals;
   snapshotAt: string; // ISO
 }
 

@@ -13,6 +13,9 @@ import type {
   ClothingType,
   Journey,
   JourneyLeg,
+  MascotSwatch,
+  RecommendationGarments,
+  RecommendationSignals,
   ShoeItem,
   UmbrellaItem,
   WarmthCalibration,
@@ -45,6 +48,7 @@ export interface Recommendation {
   umbrella?: UmbrellaItem | { fallbackText: string; isGenericAssumption?: boolean };
   severeWeatherAdvisory?: string;
   notes: string[];
+  signals: RecommendationSignals;
 }
 
 export interface Inventory {
@@ -82,7 +86,10 @@ const STATIONARY_WAIT_MIN_MINUTES = 10;
 const STATIONARY_WAIT_WINDY_MIN_MINUTES = 5;
 const ITEM_WARMTH_SCALE_MAX = 10; // §3.6 — ClothingItem.warmth's 1-10 range; pickLayer()'s targetWarmth math below depends on this directly
 const WARMTH_LEVEL_TO_ITEM_SCALE = ITEM_WARMTH_SCALE_MAX / 4; // maps the 0-4 warmthLevel range onto the 1-10 item warmth scale
-const BOTTOMS_COLD_WARMTH_LEVEL = 4;
+// Exported — §13.9's mascot reads `signals.warmthLevel` against this exact
+// constant rather than hard-coding 4, so the shiver state and the thermal-
+// bottoms pick can never disagree about what a genuine cold snap is.
+export const BOTTOMS_COLD_WARMTH_LEVEL = 4;
 const HOT_C = 24;
 const SEVERE_WEATHER_SEVERITY = 4;
 const SEVERE_GUST_KPH = 60;
@@ -248,14 +255,21 @@ function pickLayer(
 // §7.6 — sun and low-light gear. Reads highReflection/sunEffect fields
 // that stay undefined until Phase 6's annotation matching exists (same
 // "shape is right, dead until the data exists" pattern as hikeSamples).
+// Hoisted out of applySunProtection so recommendGear can report the same
+// number as a signal (§13.9) without a second copy of the reflection offset.
+// `-Infinity` for a journey with no outdoor legs, which fails every
+// comparison below — the right answer for "no sun exposure at all".
+function maxEffectiveUvOf(outdoorLegs: JourneyLeg[]): number {
+  return Math.max(...outdoorLegs.map((l) => l.weather!.uvIndex + (l.highReflection ? HIGH_REFLECTION_UV_OFFSET : 0)));
+}
+
 function applySunProtection(
   accessories: LayerPick[],
   available: ClothingItem[],
   outdoorLegs: JourneyLeg[],
   notes: string[]
 ) {
-  const effectiveUv = (l: JourneyLeg) => l.weather!.uvIndex + (l.highReflection ? HIGH_REFLECTION_UV_OFFSET : 0);
-  const maxEffectiveUv = Math.max(...outdoorLegs.map(effectiveUv));
+  const maxEffectiveUv = maxEffectiveUvOf(outdoorLegs);
   if (maxEffectiveUv < HIGH_UV_INDEX) return;
   const sunglasses = available.find((c) => c.tags?.includes("sunglasses"));
   accessories.push(sunglasses ?? { fallbackText: "Sunglasses or a hat", layerType: "accessory" });
@@ -277,6 +291,40 @@ function applyDarknessGear(accessories: LayerPick[], available: ClothingItem[], 
   } else {
     notes.push("Part of this trip is in the dark — something reflective would help");
   }
+}
+
+/**
+ * §13.9's paper-doll slots, read off the picks that were already made.
+ *
+ * Slot priority for the torso mirrors the layers stack's own visual priority
+ * (§9.3): jacket if one was picked, else midlayer, else base.
+ *
+ * A *fallback* pick still dresses him. The engine saying "wear a jacket"
+ * without naming one from the wardrobe is still the engine saying to wear a
+ * jacket, and §13.9's graceful-fallback rule is explicit that the overlay
+ * appears in neutral grey rather than being omitted — which is what `null`
+ * here means, as against the field being absent for an empty slot.
+ */
+function garmentsFor(
+  layers: LayerPick[],
+  bottoms: Recommendation["bottoms"],
+  umbrella: Recommendation["umbrella"]
+): RecommendationGarments {
+  const swatch = (pick: { color?: MascotSwatch } | { fallbackText: string } | undefined) => {
+    if (!pick) return undefined;
+    return "id" in pick ? (pick as { color?: MascotSwatch }).color ?? null : null;
+  };
+  const typeOf = (l: LayerPick) => ("layerType" in l ? l.layerType : l.type);
+  const torso =
+    layers.find((l) => typeOf(l) === "jacket") ??
+    layers.find((l) => typeOf(l) === "midlayer") ??
+    layers.find((l) => typeOf(l) === "base");
+
+  const garments: RecommendationGarments = {};
+  if (torso) garments.jacket = swatch(torso);
+  if (bottoms) garments.bottoms = swatch(bottoms);
+  if (umbrella) garments.umbrella = swatch(umbrella);
+  return garments;
 }
 
 export function recommendGear(
@@ -680,5 +728,25 @@ export function recommendGear(
     notes.push(GENERIC_PICKS_NOTE);
   }
 
-  return { layers, bottoms, accessories, shoes, umbrella, severeWeatherAdvisory, notes };
+  return {
+    layers,
+    bottoms,
+    accessories,
+    shoes,
+    umbrella,
+    severeWeatherAdvisory,
+    notes,
+    // §13.9 — presentation-only, assembled last so `warmthLevel` is the final
+    // one. `windAmplified` deliberately reports the leg, not the bump: a
+    // formal journey skips the extra layer (§7.10) but the wind is still
+    // blowing, and that is what the mascot is reacting to.
+    signals: {
+      warmthLevel,
+      highUv: maxEffectiveUvOf(outdoorLegs) >= HIGH_UV_INDEX,
+      windAmplified: !!windLeg,
+      isHot,
+      hasUmbrella: !!umbrella && "id" in umbrella,
+      garments: garmentsFor(layers, bottoms, umbrella),
+    },
+  };
 }

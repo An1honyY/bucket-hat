@@ -177,6 +177,21 @@ one by date — don't edit the old entry.
 - 2026-08-09 — Today's "Right now" card leads with the temperature, not its own title (§9.3.1) [design]
 - 2026-08-09 — A diverging feels-like or notable wind lights up as a tonal fact chip (§9.3.1, §9.6) [design]
 - 2026-08-09 — One tonal vocabulary for "out of the ordinary"; the UV and wash badges join it (§9.1, §9.6) [design]
+- 2026-08-10 — The mascot is a kororā in the app's own bucket hat; art constraints drove the species (§13.9, §9.7) [design]
+- 2026-08-12 — The mascot is Antony's supplied artwork with the wings carved out of the torso; a handoff README sits beside it (§13.9) [design, supersedes the 2026-08-10 hand-drawn kororā]
+- 2026-08-12 — The engine reports its own conclusions as `Recommendation.signals` (§13.9, §7) [design]
+- 2026-08-12 — Mascot motion splits across Reanimated and keyframes; the flippers can't reach the face (§13.9, §9.7) [design]
+- 2026-08-12 — The mascot shifts his weight foot to foot; he never bobs (§13.9, §9.7) [design, supersedes the bob/sway in today's motion-split entry]
+- 2026-08-12 — Idle is a bag of beats with rests in it, not a loop (§13.9, §9.7) [design]
+- 2026-08-12 — A frozen snapshot keeps its mascot signals (§13.9, §3, §7.3) [design, bug fix]
+- 2026-08-12 — The mascot stands on the card he belongs to; the swatch picker waits for the overlays (§9.7) [design]
+- 2026-08-12 — The mascot floats over Today's cards and hops between them (§9.7) [design, bug fix]
+- 2026-08-12 — The mascot's sleeves are their own draw pass, over the torso (§13.9) [design]
+- 2026-08-12 — The mascot's default garment colour is orange, not neutral grey (§13.9) [design, supersedes §13.9's stated grey placeholder]
+- 2026-08-12 — The mascot's jacket is a single path, hood included (§13.9) [design]
+- 2026-08-17 — The mascot's viewBox gains constant headroom for the umbrella (§13.9, §9.7) [design]
+- 2026-08-17 — The umbrella is tilted, held left, and doesn't cover him (§13.9) [design]
+- 2026-08-17 — The jacket overlay is gated off, not deleted (§13.9) [design]
 
 ---
 
@@ -3459,5 +3474,372 @@ transit delay pill is a different register (a late service is about a service,
 and it carries an early/late distinction this vocabulary has no room for); and
 the condition badges keep their severity fills, which mean something more
 specific than "notable".
+
+---
+
+## 2026-08-10 — The mascot is a kororā in the app's own bucket hat; art constraints drove the species (Section 13.9, 9.7)
+
+**What**: Phase 21's character is a kororā (little blue penguin), wearing the
+same kōwhai-gold bucket hat as the launcher icon. Drawn as
+`MascotArt.tsx` — a pure component with named groups (`body`, `arms`, `face`,
+`hat`, and the four garment slots) and every pose passed in as a number.
+
+**Why this needed a decision**: the spec is unusually complete about behaviour
+— animation states, slot priority, reduce-motion fallback — and says nothing
+at all about what the animal is. It also flags the art as "a genuine external
+design-asset dependency", so choosing rather than blocking is itself the call.
+
+**Resolution**: picked on the slot constraints rather than on charm. §13.9
+needs a jacket, bottoms and a *held* umbrella, which requires an upright body
+with a waist, legs, and limbs that can carry something. Most of the obvious NZ
+birds fail that — a kiwi is a horizontal teardrop with nothing to hold an
+umbrella with. A penguin is already shaped like someone standing up in a coat,
+and kororā actually live on Auckland's coast, so the regional read (§2.1)
+comes free rather than being decoration.
+
+Four things the drawing got wrong that only appeared once it was rendered at
+size, all worth not repeating:
+
+- The brim was drawn wider than the penguin's own body, which reads as a
+  sombrero. A bucket hat is defined by a *short* brim angled down — this is
+  the one silhouette this app can't afford to get wrong.
+- The garment slots were drawn behind the body, so bottoms never appeared.
+- Flippers drawn inside the body silhouette in a near-body shade made the wave
+  and brow-shade poses identical to idle.
+- The body was dark enough that navy and black garments — two of the twelve
+  swatches, and obvious choices for a coat — merged into it. The body was
+  lightened rather than the swatches, which fixes all twelve at once.
+
+The character's own palette is deliberately *not* theme tokens: it keeps its
+colouring across light/dark and across the weather mood, the way a drawing of
+an animal would. Only the garment slots change colour.
+
+`MascotPreview.tsx` is a dev-only bench rendering every pose and slot
+combination side by side; it is not routed anywhere and should be deleted when
+Phase 21 ships.
+
+---
+
+## 2026-08-12 — The mascot is Antony's supplied artwork with the wings carved out of the torso (Section 13.9)
+
+Supersedes the 2026-08-10 entry, which recorded a hand-drawn kororā chosen on
+slot constraints. That character was replaced outright: Antony supplied a
+finished penguin illustration, then a second version of it with a reworked
+bucket hat, and the second is what ships. The species reasoning in that entry
+no longer applies to anything in the codebase — only its list of drawing
+mistakes is still worth reading.
+
+**What**: `MascotBase.tsx` is that artwork's own path data, with one structural
+change — the torso outline has its two wing excursions carved out, and the
+wings are redrawn as separate limbs hinged at the shoulders.
+
+**Why this needed a decision**: in the source, head, body and both wings are a
+single closed outline. Nothing that forms part of a shape's own contour can be
+rotated away from it, so §13.9's wave, sun-squint and umbrella-huddle states
+were unbuildable as drawn. An earlier attempt rotated the wing *shading*
+instead, which slid a detail mark across the belly while the flipper stayed
+welded to the body — it read as the penguin sprouting a direction arrow.
+
+**Resolution**: the wing coordinates are traced from the source path's own
+curve data and the torso resumes exactly where the original branches into each
+wing, so at rest the silhouette is the artwork's. Two properties are
+load-bearing and easy to undo by accident: the wing's root is a straight chord
+*through the pivot* (so it cannot swing clear of the body and open a gap at the
+armpit), and the limb draws *behind* the torso with a full closed outline (so
+the outline stops where it meets the body without any hand-tuned trimming).
+
+The 0.93 vertical squash that shortens the character is baked into the
+coordinates rather than applied as a wrapping transform. A global transform
+meant the file's numbers were not the screen's, which silently invalidated a
+round of pixel measurements taken against them. Consequence: y values no longer
+match the supplied SVG — multiply by 0.93 about y = 143 to compare.
+
+Several source paths are deliberately not drawn — an orphaned wing highlight,
+hat marks that land on the forehead as scratches, the white wedge between the
+eyes (kept but filled blue). Each is documented at its site.
+
+`src/components/mascot/README.md` carries the working notes: the pose API, the
+traps, and the remaining phases.
+
+---
+
+## 2026-08-12 — The engine reports its own conclusions as `Recommendation.signals` (§13.9, §7)
+
+**What**: `recommendGear()` now returns a `signals` block — final `warmthLevel`
+plus `highUv` / `windAmplified` / `isHot` — and Phase 21's `mascotStateFor()`
+(`src/lib/mascot.ts`) reads only that, never the journey.
+
+**Why**: §13.9 says the mascot maps signals "the engine already computes,
+nothing new derived", but `warmthLevel` was module-private and cannot be
+honestly recomputed outside `recommend.ts` — by the time it is final it has
+absorbed the calibration offset, the §7.8 environment deltas, the §7.9 warmup
+discount and the §6.1 AC-contrast floor. Any second implementation would be a
+different number wearing the same name.
+
+**Resolution**: one-directional and presentation-only — nothing in
+`recommend.ts` reads `signals` back, and the field is assembled at the return.
+Extend it only for another presentational consumer of an *existing* engine
+conclusion; anything that wants to change a recommendation belongs in the
+engine, not here.
+
+---
+
+## 2026-08-12 — Mascot motion splits across Reanimated and keyframes (§13.9, §9.7)
+
+**What**: the mascot's body (the weight shift, any held lean, the shiver
+jitter) animates on Reanimated via a wrapping `Animated.View`; its limbs and
+face are held poses with explicit durations, swapped from JS. §13.9's brow-shading and fanning
+hands are approximated, because the flippers cannot reach the face.
+
+**Why**: the alternative was threading shared values into `MascotBase` and
+animating `react-native-svg` props directly, which would make its "every pose
+is a number passed in" purity conditional and leans on the least-supported
+corner of both libraries on react-native-web — the surface this component is
+actually verified on. Separately, rendering showed the limb is shoulder-mounted
+and longer than the body is tall: at 48° it reads as pointing, and past ~90°
+the hat brim swallows it.
+
+**Resolution**: poses and timings live in `states.ts`, one file to change when
+the art does; raises stay at or under 90° and states are distinguished by rate
+and pose rather than by putting a flipper on the face. Redraw the limb in the
+source art before trying to make a state literal.
+
+---
+
+## 2026-08-12 — The mascot shifts his weight foot to foot; he never bobs (§13.9, §9.7)
+
+**What**: idle and every other state rock side to side about whichever foot
+the lean puts the weight on, replacing a vertical bob and a sway that rotated
+about the point between the feet.
+
+**Why**: Antony asked when the floating animation made sense, and it doesn't —
+a bob lifts both feet at once, which on a bird standing on the ground reads as
+hovering. The sway it sat beside was wrong for a related reason: rotating
+about the midpoint drives the far foot through the floor.
+
+**Resolution**: one motion covers both, and it is physically honest — the
+planted foot is pinned (measured under 0.1px at 215px) and the free one lifts.
+The pivot moves by offsetting the transform rather than animating
+`transformOrigin`, so it can swap feet without a jump. Anything that wants to
+move the character vertically should be treated as a mistake unless he is
+meant to leave the ground.
+
+---
+
+## 2026-08-12 — Idle is a bag of beats with rests in it, not a loop (§13.9, §9.7)
+
+**What**: a mascot state is now a list of *beats* — frames plus body motion —
+and idle deals eight of them from a shuffled bag: a weight shift, a tap of
+each foot, a two-flipper ruffle, and four rests. `MascotPose` gained
+`leftFootLift`/`rightFootLift`, and `MascotBase` splits its feet into a group
+each so a foot can move while the torso does not.
+
+**Why**: Antony asked for foot and flipper taps and for "little wait times
+where the penguin sits still — a real living creature wouldn't be moving
+constantly without rest". A single looping animation per state can express
+neither. Dealing from a bag rather than running a written sequence is what
+keeps a permanently-visible character from visibly coming round.
+
+**Resolution**: the blink lives *inside* `rest()`, not as a beat of its own —
+with it separate, the bag could deal every rest consecutively and did,
+producing a measured eleven seconds of nothing that read as a hung view.
+Idle is the only multi-beat state; the weather states stay one looping beat,
+and should, since a shivering penguin has no business pausing.
+
+---
+
+## 2026-08-12 — A frozen snapshot keeps its mascot signals (§13.9, §3, §7.3)
+
+**What**: `RecommendationSignals` moved to `src/types/index.ts`, gained
+`hasUmbrella`, and is now stored on `RecommendationSnapshot`.
+`mascotStateFor()` takes the signals block rather than a whole
+`Recommendation`, so a frozen journey and a live one drive it identically.
+
+**Why**: the mascot was wired to the live recommendation only, and
+`freezeIfDue` fires on Journey Detail load — so a "leave now" journey is
+frozen the instant you open it and lost its companion immediately. That is
+not an edge case; it is the most common Journey Detail view there is.
+Re-deriving from today's weather instead would caption last week's gear with
+this morning's sky.
+
+**Resolution**: optional on the snapshot, the same additive treatment
+`layerTypes` already set, so pre-Phase-21 rows render no mascot rather than
+needing a backfill. The block stays presentation-only in both directions —
+if something wants to *change* a recommendation it belongs in the engine.
+
+---
+
+## 2026-08-12 — The mascot stands on the card he belongs to (§9.7)
+
+**What**: both instances are positioned by `mascotFeetOffset(size)` — Today's
+96pt one standing on the "Right now" card's top edge, Journey Detail's 64pt
+one perched on the gear card's top-right corner. The gear-card instance is
+absolutely positioned outside the card's content box.
+
+**Why**: the artwork leaves ~11% of its height empty below the soles, so
+laying either out by its box alone leaves him hovering — the exact look the
+weight-shift animation was built to avoid. And a mascot placed *inside* the
+gear card would have a truncating item name running under it.
+
+**Resolution**: the swatch picker §13.9 assigns to this phase is deliberately
+not shipped with it. Its own copy promises the colour "only affects how your
+companion looks", which stays false until the garment overlays exist; it
+belongs with them, in one change.
+
+---
+
+## 2026-08-12 — The mascot floats over Today's cards and hops between them (§9.7)
+
+**What**: on Today he is absolutely positioned as the last child of a stack
+holding every card, and hops to the topmost card with room for him as you
+scroll (`PerchedMascot`, `useMascotPerches`). Journey Detail's instance is
+unchanged — it is already a child of the card it sits on.
+
+**Why**: laid out in the flow he was an earlier sibling than the card below,
+so its background painted over his feet and he read as sunk into it rather
+than standing on it. Antony asked for the feet to sit over the card and for
+him to be able to move between them; both need the same thing, which is for
+him to stop being a row in the stack.
+
+**Resolution**: scroll-driven rather than timed, so he can never hop off
+screen and strand himself, and pinned to the first card under reduce motion.
+Perches are *declared*, not derived from the card list: he stands above the
+line he's on, so a perch per card put him over the hourly forecast strip.
+Today declares two, each somewhere the screen knows is clear, and `PerchAlign`
+puts him at the empty end of a short row rather than centred over content.
+
+Two platform traps are load-bearing and commented at their sites: `elevation`
+is needed on top of draw order because Android ranks by elevation, and
+`onLayout` must be treated as a cue to `measureLayout` rather than as data,
+because on web it never fires for a view that only moves.
+
+---
+
+## 2026-08-12 — The mascot's sleeves are their own draw pass, over the torso (§13.9)
+
+**What**: §13.9's paper-doll layer ships its first slot — a hooded jacket
+tinted from the recommended item's `MascotSwatch`. The sleeves are drawn in a
+second rotating pass *after* the body rather than alongside the flipper, and
+are cut wider than the limb they cover.
+
+**Why**: both were found by rendering. Placed with the flipper the sleeve is
+invisible — the wings draw behind the torso and the sleeve covers exactly the
+part of the limb the torso hides. Traced onto the wing's own curves it then
+came out the same width as the blade, and the jacket body covered all but
+about two units of it.
+
+**Resolution**: `Limb` shares the rotation between the flipper pass and the
+sleeve pass, and the jacket body drawn last buries the sleeve's root the same
+way the torso buries the flipper's. Garment colours ride in
+`signals.garments` as swatch *names*, so a frozen snapshot keeps its outfit
+and the hex lookup stays with the design tokens. An unset colour renders
+neutral grey and is distinguished from an empty slot by `null` versus absent.
+
+---
+
+## 2026-08-12 — The mascot's default garment colour is orange, not neutral grey (§13.9)
+
+**What**: an item with no `color` set now renders in the orange swatch.
+`MASCOT_NEUTRAL` is renamed `MASCOT_DEFAULT_GARMENT`, and the test asserting
+the fallback was distinct from every swatch now asserts the opposite.
+
+**Why**: §13.9 specifies "a neutral grey placeholder", on the reasoning that
+the user should be able to tell the mascot doesn't know the colour. Rendered,
+grey read as broken rather than as unknown — and because `color` is a Phase 21
+field, the fallback is what almost every garment uses, so it is the mascot's
+normal appearance rather than an edge case.
+
+**Resolution**: Antony chose orange. The trade is explicit — an untagged item
+and one tagged `orange` now look identical on the mascot, and the Gear form is
+where you check what something is actually tagged. Revisit if the swatch
+picker ever needs to nudge people into tagging.
+
+---
+
+## 2026-08-12 — The mascot's jacket is a single path, hood included (§13.9)
+
+**What**: the jacket gained a real hood, drawn last in the garment group —
+over the body rather than under it — and the body's neckline dropped to a low,
+almost-horizontal line at chest height.
+
+**Why**: the first version folded the hood into the body as a collar rising to
+the hat brim, and Antony read it exactly as it was: "a shirt that goes up to
+his ears". Under the body a separate hood was no better, because hood and
+shoulders occupy the same part of the silhouette — only the few units
+protruding past the flank showed, which looked like straps.
+
+**Resolution**: hood and body are **one path**, with the face opening and a
+V-neck cut out as a single `evenodd` hole. Two intermediate attempts — hood
+under the body, then over it — each failed the same way: the garment is one
+piece of fabric, and building it from two pieces puts a line where the
+reference has none. The hood is now just where the outer contour bulges past
+the head, easing back to the torso's line by the chest; carried lower it sits
+where the flippers hang and swallows both sleeves. Pocket seams were also
+mirrored — high-inner to low-outer, as a pouch does.
+
+---
+
+## 2026-08-17 — The mascot's viewBox gains constant headroom for the umbrella (§13.9, §9.7)
+
+**What**: `MascotBase`'s box stopped being square — `VIEW_BOX_HEADROOM` adds
+48 artwork units above the character, always, whether or not he is holding an
+umbrella. `size` now means the box's *width*; height comes from
+`mascotBoxHeight()`, and `mascotFeetOffset()` measures from the raised top.
+
+**Why**: an open canopy has to sit above a hat crown that already reaches
+y ≈ 16 in the original 0–150 box, so the slot could not be filled without more
+room. Making the room conditional was the tempting version, since the umbrella
+shows only in rain.
+
+**Resolution**: constant. `mascotFeetOffset` is what every placement measures
+against, so a box that changed height with the weather would move Today's
+reserved clearance each time it rained. The cost is paid in two commented,
+measured lines — Today's `forecastPerch` (+28px) and Journey Detail's
+`gearSection` (+40px) — and `garments.test.ts` now fails if a retuned canopy
+outgrows the headroom rather than letting it clip silently.
+
+---
+
+## 2026-08-17 — The umbrella is tilted, held left, and doesn't cover him (§13.9)
+
+**What**: the umbrella slot ships as a canopy tilted 37° off vertical, pinned
+to the **left** flipper at 88°, sheltering his head and right side while the
+right of the hat brim stays out in the rain.
+
+**Why**: the flipper is straight and shoulder-mounted, so the hand has exactly
+one usable position — (17.5, 48), because at 105° it reaches further across but
+disappears behind the hat brim and the umbrella reads as floating. Reaching
+from there to over the hat forces a tilt, and the tilt is squeezed from both
+sides: too little reads as holding it aloft beside himself, too much lands the
+near rim on the brim and pushes the far rim out of the box.
+
+**Resolution**: partial cover is geometry, not an unfinished shape — no canopy
+wide enough to shelter him from a hand that far off-centre fits at any tilt, and
+a tilted umbrella with someone hunched under the low side is what huddling
+looks like. The left flipper is pinned in `MascotBase` rather than posed in
+`states.ts`, so no beat, greeting or hop can slide the hand out of the handle;
+left rather than right keeps §13.9's on-focus wave free. Don't "fix" the
+coverage by widening the canopy without re-measuring both perches.
+
+---
+
+## 2026-08-17 — The jacket overlay is gated off, not deleted (§13.9)
+
+**What**: `JACKET_OVERLAY_ENABLED` in `src/lib/mascot.ts` is `false`, so
+`mascotGarmentFills` withholds the jacket slot and the mascot ships bare under
+the umbrella. Every jacket path, the sleeve's own draw pass and the reasoning
+behind both stay exactly where they are.
+
+**Why**: Antony's call — the shape isn't good enough to ship, and seen in the
+app an orange coat under an orange umbrella also read as one colour blob
+rather than as two garments. Deleting it would have thrown away four
+constructions' worth of hard-won reasoning about why the hood has to be one
+path with the body.
+
+**Resolution**: one named, documented constant rather than commented-out code
+or a stripped `MascotBase`. The engine still populates `signals.garments.jacket`,
+so re-enabling it needs no engine change and no snapshot migration; the gate is
+pinned in `mascot.test.ts` so it is discoverable rather than a line someone
+trips over. Retune the shape and flip the constant — don't rebuild it.
 
 ---
