@@ -1,4 +1,5 @@
 import { createBeatBag, GREETING, GREETING_MS, MASCOT_ANIMATIONS } from "./states";
+import { UMBRELLA_ARM_DEG } from "./garments";
 
 // The bag is the only logic in the mascot's animation layer — everything else
 // is pose data judged by rendering it. Worth pinning because both of its
@@ -102,6 +103,24 @@ describe("beat definitions", () => {
         const frameMs = beat.frames.reduce((total, f) => total + f.ms, 0);
         expect(frameMs).toBe(2 * periodMs * cycles);
       }
+    }
+  });
+
+  it("the huddle raises the flipper the umbrella is drawn into, and the greeting uses the other one", () => {
+    // The overlay is drawn in artwork coordinates at exactly this angle, and
+    // MascotBase pins the flipper there whenever the slot is filled — so a
+    // huddle posed anywhere else would be a silent disagreement between this
+    // file and what renders. The *side* is the load-bearing half: §13.9's
+    // on-focus wave is the right flipper, and it plays over whatever state is
+    // showing, so the umbrella has to be in the left one or every arrival on
+    // a rainy Journey Detail waves the umbrella around.
+    const huddle = MASCOT_ANIMATIONS.umbrellaHuddle;
+    for (const pose of [...huddle.beats.flatMap((b) => b.frames.map((f) => f.pose)), huddle.reduced]) {
+      expect(pose.leftFlipperDeg).toBe(UMBRELLA_ARM_DEG);
+      expect(pose.rightFlipperDeg).toBeUndefined();
+    }
+    for (const frame of GREETING.beats[0].frames) {
+      expect(frame.pose.leftFlipperDeg).toBeUndefined();
     }
   });
 

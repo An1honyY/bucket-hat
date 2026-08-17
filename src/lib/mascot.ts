@@ -29,6 +29,24 @@ export interface MascotState {
 }
 
 /**
+ * Whether the jacket overlay is dressed onto the character.
+ *
+ * **Off**, and deliberately: Antony's call after seeing it in the app — the
+ * shape isn't good enough to ship, and an orange coat under an orange umbrella
+ * also read as one colour blob rather than two garments. He is better bare
+ * than in it.
+ *
+ * Nothing was deleted to do this. `JACKET` and its sleeve are still in
+ * `garments.ts`, `MascotBase` still draws the slot when it's filled, and the
+ * hard-won reasoning about why it is one path is still in both. Turning it
+ * back on is this one line. Typed `boolean` rather than left as the literal so
+ * the branch below doesn't narrow to dead code.
+ *
+ * See `DECISIONS.md` 2026-08-17 and the README's paper-doll section.
+ */
+export const JACKET_OVERLAY_ENABLED: boolean = false;
+
+/**
  * Resolve §13.9's clothing slots to the fills the component draws.
  *
  * The absent/null distinction from `RecommendationGarments` survives exactly
@@ -43,7 +61,13 @@ export function mascotGarmentFills(signals: RecommendationSignals): MascotGarmen
   const { garments } = signals;
   if (!garments) return {};
   const fills: MascotGarmentFills = {};
-  if ("jacket" in garments) fills.jacket = mascotSwatchHex(garments.jacket ?? undefined);
+  if (JACKET_OVERLAY_ENABLED && "jacket" in garments) fills.jacket = mascotSwatchHex(garments.jacket ?? undefined);
+  // Independent of the huddle *state*, per §13.9's "shown whenever those
+  // fields are set". The two can differ: a journey that needs an umbrella the
+  // user doesn't own sets this slot (in the neutral fill) while `hasUmbrella`
+  // stays false, so he carries one without hunching under it. That is the
+  // honest reading — it is raining either way.
+  if ("umbrella" in garments) fills.umbrella = mascotSwatchHex(garments.umbrella ?? undefined);
   return fills;
 }
 

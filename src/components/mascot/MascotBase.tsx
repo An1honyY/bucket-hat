@@ -5,11 +5,20 @@ import {
   GARMENT_OUTLINE,
   GARMENT_OUTLINE_WIDTH,
   GARMENT_SEAM_WIDTH,
+  GARMENT_SHADE,
+  GARMENT_SHADE_OPACITY,
   JACKET,
   JACKET_SLEEVE_EDGE,
   JACKET_HIGHLIGHT,
   JACKET_SEAMS,
   JACKET_SLEEVE,
+  UMBRELLA_ARM_DEG,
+  UMBRELLA_CANOPY,
+  UMBRELLA_PANEL_LIT,
+  UMBRELLA_PANEL_SHADED,
+  UMBRELLA_SEAMS,
+  UMBRELLA_SHAFT,
+  UMBRELLA_SHAFT_WIDTH,
 } from "./garments";
 
 // The mascot, from the second QuiverAI illustration Antony supplied — the one
@@ -46,10 +55,30 @@ import {
 // than re-wrap. Note the source art's own y values therefore no longer match
 // the QuiverAI file: multiply by 0.93 about y = 143 to compare.
 
-/** Artwork units per side. Exported so a wrapper can convert the pivot below
- *  into its own coordinate space without hard-coding 150 a second time. */
+/** Artwork units across. Exported so a wrapper can convert the pivot below
+ *  into its own coordinate space without hard-coding 150 a second time. This
+ *  is also what `size` means at every call site: the *width* in px. */
 export const VIEW_BOX_UNITS = 150;
-const VIEW_BOX = `0 0 ${VIEW_BOX_UNITS} ${VIEW_BOX_UNITS}`;
+
+/**
+ * Empty artwork units above the character, so an umbrella has somewhere to be.
+ *
+ * The character himself fits 0–150 exactly and his hat crown already reaches
+ * y ≈ 16, so a canopy over his head has no room at all in the square box. This
+ * lifts the top of the viewBox instead of shrinking him.
+ *
+ * It is **constant**, not added only when he is holding one, and that is the
+ * decision worth keeping: `mascotFeetOffset` below is what every placement
+ * measures against, and a box that changed height with the weather would move
+ * the reserved clearance on Today each time it rained. The cost is this much
+ * blank space above him the rest of the time; the box is transparent and
+ * `pointerEvents="none"` at both placements, so it costs nothing but layout.
+ */
+export const VIEW_BOX_HEADROOM = 48;
+
+/** The box's height in artwork units — no longer square. */
+export const VIEW_BOX_HEIGHT_UNITS = VIEW_BOX_UNITS + VIEW_BOX_HEADROOM;
+const VIEW_BOX = `0 ${-VIEW_BOX_HEADROOM} ${VIEW_BOX_UNITS} ${VIEW_BOX_HEIGHT_UNITS}`;
 
 /** Where the whole character pivots: the feet, not the centre. `tiltDeg` uses
  *  it below, and Mascot.tsx's animated lean has to pivot about the same point
@@ -144,6 +173,12 @@ const WING_TIP_SHADE =
 const LEFT_SHOULDER = "52, 76.97";
 const RIGHT_SHOULDER = "98, 76.97";
 
+/** The rendered height, in px, of a mascot `size` px wide. The box stopped
+ *  being square when it grew headroom for the umbrella. */
+export function mascotBoxHeight(size: number): number {
+  return (size * VIEW_BOX_HEIGHT_UNITS) / VIEW_BOX_UNITS;
+}
+
 export type EyeState = "open" | "happy" | "half" | "wide";
 export type MouthState = "closed" | "open";
 
@@ -175,6 +210,7 @@ export interface MascotPose {
  */
 export interface MascotGarmentFills {
   jacket?: string;
+  umbrella?: string;
 }
 
 interface Props {
@@ -312,14 +348,23 @@ export default function MascotBase({ size, pose = {}, garments }: Props) {
     eyes = "open",
     mouth = "closed",
     tiltDeg = 0,
-    leftFlipperDeg = 0,
+    leftFlipperDeg: posedLeftFlipperDeg = 0,
     rightFlipperDeg = 0,
     leftFootLift = 0,
     rightFootLift = 0,
   } = pose;
 
+  // Holding it wins over the pose. The umbrella is drawn in artwork
+  // coordinates rather than in the limb's frame — it has to be, since its
+  // whole geometry is "reach from the one place this flipper can put a hand to
+  // above the hat" — so a beat, the greeting or a hop that moved this flipper
+  // would slide the hand straight out of the handle. Enforced here rather than
+  // asked of every caller, because there is no pose for which the other
+  // behaviour is right.
+  const leftFlipperDeg = garments?.umbrella ? UMBRELLA_ARM_DEG : posedLeftFlipperDeg;
+
   return (
-    <Svg width={size} height={size} viewBox={VIEW_BOX}>
+    <Svg width={size} height={mascotBoxHeight(size)} viewBox={VIEW_BOX}>
       {/* Feet — source art, unchanged, behind the torso, and split into one
           group per foot so each can lift on its own. The source draws all
           eight paths as one block; the only change is where the two groups
@@ -495,6 +540,43 @@ export default function MascotBase({ size, pose = {}, garments }: Props) {
 
         <Eyes eyes={eyes} gazeX={gazeX} gazeY={gazeY} />
         <Mouth mouth={mouth} />
+
+        {/* Over everything, and inside the tilt group so it leans with him —
+            it is in his hand, not pinned to the sky. The shaft draws first so
+            the canopy's own fill buries the length running up inside the dome,
+            leaving only the ferrule above it and the stick below the rim. */}
+        {garments?.umbrella && (
+          <G id="umbrella">
+            <Path
+              d={UMBRELLA_SHAFT}
+              fill="none"
+              stroke={GARMENT_OUTLINE}
+              strokeWidth={UMBRELLA_SHAFT_WIDTH}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <Path
+              d={UMBRELLA_CANOPY}
+              fill={garments.umbrella}
+              stroke={GARMENT_OUTLINE}
+              strokeWidth={GARMENT_OUTLINE_WIDTH}
+              strokeLinejoin="round"
+            />
+            <Path d={UMBRELLA_PANEL_LIT} fill={GARMENT_HIGHLIGHT} opacity={GARMENT_HIGHLIGHT_OPACITY} />
+            <Path d={UMBRELLA_PANEL_SHADED} fill={GARMENT_SHADE} opacity={GARMENT_SHADE_OPACITY} />
+            {UMBRELLA_SEAMS.map((d) => (
+              <Path
+                key={d}
+                d={d}
+                fill="none"
+                stroke={GARMENT_OUTLINE}
+                strokeWidth={GARMENT_SEAM_WIDTH}
+                strokeLinecap="round"
+                opacity={0.5}
+              />
+            ))}
+          </G>
+        )}
       </G>
     </Svg>
   );

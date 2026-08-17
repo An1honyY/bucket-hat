@@ -151,3 +151,137 @@ export const JACKET_SLEEVE_EDGE =
   "M36.54 77.94" +
   "C31.7 83.25 27.4 89.75 24.3 96.5" +
   "C27.5 101 33.5 103.5 40.5 103.2";
+
+// ─── The umbrella ──────────────────────────────────────────────────────────
+//
+// The one garment whose shape is dictated rather than chosen. The flipper is
+// shoulder-mounted, straight, and about 45 units long, so the hand has exactly
+// one place it can be: up and out to the side. Everything else follows from
+// having to reach from there to above a hat whose crown is already at y ≈ 16.
+//
+//   - It is **tilted**. A vertical shaft from a hand that far off-centre puts
+//     the canopy over his shoulder, not his head.
+//   - It is tilted only ~28°. Every extra degree drops the near rim towards
+//     the hat and lifts the far rim further out of the box; past about 45° the
+//     near rim lands *on* the brim.
+//   - It therefore **does not cover him completely** — the right of the brim
+//     stays out in the rain. That is not a defect to fix: a canopy wide enough
+//     to shelter him from a hand that far to one side does not fit the box at
+//     any tilt, and a tilted umbrella with someone hunched under the low side
+//     is what huddling actually looks like.
+//
+// It also needs `VIEW_BOX_HEADROOM`; see MascotBase for why that is constant.
+
+/**
+ * The angle the holding flipper is pinned to whenever the slot is filled.
+ *
+ * MascotBase forces this rather than trusting the pose, because the umbrella
+ * below is drawn in **artwork coordinates**, not in the limb's frame — so any
+ * beat, greeting or hop that moved this flipper would slide the hand out of
+ * the handle. The *left* flipper, so §13.9's on-focus wave (which is the right
+ * one) still plays while he is holding it.
+ */
+export const UMBRELLA_ARM_DEG = 88;
+
+/** Tilt off vertical, degrees; the shaft leans right as it rises. */
+const TILT_DEG = 37;
+/** Where the shaft meets the canopy, in artwork coordinates. */
+const HUB = { x: 58.7, y: -6.7 };
+/** Canopy half-width, measured along the rim. */
+const R = 50;
+/** How far the dome rises above the rim line. */
+const DOME = 27;
+/** How far the fabric bows up between two rib tips. */
+const SCALLOP = 8;
+/** Hub → hand, down the shaft. Tuned so the handle lands in the flipper tip
+ *  at `UMBRELLA_ARM_DEG`; re-measure it if that angle or `WING` changes. */
+const GRIP = 68.5;
+/** Ferrule above the dome, and handle below the hand. */
+const FERRULE = 6;
+const HANDLE = 6;
+
+const TILT = (TILT_DEG * Math.PI) / 180;
+const COS_T = Math.cos(TILT);
+const SIN_T = Math.sin(TILT);
+
+/**
+ * The umbrella's own frame → artwork coordinates: `a` runs along the rim
+ * (positive to the right), `b` up the shaft from the hub.
+ *
+ * Written in the tilted frame and converted here rather than baked, because
+ * the tilt *is* the design — every one of the numbers above wants tuning
+ * against a render, and thirty hand-rotated coordinates cannot be tuned. The
+ * strings this produces are still artwork coordinates, so anything measured on
+ * screen can be compared against `UMBRELLA_POINTS` below.
+ */
+function u(a: number, b: number): string {
+  const x = HUB.x + COS_T * a + SIN_T * b;
+  const y = HUB.y + SIN_T * a - COS_T * b;
+  return `${x.toFixed(2)} ${y.toFixed(2)}`;
+}
+
+/** The landmarks, in artwork coordinates, for measuring against a render. */
+export const UMBRELLA_POINTS = {
+  hub: HUB,
+  hand: u(0, -GRIP),
+  leftTip: u(-R, 0),
+  rightTip: u(R, 0),
+  ferrule: u(0, DOME + FERRULE),
+};
+
+/**
+ * The canopy: a dome over a scalloped rim, drawn as a flat side elevation.
+ *
+ * Three panels rather than five. At 64pt the whole umbrella is about 40px
+ * across, and five scallops plus their seams turn into a texture rather than
+ * into an umbrella.
+ */
+export const UMBRELLA_CANOPY =
+  // over the top, left rib tip to right rib tip
+  `M${u(-R, 0)} C${u(-R, DOME * 0.55)} ${u(-R * 0.68, DOME)} ${u(0, DOME)}` +
+  `C${u(R * 0.68, DOME)} ${u(R, DOME * 0.55)} ${u(R, 0)}` +
+  // back along the rim: two rib tips between the ends, fabric bowing up between
+  `Q${u(R * 0.667, SCALLOP)} ${u(R / 3, 0)}` +
+  `Q${u(0, SCALLOP + 1)} ${u(-R / 3, 0)}` +
+  `Q${u(-R * 0.667, SCALLOP)} ${u(-R, 0)} z`;
+
+/** The two panel seams, apex to the inner rib tips. */
+export const UMBRELLA_SEAMS = [
+  `M${u(0, DOME)} C${u(R * 0.12, DOME * 0.67)} ${u(R * 0.27, DOME * 0.3)} ${u(R / 3, 0)}`,
+  `M${u(0, DOME)} C${u(-R * 0.12, DOME * 0.67)} ${u(-R * 0.27, DOME * 0.3)} ${u(-R / 3, 0)}`,
+];
+
+/**
+ * The outer panels, lit on the left and shaded on the right.
+ *
+ * Each is exactly one panel — the dome edge, the seam beside it, and the rim
+ * between them — rather than a free-drawn sweep, so the modelling lands on the
+ * shapes the seams already declare instead of cutting across them. Tilted the
+ * way it is, the left panel is the one turned up towards the sky and the right
+ * the one turned away, which is the same light the character's own shading
+ * assumes.
+ */
+export const UMBRELLA_PANEL_LIT =
+  `M${u(-R, 0)} C${u(-R, DOME * 0.55)} ${u(-R * 0.68, DOME)} ${u(0, DOME)}` +
+  `C${u(-R * 0.12, DOME * 0.67)} ${u(-R * 0.27, DOME * 0.3)} ${u(-R / 3, 0)}` +
+  `Q${u(-R * 0.667, SCALLOP)} ${u(-R, 0)} z`;
+
+export const UMBRELLA_PANEL_SHADED =
+  `M${u(R, 0)} C${u(R, DOME * 0.55)} ${u(R * 0.68, DOME)} ${u(0, DOME)}` +
+  `C${u(R * 0.12, DOME * 0.67)} ${u(R * 0.27, DOME * 0.3)} ${u(R / 3, 0)}` +
+  `Q${u(R * 0.667, SCALLOP)} ${u(R, 0)} z`;
+
+/**
+ * Shaft and crook, as one open stroke, drawn **under** the canopy — so the
+ * canopy's own fill hides the length inside the dome and only the ferrule
+ * above it and the shaft below the rim are seen.
+ */
+export const UMBRELLA_SHAFT =
+  `M${u(0, DOME + FERRULE)} L${u(0, -GRIP - HANDLE)}` +
+  // the crook, curling back towards his body rather than out towards the edge
+  // of the box, which is only about 12 units away on that side
+  `C${u(0, -GRIP - HANDLE - 6)} ${u(10, -GRIP - HANDLE - 6)} ${u(10, -GRIP - HANDLE + 1.5)}`;
+
+/** Stroke weight of the shaft. Thinner than the silhouette outline: it is a
+ *  stick, and at the character's own 3.2 it read as a mast. */
+export const UMBRELLA_SHAFT_WIDTH = 2.6;

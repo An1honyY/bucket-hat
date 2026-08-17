@@ -1,3 +1,4 @@
+import { UMBRELLA_ARM_DEG } from "./garments";
 import type { MascotPose } from "./MascotBase";
 import type { MascotStateName } from "../../lib/mascot";
 
@@ -164,14 +165,20 @@ export const MASCOT_ANIMATIONS: Record<MascotStateName, MascotAnimation> = {
     reduced: {},
   },
 
-  // Hunched under a raised flipper, holding the handle. The umbrella itself
-  // is a garment-slot overlay that does not exist yet (see the README) —
-  // until it does this is deliberately a *held* raise plus a lean into it, so
-  // it doesn't read as the wave, which is a moving raise on a smile.
+  // Hunched under the raised *left* flipper, holding the handle. The overlay
+  // decides that side, not this file: MascotBase pins that flipper to
+  // `UMBRELLA_ARM_DEG` whenever the slot is filled, which leaves the right one
+  // free for the on-focus wave. The pose is still stated here because the
+  // umbrella slot and the huddle state don't always agree — an umbrella the
+  // user doesn't own reaches the state but not the overlay.
+  //
+  // The lean goes *towards* the umbrella. Tilted over from a hand that far to
+  // one side, the canopy's cover is all on his left; leaning the other way put
+  // his head out from under it.
   umbrellaHuddle: {
-    leanDeg: 4,
-    beats: [held({ rightFlipperDeg: 88, eyes: "half" }, { rockDeg: 2, periodMs: 2100 })],
-    reduced: { rightFlipperDeg: 88, eyes: "half" },
+    leanDeg: -4,
+    beats: [held({ leftFlipperDeg: UMBRELLA_ARM_DEG, eyes: "half" }, { rockDeg: 2, periodMs: 2100 })],
+    reduced: { leftFlipperDeg: UMBRELLA_ARM_DEG, eyes: "half" },
   },
 
   // Blown off the vertical, windward flipper streaming higher than the

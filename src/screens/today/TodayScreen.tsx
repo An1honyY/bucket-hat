@@ -196,15 +196,17 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     perchClearance: { height: mascotFeetOffset(MASCOT_SIZE) },
     journeysSection: { marginTop: SPACING.sm },
     // The one place the layout gives the mascot room rather than the other way
-    // round, and deliberately small: he perches on this card's top-right
-    // corner, and a corner only needs a little air. The big reserved band is
-    // `perchClearance` above the first card; nothing else pays for him.
+    // round. The big reserved band is `perchClearance` above the first card;
+    // nothing else pays for him.
     //
-    // Sized by measurement, not taste: at SPACING.sm his hat brim clipped the
-    // last 14px of the "Right now" card's bottom gear chip, whose row wraps to
-    // the full width. This clears it by 2px. An umbrella overhead would need
-    // considerably more, and this is the line to change for it.
-    forecastPerch: { marginTop: SPACING.xxl },
+    // Sized by measurement, not taste. He perches on this card's top-right
+    // corner, and what is above that corner is the "Right now" card's bottom
+    // gear chip, whose row wraps to the full width. At SPACING.sm his hat brim
+    // clipped the last 14px of it; SPACING.xxl cleared it by 2px. The open
+    // umbrella then reached a further 26px up and 56px further left — measured
+    // in the browser against the real card — so this is that 24 plus the 28
+    // the canopy needs. It is the whole cost of the umbrella on this screen.
+    forecastPerch: { marginTop: SPACING.xxxl + SPACING.xl },
     sectionLabel: { ...TYPE.eyebrow, color: theme.textSecondary, marginBottom: SPACING.sm },
     emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: SPACING.xxl * 2 },
     empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },

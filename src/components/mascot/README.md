@@ -1,11 +1,11 @@
 # Mascot — handoff
 
 Phase 21 (`docs/13-extended-features.md` §13.9, `docs/09-design-system.md` §9.7).
-The character is **built, animated, placed and wearing a jacket**. What's
-left is the umbrella and bottoms slots, the swatch picker that lets anyone
-choose their colours, and the care loop. Read this before touching
-`MascotBase.tsx` — most of it is scar tissue from mistakes that cost several
-rounds each.
+The character is **built, animated, placed and holding an umbrella**. A jacket
+is drawn but **gated off** (below). What's left is the bottoms slot, the
+swatch picker that lets anyone choose their colours, and the care loop. Read
+this before touching `MascotBase.tsx` — most of it is scar tissue from
+mistakes that cost several rounds each.
 
 ## What exists
 
@@ -16,7 +16,8 @@ rounds each.
 | `states.ts` | What each state looks like and how it moves, as a list of **beats**. Change poses and timings here. Its header explains the two-mechanism split (Reanimated body, keyframed limbs) and why. |
 | `../../lib/mascot.ts` | `mascotStateFor(signals)` — the pure selector, tested against the engine's own fixtures. **Done.** |
 | `poses.ts` | The reference sheet the *character* was judged on. Nothing renders it; kept for task 4's tap reactions. |
-| `garments.ts` | §13.9's paper-doll clothing. The jacket exists; bottoms and the umbrella don't. |
+| `garments.ts` | §13.9's paper-doll clothing. The jacket and the umbrella exist; bottoms don't. |
+| `garments.test.ts` | The one thing about the umbrella that *can* be asserted: that its generated shape still fits the box. Everything else about it was judged by rendering. |
 | `../../theme/mascotSwatches.ts` | `MascotSwatch` → hex, plus `MASCOT_DEFAULT_GARMENT` (orange — see below). Tested, and what tints the jacket. |
 
 ## Where he is
@@ -27,8 +28,22 @@ rounds each.
 | Journey Detail, perched on the gear card's top-right | 64 | that journey's live recommendation, or its frozen snapshot's `signals` |
 
 Both stand him on an edge with `-mascotFeetOffset(size)`, which closes the
-~11% of empty box the artwork leaves under his soles. Laid out by the box
-alone he hovers, which is the exact look the weight shift exists to avoid.
+empty box above and below him. Laid out by the box alone he hovers, which is
+the exact look the weight shift exists to avoid.
+
+**The box is not square, and `size` means its width.** `VIEW_BOX_HEADROOM`
+adds 48 artwork units of empty space above the character so the umbrella has
+somewhere to be — the hat crown already reaches y ≈ 16 in the original 0–150
+box, so an open canopy simply does not fit it. Height therefore comes from
+`mascotBoxHeight(size)`, and `mascotFeetOffset` and `MASCOT_FEET_ORIGIN` both
+measure from the *raised* top.
+
+That headroom is constant rather than added only when the slot is filled, and
+that is deliberate: `mascotFeetOffset` is what every placement measures
+against, so a box that changed height with the weather would move Today's
+reserved clearance each time it rained. The cost is paid in two lines, both
+measured and both commented where they live — Today's `forecastPerch` (+28px)
+and Journey Detail's `gearSection` (+40px).
 
 **He must be painted over the cards, not between them.** On Today he is
 absolutely positioned as the *last* child of a stack containing every card
@@ -71,10 +86,8 @@ viewport height.
 
 Two things deliberately *not* perches: every journey card (his body would land
 on the departure time, which sits top-right exactly where he stands) and the
-checklist row. And only one place in the layout pays for him —
-`perchClearance` above the first card, plus a token `SPACING.sm` on the
-forecast card. **An umbrella overhead will need real room**; `forecastPerch`
-is where to add it.
+checklist row. Two places in the layout pay for him: `perchClearance` above
+the first card, and `forecastPerch`'s margin on the forecast card.
 
 The hop is built like a cartoon jump — crouch, launch, hold, absorb — because
 the arc alone reads as being carried rather than jumping. The crouch is a
@@ -182,6 +195,13 @@ has swallowed everything but a stub. Keep raises at or under 90°. What
 distinguishes the raised-flipper states from each other is rate and the rest of
 the pose, not position — see `states.ts`.
 
+The umbrella made that limit concrete, and rendering pinned it tighter than
+the paragraph above: the hand reaches furthest across the body at 105°, but at
+105° the blade is entirely behind the hat brim and the umbrella floats with
+nothing holding it. **88° is the last angle at which the hand still reads**,
+which is why the umbrella is built around a hand at (17.5, 48) rather than
+somewhere more convenient.
+
 **The character stands on the ground, so nothing may translate him vertically
 or rotate him about the point between his feet.** Both were tried and both
 were wrong: a vertical bob lifts both feet together and reads as hovering, and
@@ -252,11 +272,9 @@ went with this task, as planned. If you need a bench again, note that the
 override was the only way to *see* the reduce-motion poses without changing
 an OS setting.
 
-**Missing art, in one list.** Three of §13.9's states describe a drawing that
+**Missing art, in one list.** Two of §13.9's states describe a drawing that
 doesn't exist yet, and each currently ships without it: the shiver's **breath
-puff**, the fanning state's **sweat drop**, and the huddle's **umbrella**
-(which is a garment slot, below). The huddle's raised flipper is positioned to
-receive the umbrella when it lands.
+puff** and the fanning state's **sweat drop**.
 
 **Garment slots (deferred, was part of task 2).** §13.9's paper-doll layer —
 jacket/bottoms/umbrella overlays tinted from `ClothingItem.color`. The swatch
@@ -266,12 +284,15 @@ colour **must** render neutral grey rather than being omitted or guessed —
 
 ## Known gaps
 
-Verified on **web**, both themes, at 215/150/96/64px: every state's live and
-reduce-motion rendering, the greeting's full keyframe sequence, the blink
+Verified on **web**, both themes, at 430/215/150/96/64px: every state's live
+and reduce-motion rendering, the greeting's full keyframe sequence, the blink
 cycle, and that mounted instances carry `aria-hidden`. Both placements were
 measured in the real app against real Auckland weather — feet on the card
 edge to within half a pixel, nothing clipped by an ancestor, no overlap with
-the section label or the card's own rows, no horizontal page overflow.
+the section label or the card's own rows, no horizontal page overflow. With
+the umbrella, both clearances were re-measured the same way: the canopy clears
+Today's bottom gear chip by 2.2px and Journey Detail's "Follow this journey"
+button by 1.8px.
 
 - **Native is unverified.** The new risk there is `Mascot.tsx`'s wrapper —
   Reanimated shared values plus `transformOrigin` on a `View` style.
@@ -279,17 +300,26 @@ the section label or the card's own rows, no horizontal page overflow.
   static poses were verified while the bench still had its override prop; the
   `AccessibilityInfo` read and its `reduceMotionChanged` listener have not
   been. §13.9's manual test plan covers it.
-- **Only the idle state has been seen in situ.** Auckland was 14°C and
-  raining with no owned umbrella, which resolves to idle. The other five were
-  verified on the bench before it was deleted, but not in the real layout —
-  the leaning ones (wind-blown at 7°, sun-squint at 5°) are the ones worth a
-  second look if you can catch that weather.
+- **Only idle and the huddle have been seen in situ.** Auckland was 11°C and
+  dry, so the huddle was forced with a temporary override in `mascot.ts` and
+  measured on both screens. The other four were verified on the bench before
+  it was deleted, but not in the real layout — the leaning ones (wind-blown at
+  7°, sun-squint at 5°) are worth a second look if you catch that weather.
 - **The static shiver is weak.** Stripped of its jitter it is just half-lidded
   eyes, and without the breath puff there is nothing else to hold. Acceptable
   because the cold is stated in text on the card, but it is the one
   reduce-motion pose that doesn't carry its state on its own.
 
 ## The paper-doll layer (§13.9)
+
+> **The jacket is switched off.** `JACKET_OVERLAY_ENABLED` in `../../lib/mascot.ts`
+> is `false`, so `mascotGarmentFills` never fills the slot and he ships bare
+> under the umbrella. The art, the render path and all the reasoning below are
+> untouched and still correct — the shape just isn't good enough yet, and an
+> orange coat under an orange umbrella read as one blob rather than two
+> garments. Turning it back on is one line and needs no engine change and no
+> snapshot migration, because `signals.garments.jacket` is still populated.
+> `mascot.test.ts` pins the gate so it can't be forgotten.
 
 `garments.ts` holds the clothing. Only the **fill** is tinted, from the
 recommended item's `MascotSwatch`; the outline, seams and shading are fixed,
@@ -367,9 +397,44 @@ and one tagged `orange` are indistinguishable on the mascot;
 `mascotSwatches.test.ts` pins this so nobody restores the grey without reading
 why it went.
 
-**Not built yet: bottoms and the umbrella.** The umbrella is the awkward one —
-its canopy goes above the hat, and the hat crown already reaches y≈16 in a
-0–150 viewBox, so there is no room for it. It needs the viewBox to gain
-headroom when that slot is filled, which changes `mascotFeetOffset` (feet stop
-being at a fixed 89.1% of the box) and therefore every placement that stands
-him on an edge. Do that as its own change, and re-measure the perches after.
+### The umbrella
+
+The only garment **generated from constants rather than drawn**: a tilt, a
+radius, a dome height, a shaft length, and a `u(a, b)` that converts the
+umbrella's own frame into artwork coordinates. That is a deliberate break with
+the rest of the file, for one reason — the tilt *is* the design, every constant
+wants tuning against a render, and thirty hand-rotated coordinates cannot be
+tuned. The strings it emits are still artwork coordinates, so anything measured
+on screen still compares directly; `UMBRELLA_POINTS` exports the landmarks.
+
+**Its whole shape is dictated by where the hand can be.** The flipper is
+straight and shoulder-mounted, so the hand is at (17.5, 48) and nowhere else
+(above). Reaching from there to over the hat forces a tilt, and the tilt is
+then squeezed from both sides: too little and the canopy sits beside his head
+rather than over it, too much and the near rim lands on the brim while the far
+rim leaves the box. 37° is where those meet. Four constructions were rendered
+before it — 28° read as *holding an umbrella aloft*, not sheltering under one.
+
+Two consequences that look like bugs and aren't:
+
+- **It doesn't cover him.** The rim comes down over his head and right side
+  and stops around x 99; the right of the brim stays out in the rain. No canopy
+  wide enough to shelter him from a hand that far off-centre fits the box at
+  any tilt, and a tilted umbrella with someone hunched under the low side is
+  what huddling looks like anyway. `umbrellaHuddle` leans −4°, *into* the
+  covered side; leaning the other way put his head back out from under it.
+- **The left flipper is pinned whenever the slot is filled**, in `MascotBase`,
+  overriding the pose. The overlay is drawn in artwork coordinates rather than
+  in the limb's frame, so any beat, greeting or hop that moved that flipper
+  would slide the hand out of the handle. Left rather than right so §13.9's
+  on-focus wave — which is the right flipper, and plays over whatever state is
+  showing — doesn't swing the umbrella around on every arrival. Verified by
+  sampling the DOM through 22s of idle beats: the right flipper ruffles, the
+  umbrella arm never moves.
+
+The shaft draws **under** the canopy, so the canopy's fill hides the length
+running up inside the dome and only the ferrule above and the stick below the
+rim are seen. Three rim scallops, not five: at 64pt the whole umbrella is about
+40px across and five scallops plus their seams read as texture.
+
+**Not built yet: bottoms.**

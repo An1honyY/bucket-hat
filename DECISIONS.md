@@ -189,6 +189,9 @@ one by date — don't edit the old entry.
 - 2026-08-12 — The mascot's sleeves are their own draw pass, over the torso (§13.9) [design]
 - 2026-08-12 — The mascot's default garment colour is orange, not neutral grey (§13.9) [design, supersedes §13.9's stated grey placeholder]
 - 2026-08-12 — The mascot's jacket is a single path, hood included (§13.9) [design]
+- 2026-08-17 — The mascot's viewBox gains constant headroom for the umbrella (§13.9, §9.7) [design]
+- 2026-08-17 — The umbrella is tilted, held left, and doesn't cover him (§13.9) [design]
+- 2026-08-17 — The jacket overlay is gated off, not deleted (§13.9) [design]
 
 ---
 
@@ -3773,5 +3776,70 @@ reference has none. The hood is now just where the outer contour bulges past
 the head, easing back to the torso's line by the chest; carried lower it sits
 where the flippers hang and swallows both sleeves. Pocket seams were also
 mirrored — high-inner to low-outer, as a pouch does.
+
+---
+
+## 2026-08-17 — The mascot's viewBox gains constant headroom for the umbrella (§13.9, §9.7)
+
+**What**: `MascotBase`'s box stopped being square — `VIEW_BOX_HEADROOM` adds
+48 artwork units above the character, always, whether or not he is holding an
+umbrella. `size` now means the box's *width*; height comes from
+`mascotBoxHeight()`, and `mascotFeetOffset()` measures from the raised top.
+
+**Why**: an open canopy has to sit above a hat crown that already reaches
+y ≈ 16 in the original 0–150 box, so the slot could not be filled without more
+room. Making the room conditional was the tempting version, since the umbrella
+shows only in rain.
+
+**Resolution**: constant. `mascotFeetOffset` is what every placement measures
+against, so a box that changed height with the weather would move Today's
+reserved clearance each time it rained. The cost is paid in two commented,
+measured lines — Today's `forecastPerch` (+28px) and Journey Detail's
+`gearSection` (+40px) — and `garments.test.ts` now fails if a retuned canopy
+outgrows the headroom rather than letting it clip silently.
+
+---
+
+## 2026-08-17 — The umbrella is tilted, held left, and doesn't cover him (§13.9)
+
+**What**: the umbrella slot ships as a canopy tilted 37° off vertical, pinned
+to the **left** flipper at 88°, sheltering his head and right side while the
+right of the hat brim stays out in the rain.
+
+**Why**: the flipper is straight and shoulder-mounted, so the hand has exactly
+one usable position — (17.5, 48), because at 105° it reaches further across but
+disappears behind the hat brim and the umbrella reads as floating. Reaching
+from there to over the hat forces a tilt, and the tilt is squeezed from both
+sides: too little reads as holding it aloft beside himself, too much lands the
+near rim on the brim and pushes the far rim out of the box.
+
+**Resolution**: partial cover is geometry, not an unfinished shape — no canopy
+wide enough to shelter him from a hand that far off-centre fits at any tilt, and
+a tilted umbrella with someone hunched under the low side is what huddling
+looks like. The left flipper is pinned in `MascotBase` rather than posed in
+`states.ts`, so no beat, greeting or hop can slide the hand out of the handle;
+left rather than right keeps §13.9's on-focus wave free. Don't "fix" the
+coverage by widening the canopy without re-measuring both perches.
+
+---
+
+## 2026-08-17 — The jacket overlay is gated off, not deleted (§13.9)
+
+**What**: `JACKET_OVERLAY_ENABLED` in `src/lib/mascot.ts` is `false`, so
+`mascotGarmentFills` withholds the jacket slot and the mascot ships bare under
+the umbrella. Every jacket path, the sleeve's own draw pass and the reasoning
+behind both stay exactly where they are.
+
+**Why**: Antony's call — the shape isn't good enough to ship, and seen in the
+app an orange coat under an orange umbrella also read as one colour blob
+rather than as two garments. Deleting it would have thrown away four
+constructions' worth of hard-won reasoning about why the hood has to be one
+path with the body.
+
+**Resolution**: one named, documented constant rather than commented-out code
+or a stripped `MascotBase`. The engine still populates `signals.garments.jacket`,
+so re-enabling it needs no engine change and no snapshot migration; the gate is
+pinned in `mascot.test.ts` so it is discoverable rather than a line someone
+trips over. Retune the shape and flip the constant — don't rebuild it.
 
 ---

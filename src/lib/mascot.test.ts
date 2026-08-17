@@ -1,5 +1,6 @@
-import { mascotStateFor } from "./mascot";
+import { JACKET_OVERLAY_ENABLED, mascotGarmentFills, mascotStateFor } from "./mascot";
 import { recommendGear, type Inventory } from "./recommend";
+import { MASCOT_DEFAULT_GARMENT, MASCOT_SWATCH_HEX } from "../theme/mascotSwatches";
 import type { ClothingItem, Journey, JourneyLeg, ShoeItem, UmbrellaItem, WarmthCalibration, WeatherSnapshot } from "../types";
 
 // docs/13-extended-features.md §13.9 — the selector's tests go *through*
@@ -167,6 +168,56 @@ describe("mascotStateFor — reads the recommendation it is illustrating", () =>
 
     expect(mascotStateFor(recommendGear(journey, inventory(), NO_CALIBRATION, "no-preference").signals).shivering).toBe(false);
     expect(mascotStateFor(recommendGear(journey, inventory(), runsCold, "no-preference").signals).shivering).toBe(true);
+  });
+});
+
+describe("mascotGarmentFills — the umbrella slot (§13.9)", () => {
+  const rainy = weather({ weatherCode: 61, precipMm: 2 });
+  const fillsFor = (legs: JourneyLeg[], inv: Inventory = inventory()) =>
+    mascotGarmentFills(recommendGear(journeyWithLegs(legs), inv, NO_CALIBRATION, "no-preference").signals);
+
+  it("a dry journey recommends no umbrella, so he carries none", () => {
+    expect(fillsFor([walkLeg()]).umbrella).toBeUndefined();
+  });
+
+  it("an owned umbrella with a colour is drawn in that colour", () => {
+    const red: UmbrellaItem = { ...UMBRELLA, color: "red" };
+    expect(fillsFor([walkLeg({ weather: rainy })], inventory({ umbrellas: [red] })).umbrella).toBe(
+      MASCOT_SWATCH_HEX.red
+    );
+  });
+
+  it("an owned umbrella with no colour still gets drawn, in the neutral fill", () => {
+    // The overwhelmingly common case: `color` is a Phase 21 field, so almost
+    // every existing wardrobe reaches this and must not go umbrella-less.
+    expect(fillsFor([walkLeg({ weather: rainy })]).umbrella).toBe(MASCOT_DEFAULT_GARMENT);
+  });
+
+  it("an umbrella the user doesn't own still fills the slot, though the state stays idle", () => {
+    // §13.9 keeps the slots independent of the state table on purpose. The
+    // engine said to carry one, so he carries one; the huddle is reserved for
+    // an umbrella that actually exists in the wardrobe.
+    const legs = [walkLeg({ weather: rainy })];
+    const bare = inventory({ umbrellas: [] });
+    expect(fillsFor(legs, bare).umbrella).toBe(MASCOT_DEFAULT_GARMENT);
+    expect(mascotStateFor(recommendGear(journeyWithLegs(legs), bare, NO_CALIBRATION, "no-preference").signals).primary).toBe("idle");
+  });
+
+  it("the jacket is gated off, so a journey that recommends one still leaves him bare", () => {
+    // Pinned so the gate is discoverable rather than a line someone trips over
+    // in mascot.ts. Flip `JACKET_OVERLAY_ENABLED` and this is the test that
+    // tells you what else to look at.
+    expect(JACKET_OVERLAY_ENABLED).toBe(false);
+    const cold = [walkLeg({ weather: weather({ apparentTempC: 0 }) })];
+    const signals = recommendGear(journeyWithLegs(cold), inventory(), NO_CALIBRATION, "no-preference").signals;
+    // The engine still reports the slot — only the overlay is withheld, so
+    // turning it back on needs no engine change and no snapshot migration.
+    expect(signals.garments?.jacket).not.toBeUndefined();
+    expect(mascotGarmentFills(signals).jacket).toBeUndefined();
+  });
+
+  it("a snapshot frozen before the paper-doll layer existed dresses him in nothing", () => {
+    expect(mascotGarmentFills({ warmthLevel: 0, highUv: false, windAmplified: false, isHot: false, hasUmbrella: false })).toEqual({});
   });
 });
 

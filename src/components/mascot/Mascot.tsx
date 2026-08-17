@@ -11,7 +11,10 @@ import Animated, {
 } from "react-native-reanimated";
 import MascotBase, {
   HALF_STANCE,
+  mascotBoxHeight,
   TILT_ORIGIN,
+  VIEW_BOX_HEADROOM,
+  VIEW_BOX_HEIGHT_UNITS,
   VIEW_BOX_UNITS,
   type MascotGarmentFills,
   type MascotPose,
@@ -38,19 +41,23 @@ import type { MascotState } from "../../lib/mascot";
  *  Exported because a wrapper that squashes him has to pivot about the same
  *  point, or the crouch reads as the whole character shrinking rather than as
  *  his torso dropping over his feet. */
-export const MASCOT_FEET_ORIGIN = `${(TILT_ORIGIN.x / VIEW_BOX_UNITS) * 100}% ${(TILT_ORIGIN.y / VIEW_BOX_UNITS) * 100}%`;
+export const MASCOT_FEET_ORIGIN = `${(TILT_ORIGIN.x / VIEW_BOX_UNITS) * 100}% ${((TILT_ORIGIN.y + VIEW_BOX_HEADROOM) / VIEW_BOX_HEIGHT_UNITS) * 100}%`;
 
 /**
  * Distance from the top of the rendered box down to the soles, in px.
  *
- * The artwork leaves about 11% of its height empty below the feet, so laying
- * a mascot out by its box puts him floating that far above whatever he is
+ * The box has empty space both above the character (`VIEW_BOX_HEADROOM`, for
+ * the umbrella) and below his feet (about 11% of the artwork's own height), so
+ * laying a mascot out by its box puts him floating well above whatever he is
  * meant to be standing on. Callers position him with `-mascotFeetOffset(size)`
  * to stand him on an edge — which is the whole idea of the placements in
  * §9.7, and consistent with a character whose every motion pivots on a foot.
+ *
+ * It doubles as the clearance a perch needs: it is exactly how much of the
+ * screen he occupies above the line he stands on.
  */
 export function mascotFeetOffset(size: number): number {
-  return Math.round((TILT_ORIGIN.y / VIEW_BOX_UNITS) * size);
+  return Math.round(((TILT_ORIGIN.y + VIEW_BOX_HEADROOM) / VIEW_BOX_UNITS) * size);
 }
 
 /**
@@ -273,7 +280,7 @@ export default function Mascot({ size, state, greetToken, poseOverride, garments
       aria-hidden
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ width: size, height: size, transformOrigin: MASCOT_FEET_ORIGIN }, bodyStyle]}
+      style={[{ width: size, height: mascotBoxHeight(size), transformOrigin: MASCOT_FEET_ORIGIN }, bodyStyle]}
     >
       <MascotBase size={size} pose={pose} garments={garments} />
     </Animated.View>
