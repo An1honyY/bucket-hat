@@ -192,6 +192,7 @@ one by date — don't edit the old entry.
 - 2026-08-17 — The mascot's viewBox gains constant headroom for the umbrella (§13.9, §9.7) [design]
 - 2026-08-17 — The umbrella is tilted, held left, and doesn't cover him (§13.9) [design]
 - 2026-08-17 — The jacket overlay is gated off, not deleted (§13.9) [design]
+- 2026-08-18 — The mascot's room travels with him, and it is his height, not his box (§9.7, §13.9) [design]
 
 ---
 
@@ -3841,5 +3842,28 @@ or a stripped `MascotBase`. The engine still populates `signals.garments.jacket`
 so re-enabling it needs no engine change and no snapshot migration; the gate is
 pinned in `mascot.test.ts` so it is discoverable rather than a line someone
 trips over. Retune the shape and flip the constant — don't rebuild it.
+
+---
+
+## 2026-08-18 — The mascot's room travels with him, and it is his height, not his box (§9.7, §13.9)
+
+**What**: Today's cards sit at their natural spacing and each perch adds the
+room the mascot needs only while he is standing on it (`rooms` →
+`useMascotPerches`, which scrolls to cancel out room lost above the viewport).
+The amount asked for is now `mascotClearance` — his drawn extent, 75px bare at
+96pt — rather than `mascotFeetOffset`'s 116px box.
+
+**Why**: both costs were permanent and sized for his worst case, so the screen
+was spaced for a character who can only stand on one card at a time, and it
+paid the umbrella's headroom in the sunshine. Antony's call after seeing the
+top band at almost double the character.
+
+**Resolution**: `mascotFeetOffset` still positions him and the box height stays
+constant (2026-08-12's reasoning holds); only what a *layout* reserves is
+conditional. `choosePerch` is pure and tested — judge a perch with the room it
+would gain, not the room it has, or he leaves the top card and never returns.
+Journey Detail's `gearSection` still pays a flat +40px: its mascot doesn't move,
+so make it conditional there only if the umbrella tax is worth the same
+machinery.
 
 ---

@@ -8,8 +8,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import Mascot, { MASCOT_FEET_ORIGIN, mascotFeetOffset } from "./Mascot";
-import type { MascotGarmentFills, MascotPose } from "./MascotBase";
+import Mascot, { MASCOT_FEET_ORIGIN } from "./Mascot";
+import { mascotFeetOffset, type MascotGarmentFills, type MascotPose } from "./MascotBase";
 import { perchOffsetX, type Perch } from "./useMascotPerches";
 import type { MascotState } from "../../lib/mascot";
 
