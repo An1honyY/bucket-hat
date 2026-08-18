@@ -275,9 +275,40 @@ browser console, `self.crossOriginIsolated` must be `true`.
 
 | Field | Value |
 |---|---|
-| Build command | `npm ci && npm run build:web` |
-| Deploy command | `npx wrangler deploy --config worker/wrangler.toml` |
+| Build command | `npm ci && npm ci --prefix worker && npm run build:web` |
+| Deploy command | `npm --prefix worker run deploy` |
 | Root directory | *(repo root, leave blank)* |
+| Branch | `master` — this repo's default branch is not `main` |
+
+**The second `npm ci` is the whole point of this table.** `worker/` is its
+own npm package with its own lockfile, and the repo root declares no
+workspaces, so a root `npm ci` installs the app's dependencies and none of
+the Worker's. `wrangler deploy` then bundles `worker/src/index.ts` and stops
+at the first import:
+
+```
+✘ [ERROR] Could not resolve "hono"
+```
+
+A build configured without it fails every time, on every push, with the last
+successful deploy staying live — which reads exactly like "the deploy hook
+isn't firing." Check the build log before assuming the trigger is broken.
+
+The deploy command runs through the Worker's own package so it uses the
+`wrangler` version pinned in `worker/package.json`. `npx wrangler` from the
+repo root fetches whatever is newest on npm instead, which is a different
+program from the one this config was tested against.
+
+Verify either half locally without deploying anything — this needs no
+Cloudflare credentials and is the fastest way to check a config change:
+
+```bash
+npm run build:web
+npm --prefix worker run deploy -- --dry-run --outdir /tmp/wrangler-dry
+```
+
+It should end with the D1, R2 and var bindings listed and "--dry-run:
+exiting now."
 
 `EXPO_PUBLIC_SYNC_API_URL` does **not** need setting for a cloud build: the
 web bundle falls back to same-origin requests when it's absent

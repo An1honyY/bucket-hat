@@ -194,6 +194,7 @@ one by date — don't edit the old entry.
 - 2026-08-17 — The jacket overlay is gated off, not deleted (§13.9) [design]
 - 2026-08-18 — The mascot's room travels with him, and it is his height, not his box (§9.7, §13.9) [design]
 - 2026-08-18 — Phase 13 recap: regenerates on the week turning over, not on Monday specifically (§13.1)
+- 2026-08-18 — Workers Builds never installed the Worker's own dependencies; CI now dry-run deploys [build/infra]
 
 ---
 
@@ -3889,5 +3890,28 @@ below two uses rather than padded to "got 1 use", and a journey with no
 outdoor leg contributes no weather word — an all-indoor trip says nothing
 about the week's weather. Keep the line to one sentence; if it ever needs a
 second, that is a different feature.
+
+---
+
+## 2026-08-18 — Workers Builds never installed the Worker's own dependencies; CI now dry-run deploys [build/infra]
+
+**What**: SETUP.md's Workers Builds build command was `npm ci && npm run
+build:web`, which installs the app's dependencies and none of `worker/`'s —
+so `wrangler deploy` could not resolve `hono` and the deploy failed on every
+push. Fixed to `npm ci && npm ci --prefix worker && npm run build:web`, with
+the deploy command moved to `npm --prefix worker run deploy` so it uses the
+pinned wrangler rather than whatever `npx` fetches.
+
+**Why**: `worker/` is a separate npm package with its own lockfile and the
+root declares no workspaces. Deploys had only ever been run from a machine
+where someone had installed inside `worker/` by hand, so nothing local
+reproduced it.
+
+**Resolution**: reproduced with `wrangler deploy --dry-run`, which needs no
+Cloudflare credentials, and that same dry run is now a CI step on the worker
+job — a failed deploy leaves the previous version live and looks exactly like
+a trigger that never fired, so it has to fail somewhere that is watched.
+Whether the dashboard's Git integration is also pointed at the wrong branch
+(this repo's default is `master`, not `main`) can only be checked there.
 
 ---
