@@ -154,6 +154,39 @@ export async function resetDismissedSetupTasks(): Promise<void> {
   await setSetting("dismissed_setup_tasks", JSON.stringify([]));
 }
 
+// docs/13-extended-features.md §13.1 — the recap's "one small tracking row".
+// It lives in app_settings rather than a table of its own because that is all
+// it is: the week a recap was generated for, the line it produced, and
+// whether it has been waved away. Cached rather than recomputed on every
+// Today focus, and `line: null` is a real cached answer — "this week had
+// nothing worth saying" — not a missing one.
+//
+// Device-local by design: app_settings is the one table cloud sync skips
+// (DECISIONS.md 2026-07-28), and a dismissal on the phone has no business
+// silencing the card on the tablet.
+export interface WeeklyRecapState {
+  weekKey: string;
+  line: string | null;
+  dismissed: boolean;
+}
+
+export async function getWeeklyRecapState(): Promise<WeeklyRecapState | undefined> {
+  const raw = await getSetting("weekly_recap");
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as WeeklyRecapState;
+    if (typeof parsed?.weekKey !== "string") return undefined;
+    return { weekKey: parsed.weekKey, line: parsed.line ?? null, dismissed: !!parsed.dismissed };
+  } catch {
+    // A row we can't read is a row we regenerate — it is a cache.
+    return undefined;
+  }
+}
+
+export async function setWeeklyRecapState(state: WeeklyRecapState): Promise<void> {
+  await setSetting("weekly_recap", JSON.stringify(state));
+}
+
 // docs/12-dev-workflow-ci.md §12.2 point 4 — dev-menu "reset onboarding
 // state and clear the crash-reporting/theme preferences... to re-test
 // first-run flows without reinstalling." Also clears the two settings the

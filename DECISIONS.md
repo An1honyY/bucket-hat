@@ -193,6 +193,7 @@ one by date — don't edit the old entry.
 - 2026-08-17 — The umbrella is tilted, held left, and doesn't cover him (§13.9) [design]
 - 2026-08-17 — The jacket overlay is gated off, not deleted (§13.9) [design]
 - 2026-08-18 — The mascot's room travels with him, and it is his height, not his box (§9.7, §13.9) [design]
+- 2026-08-18 — Phase 13 recap: regenerates on the week turning over, not on Monday specifically (§13.1)
 
 ---
 
@@ -3865,5 +3866,28 @@ would gain, not the room it has, or he leaves the top card and never returns.
 Journey Detail's `gearSection` still pays a flat +40px: its mascot doesn't move,
 so make it conditional there only if the umbrella tax is worth the same
 machinery.
+
+---
+
+## 2026-08-18 — Phase 13 recap: regenerates on the week turning over, not on Monday specifically (§13.1)
+
+**What**: The recap regenerates whenever the stored week key differs from the
+current week's Monday, on whatever day the app is next opened, still reporting
+the Mon–Sun that just finished. §13.1 says "if the current ISO week differs
+from the stored one **and today is Monday**". Its row lives in `app_settings`
+rather than a table of its own.
+
+**Why**: the literal reading silently skips a whole week for anyone who
+doesn't open the app on a Monday, which is most people some weeks — and a
+Tuesday reader sees exactly what Monday would have shown them, so the clause
+costs a recap and buys nothing.
+
+**Resolution**: the Monday *window* is what matters and is unchanged; only the
+trigger day is relaxed. Also decided within the phase: "trips" rather than
+§13.1's "commutes" (not every journey is one), the gear clause is dropped
+below two uses rather than padded to "got 1 use", and a journey with no
+outdoor leg contributes no weather word — an all-indoor trip says nothing
+about the week's weather. Keep the line to one sentence; if it ever needs a
+second, that is a different feature.
 
 ---

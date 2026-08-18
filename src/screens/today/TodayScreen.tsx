@@ -4,6 +4,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { materializeTodaysJourneys } from "../../lib/materializeToday";
 import { useRightNow } from "../../lib/useRightNow";
+import { useWeeklyRecap } from "../../lib/useWeeklyRecap";
 import { cancelLeaveByNotification } from "../../lib/notifications";
 import type { RootStackParamList } from "../../navigation/types";
 import type { Journey } from "../../types";
@@ -16,6 +17,7 @@ import { mascotGarmentFills, mascotStateFor, MASCOT_IDLE } from "../../lib/masco
 import LocalForecastCard from "./LocalForecastCard";
 import JourneyCard from "./JourneyCard";
 import SetupChecklist from "./SetupChecklist";
+import WeeklyRecapCard from "./WeeklyRecapCard";
 import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
@@ -37,6 +39,9 @@ export default function TodayScreen() {
   // (useRightNow → useAmbientWeatherStore), so `theme` above already *is*
   // this reading's mood — no separate screen-level weather theme needed.
   const rightNow = useRightNow();
+  // §13.1 — above the "Right now" card, and absent entirely on the weeks it
+  // has nothing to say, which is most of them.
+  const recap = useWeeklyRecap();
   // Date.now() is impure to call during render — a useState lazy
   // initializer (react-hooks/purity) only runs once at mount.
   const [nowMs] = useState(() => Date.now());
@@ -134,6 +139,8 @@ export default function TodayScreen() {
             origin. The stack carries no padding of its own — that stays on the
             scroll content — or the two would disagree by exactly that much. */}
         <View ref={stackRef} style={styles.stack}>
+          {recap.line !== null && <WeeklyRecapCard line={recap.line} onDismiss={recap.dismiss} />}
+
           {/* Perch 0. The only spot on this screen with genuinely empty space
               above it, which is why it is the one he stands centred on — and
               the room for it comes and goes with him, so the card sits at the

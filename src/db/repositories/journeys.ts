@@ -253,6 +253,39 @@ export async function listPastJourneys(beforeIso: string, limit: number, offset:
   return rows.map(fromRow);
 }
 
+// docs/13-extended-features.md §13.1 — the weekly recap's window: every
+// journey that actually happened in a Mon–Sun span, earliest first.
+//
+// Recurring *templates* are excluded the same way materializeToday excludes
+// them from the Today tab: a template is a rule, not a trip, and its own
+// departTime would otherwise be counted alongside the occurrence it spawned.
+// Materialized occurrences (template_id set) are real journeys and stay.
+export async function listJourneysBetween(startIso: string, endIso: string): Promise<Journey[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<JourneyRow>(
+    `SELECT * FROM journeys
+     WHERE depart_time >= ? AND depart_time < ?
+       AND NOT (recurrence IS NOT NULL AND template_id IS NULL)
+     ORDER BY depart_time ASC`,
+    startIso,
+    endIso
+  );
+  return rows.map(fromRow);
+}
+
+// docs/13-extended-features.md §13.1 — "if History has fewer than 2 weeks of
+// data, don't show the recap yet". One row rather than a count, since the
+// question is how far back the history reaches, not how much of it there is.
+export async function getEarliestJourneyDepartTime(): Promise<string | undefined> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ depart_time: string }>(
+    `SELECT depart_time FROM journeys
+     WHERE NOT (recurrence IS NOT NULL AND template_id IS NULL)
+     ORDER BY depart_time ASC LIMIT 1`
+  );
+  return row?.depart_time;
+}
+
 // docs/05-data-wiring.md §5.2 — the foreground forecast-drift re-check's
 // candidate list: every still-upcoming Journey departing within the given
 // window, earliest first, regardless of which calendar day it falls on
