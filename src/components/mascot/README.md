@@ -12,7 +12,7 @@ mistakes that cost several rounds each.
 | File | State |
 |---|---|
 | `MascotBase.tsx` | The character. Pure, declarative — every pose is a number passed in. **Done.** |
-| `Mascot.tsx` | The animated component: state → motion, reduce-motion fallback, decorative a11y. Also `mascotFeetOffset()`, for standing him on an edge. **Done.** |
+| `Mascot.tsx` | The animated component: state → motion, reduce-motion fallback, decorative a11y. **Done.** |
 | `states.ts` | What each state looks like and how it moves, as a list of **beats**. Change poses and timings here. Its header explains the two-mechanism split (Reanimated body, keyframed limbs) and why. |
 | `../../lib/mascot.ts` | `mascotStateFor(signals)` — the pure selector, tested against the engine's own fixtures. **Done.** |
 | `poses.ts` | The reference sheet the *character* was judged on. Nothing renders it; kept for task 4's tap reactions. |
@@ -38,12 +38,20 @@ box, so an open canopy simply does not fit it. Height therefore comes from
 `mascotBoxHeight(size)`, and `mascotFeetOffset` and `MASCOT_FEET_ORIGIN` both
 measure from the *raised* top.
 
-That headroom is constant rather than added only when the slot is filled, and
-that is deliberate: `mascotFeetOffset` is what every placement measures
-against, so a box that changed height with the weather would move Today's
-reserved clearance each time it rained. The cost is paid in two lines, both
-measured and both commented where they live — Today's `forecastPerch` (+28px)
-and Journey Detail's `gearSection` (+40px).
+That headroom is constant rather than added only when the slot is filled:
+`mascotFeetOffset` is what every placement *positions* from, and a box that
+changed height with the weather would move him relative to the line he stands
+on.
+
+What a layout *reserves* is a different number — `mascotClearance(size,
+hasUmbrella)`, his drawn extent rather than his box. Reserving the box was the
+same mistake in the other direction: at 96pt it held 116px of screen for a
+character 75px tall, so every screen paid the umbrella's rent in the sunshine.
+Bare, the clearance is the hat crown (`CROWN_Y`); holding the umbrella it is
+the box after all, since the canopy fills the headroom almost exactly (78px
+measured at 64pt against the box's 77.5). Journey Detail's `gearSection`
+(+40px) still pays flat — its mascot never moves, so there is nothing there to
+make conditional yet.
 
 **He must be painted over the cards, not between them.** On Today he is
 absolutely positioned as the *last* child of a stack containing every card
@@ -65,14 +73,28 @@ declares three, each a place the screen knows is clear:
 
 | # | Where | Align | Covers |
 |---|---|---|---|
-| 0 | above the "Right now" card | centre | nothing (reserved clearance) |
+| 0 | above the "Right now" card | centre | nothing (the room it asks for) |
 | 1 | the hourly card's top corner | right | nothing |
 | 2 | the first journey card's top | right | nothing |
 
+**The room travels with him.** Each perch declares what it adds above itself
+while he is standing there (`rooms`, passed to `useMascotPerches`) and gives
+it back when he leaves, so a card he is not on sits at its natural spacing. It
+used to be reserved permanently at every perch, which spaced the whole screen
+for a character who can only be on one card at a time — the gaps he wasn't in
+were just holes.
+
+Two consequences worth knowing before you touch `choosePerch`. A perch is
+judged with the room it *would* gain, not the room it has: judged as it
+stands, the top card can never clear its own height again, so he leaves it on
+the first scroll and never comes back. And room that disappears from above the
+viewport takes the page with it, so the hook scrolls by exactly that much to
+cancel it out — the offset moves, nothing on screen does.
+
 Measured, not eyeballed: at `SPACING.sm` of clearance perch 1's hat brim
-clipped the last 14px of the "Right now" card's bottom gear chip, so
-`forecastPerch` is sized to clear it. Re-check that number if the chip row's
-wrapping changes.
+clipped the last 14px of the "Right now" card's bottom gear chip, `SPACING.xxl`
+cleared it by 2px, and the open umbrella needs a further 28. Re-check those
+numbers if the chip row's wrapping changes.
 
 `PerchAlign` exists for those last two: the space above each is a short row
 (an "as of" stamp, a section label) whose far end is empty, so he belongs at
@@ -86,8 +108,9 @@ viewport height.
 
 Two things deliberately *not* perches: every journey card (his body would land
 on the departure time, which sits top-right exactly where he stands) and the
-checklist row. Two places in the layout pay for him: `perchClearance` above
-the first card, and `forecastPerch`'s margin on the forecast card.
+checklist row. Two perches ask for room and one doesn't: the top card wants
+the lot, the forecast card only the part its own empty corner doesn't already
+cover, and the first journey card already fits under the section label.
 
 The hop is built like a cartoon jump — crouch, launch, hold, absorb — because
 the arc alone reads as being carried rather than jumping. The crouch is a

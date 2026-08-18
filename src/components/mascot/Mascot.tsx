@@ -44,23 +44,6 @@ import type { MascotState } from "../../lib/mascot";
 export const MASCOT_FEET_ORIGIN = `${(TILT_ORIGIN.x / VIEW_BOX_UNITS) * 100}% ${((TILT_ORIGIN.y + VIEW_BOX_HEADROOM) / VIEW_BOX_HEIGHT_UNITS) * 100}%`;
 
 /**
- * Distance from the top of the rendered box down to the soles, in px.
- *
- * The box has empty space both above the character (`VIEW_BOX_HEADROOM`, for
- * the umbrella) and below his feet (about 11% of the artwork's own height), so
- * laying a mascot out by its box puts him floating well above whatever he is
- * meant to be standing on. Callers position him with `-mascotFeetOffset(size)`
- * to stand him on an edge — which is the whole idea of the placements in
- * §9.7, and consistent with a character whose every motion pivots on a foot.
- *
- * It doubles as the clearance a perch needs: it is exactly how much of the
- * screen he occupies above the line he stands on.
- */
-export function mascotFeetOffset(size: number): number {
-  return Math.round(((TILT_ORIGIN.y + VIEW_BOX_HEADROOM) / VIEW_BOX_UNITS) * size);
-}
-
-/**
  * Tracks the OS reduce-motion setting, live. §13.9 requires respecting it,
  * and the listener matters as much as the initial read: someone who turns the
  * setting on to stop a moving thing should see it stop, not have to reopen

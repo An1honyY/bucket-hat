@@ -67,12 +67,16 @@ export const VIEW_BOX_UNITS = 150;
  * y ≈ 16, so a canopy over his head has no room at all in the square box. This
  * lifts the top of the viewBox instead of shrinking him.
  *
- * It is **constant**, not added only when he is holding one, and that is the
- * decision worth keeping: `mascotFeetOffset` below is what every placement
- * measures against, and a box that changed height with the weather would move
- * the reserved clearance on Today each time it rained. The cost is this much
- * blank space above him the rest of the time; the box is transparent and
- * `pointerEvents="none"` at both placements, so it costs nothing but layout.
+ * It is **constant**, not added only when he is holding one: `mascotFeetOffset`
+ * is what every placement measures against, and a box that changed height with
+ * the weather would move him relative to the line he stands on. The box is
+ * transparent and `pointerEvents="none"` at both placements, so the blank
+ * space costs nothing.
+ *
+ * What a *layout* reserves for him is a different number — `mascotClearance`,
+ * which is his drawn extent rather than his box, and which does follow the
+ * umbrella. Reserving the box was the same mistake in the opposite direction:
+ * it made every screen pay for the umbrella's headroom in the sunshine.
  */
 export const VIEW_BOX_HEADROOM = 48;
 
@@ -84,6 +88,17 @@ const VIEW_BOX = `0 ${-VIEW_BOX_HEADROOM} ${VIEW_BOX_UNITS} ${VIEW_BOX_HEIGHT_UN
  *  it below, and Mascot.tsx's animated lean has to pivot about the same point
  *  or the two rotations disagree about where the ground is. */
 export const TILT_ORIGIN = { x: 75, y: 133.7 };
+
+/**
+ * The top of the character himself: his hat crown, in artwork units.
+ *
+ * Not a drawing constant — nothing below is positioned from it — but the one
+ * number a layout needs in order to reserve the space he actually occupies
+ * instead of the space his box occupies. Two independent measurements agree on
+ * it: the crown sits at y ≈ 16 in the source art, and at 64pt the hat was
+ * measured on screen at 50px above his feet, which is (133.7 − 16) / 150 × 64.
+ */
+export const CROWN_Y = 16;
 
 /** Half the distance between the two feet's centres (they sit at x ≈ 55 and
  *  x ≈ 95 in the paths below). Mascot.tsx offsets the pivot by this to rock
@@ -177,6 +192,45 @@ const RIGHT_SHOULDER = "98, 76.97";
  *  being square when it grew headroom for the umbrella. */
 export function mascotBoxHeight(size: number): number {
   return (size * VIEW_BOX_HEIGHT_UNITS) / VIEW_BOX_UNITS;
+}
+
+/**
+ * Distance from the top of the rendered box down to the soles, in px.
+ *
+ * The box has empty space both above the character (`VIEW_BOX_HEADROOM`, for
+ * the umbrella) and below his feet (about 11% of the artwork's own height), so
+ * laying a mascot out by its box puts him floating well above whatever he is
+ * meant to be standing on. Callers position him with `-mascotFeetOffset(size)`
+ * to stand him on an edge — which is the whole idea of the placements in
+ * §9.7, and consistent with a character whose every motion pivots on a foot.
+ *
+ * This is a *positioning* number, not a layout one — see `mascotClearance`
+ * for the room a screen should reserve above him.
+ */
+export function mascotFeetOffset(size: number): number {
+  return Math.round(((TILT_ORIGIN.y + VIEW_BOX_HEADROOM) / VIEW_BOX_UNITS) * size);
+}
+
+/**
+ * How much room he actually needs above the line he stands on, in px.
+ *
+ * Deliberately **not** `mascotFeetOffset`, which is the whole box: the box
+ * carries `VIEW_BOX_HEADROOM` above him for an umbrella he is usually not
+ * holding, so reserving it made every layout pay the umbrella's rent in the
+ * sunshine — at 96pt, 116px of screen for a character 75px tall.
+ *
+ * Bare, that is his hat crown (`CROWN_Y`). Holding the umbrella, it is the
+ * box after all: the canopy fills the headroom almost exactly — measured at
+ * 64pt it reached 78px above his feet against the box's 77.5 — so there is
+ * nothing to trim in that case and no second measurement to keep in step.
+ *
+ * The hop's own stretch (7%) briefly carries the crown a few px past this. It
+ * is transient, he is drawn over the cards rather than clipped by them, and
+ * every placement has more than that in ordinary screen padding.
+ */
+export function mascotClearance(size: number, hasUmbrella: boolean): number {
+  if (hasUmbrella) return mascotFeetOffset(size);
+  return Math.round(((TILT_ORIGIN.y - CROWN_Y) / VIEW_BOX_UNITS) * size);
 }
 
 export type EyeState = "open" | "happy" | "half" | "wide";

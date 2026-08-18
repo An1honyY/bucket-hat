@@ -1,20 +1,23 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { materializeTodaysJourneys } from "../../lib/materializeToday";
 import { useRightNow } from "../../lib/useRightNow";
+import { useWeeklyRecap } from "../../lib/useWeeklyRecap";
 import { cancelLeaveByNotification } from "../../lib/notifications";
 import type { RootStackParamList } from "../../navigation/types";
 import type { Journey } from "../../types";
 import RightNowCard from "./RightNowCard";
-import { mascotFeetOffset, useReduceMotion } from "../../components/mascot/Mascot";
+import { useReduceMotion } from "../../components/mascot/Mascot";
+import { mascotClearance } from "../../components/mascot/MascotBase";
 import PerchedMascot from "../../components/mascot/PerchedMascot";
 import { useMascotPerches } from "../../components/mascot/useMascotPerches";
 import { mascotGarmentFills, mascotStateFor, MASCOT_IDLE } from "../../lib/mascot";
 import LocalForecastCard from "./LocalForecastCard";
 import JourneyCard from "./JourneyCard";
 import SetupChecklist from "./SetupChecklist";
+import WeeklyRecapCard from "./WeeklyRecapCard";
 import ScreenSurface from "../../components/ScreenSurface";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
@@ -36,6 +39,9 @@ export default function TodayScreen() {
   // (useRightNow → useAmbientWeatherStore), so `theme` above already *is*
   // this reading's mood — no separate screen-level weather theme needed.
   const rightNow = useRightNow();
+  // §13.1 — above the "Right now" card, and absent entirely on the weeks it
+  // has nothing to say, which is most of them.
+  const recap = useWeeklyRecap();
   // Date.now() is impure to call during render — a useState lazy
   // initializer (react-hooks/purity) only runs once at mount.
   const [nowMs] = useState(() => Date.now());
@@ -46,7 +52,36 @@ export default function TodayScreen() {
   const [focusCount, setFocusCount] = useState(0);
   // A hop is motion, however short, so reduce motion pins him to the first card.
   const reduceMotion = useReduceMotion();
-  const { stackRef, perchProps, onScroll: onMascotScroll, target: mascotPerch } = useMascotPerches(MASCOT_SIZE, reduceMotion);
+  const garments = rightNow.recommendation ? mascotGarmentFills(rightNow.recommendation.signals) : undefined;
+  // The umbrella is the whole difference between a character 75px tall and a
+  // box 116px tall, so what the screen owes him is asked for per render rather
+  // than reserved for his worst case.
+  const hasUmbrella = garments?.umbrella !== undefined;
+  const clearance = mascotClearance(MASCOT_SIZE, hasUmbrella);
+  // What each perch adds above itself while he is standing on it, and gives
+  // back when he leaves — see useMascotPerches.
+  //
+  // 0: the top card. Nothing is above it, so he needs the lot.
+  // 1: the hourly card, whose top-right corner he stands on. Above that corner
+  //    is the "Right now" card's own bottom right, which holds nothing (its
+  //    "as of" stamp is bottom left), so most of him overlaps empty card and
+  //    only this much has to be real gap. Measured, not chosen: at SPACING.sm
+  //    his hat brim clipped the last 14px of the gear chip row, and SPACING.xxl
+  //    cleared it by 2px. The open umbrella then reached a further 26px up and
+  //    56px further left, which is the 28 on top of it.
+  // 2: the first journey card. The "Planned journeys" label above it is short
+  //    and left-aligned, and he stands right — he already fits.
+  const rooms = useMemo(
+    () => [clearance, hasUmbrella ? SPACING.xxxl + SPACING.xl : SPACING.xxl, 0],
+    [clearance, hasUmbrella]
+  );
+  const {
+    stackRef,
+    scrollRef,
+    perchProps,
+    onScroll: onMascotScroll,
+    target: mascotPerch,
+  } = useMascotPerches(clearance, reduceMotion, rooms);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,6 +116,7 @@ export default function TodayScreen() {
   return (
     <ScreenSurface>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         onScroll={onMascotScroll}
         scrollEventThrottle={16}
@@ -103,24 +139,19 @@ export default function TodayScreen() {
             origin. The stack carries no padding of its own — that stays on the
             scroll content — or the two would disagree by exactly that much. */}
         <View ref={stackRef} style={styles.stack}>
-          {/* The room he stands in. Reserved rather than created by his own
-              layout, because he is positioned over the stack now, not in it —
-              see useMascotPerches for why. */}
-          <View style={styles.perchClearance} />
+          {recap.line !== null && <WeeklyRecapCard line={recap.line} onDismiss={recap.dismiss} />}
 
           {/* Perch 0. The only spot on this screen with genuinely empty space
-              above it, which is why it is the one he stands centred on. */}
+              above it, which is why it is the one he stands centred on — and
+              the room for it comes and goes with him, so the card sits at the
+              top of the screen like any other when he is further down. */}
           <View {...perchProps(0, "center")}>
             <RightNowCard {...rightNow} />
           </View>
 
-          {/* Perch 1 — the hourly card's top-right corner. Above it is the
-              "Right now" card's bottom right, which holds nothing (its "as of"
-              stamp is bottom left), so he clips a corner of empty card rather
-              than any text. The small top margin is the "tiny bit" of room
-              that corner wants; an umbrella overhead would need considerably
-              more, and this is where to add it. */}
-          <View {...perchProps(1, "right")} style={styles.forecastPerch}>
+          {/* Perch 1 — the hourly card's top-right corner, where he clips a
+              corner of empty card rather than any text. */}
+          <View {...perchProps(1, "right")}>
             <LocalForecastCard
               suburb={rightNow.suburb}
               hourly={rightNow.hourly}
@@ -181,7 +212,7 @@ export default function TodayScreen() {
             greetToken={focusCount}
             target={mascotPerch}
             instant={reduceMotion}
-            garments={rightNow.recommendation ? mascotGarmentFills(rightNow.recommendation.signals) : undefined}
+            garments={garments}
           />
         </View>
       </ScrollView>
@@ -193,20 +224,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     content: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     stack: { position: "relative" },
-    perchClearance: { height: mascotFeetOffset(MASCOT_SIZE) },
     journeysSection: { marginTop: SPACING.sm },
-    // The one place the layout gives the mascot room rather than the other way
-    // round. The big reserved band is `perchClearance` above the first card;
-    // nothing else pays for him.
-    //
-    // Sized by measurement, not taste. He perches on this card's top-right
-    // corner, and what is above that corner is the "Right now" card's bottom
-    // gear chip, whose row wraps to the full width. At SPACING.sm his hat brim
-    // clipped the last 14px of it; SPACING.xxl cleared it by 2px. The open
-    // umbrella then reached a further 26px up and 56px further left — measured
-    // in the browser against the real card — so this is that 24 plus the 28
-    // the canopy needs. It is the whole cost of the umbrella on this screen.
-    forecastPerch: { marginTop: SPACING.xxxl + SPACING.xl },
     sectionLabel: { ...TYPE.eyebrow, color: theme.textSecondary, marginBottom: SPACING.sm },
     emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: SPACING.xxl * 2 },
     empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },
