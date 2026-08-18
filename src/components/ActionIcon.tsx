@@ -20,7 +20,8 @@ export type ActionIconKind =
   | "chevronRight"
   | "chevronDown"
   | "chevronUp"
-  | "expand";
+  | "expand"
+  | "share";
 
 const PATHS: Record<ActionIconKind, string[]> = {
   check: ["M5,13l4,4l10,-10"],
@@ -57,6 +58,11 @@ const PATHS: Record<ActionIconKind, string[]> = {
   // diagonal double-arrow, which reads as "resize" (a thing you drag) on a
   // control that is a single tap.
   expand: ["M4,9v-5h5", "M20,9v-5h-5", "M4,15v5h5", "M20,15v5h-5"],
+  // "Send this somewhere else", for the shareable conditions card (§13.2).
+  // The tray-and-arrow rather than iOS's own share glyph or Android's
+  // three-node one: each of those reads as native furniture on the wrong
+  // platform, and this app draws one icon set for both.
+  share: ["M12,4v11", "M8,8l4,-4l4,4", "M5,14v4a2,2,0,0,0,2,2h10a2,2,0,0,0,2,-2v-4"],
   // The standard "locate me" target, for LocationPickerMap's recenter
   // button — deliberately not the `pin` glyph, which already means "the
   // dropped marker" everywhere else in this app.

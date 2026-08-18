@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import type { RightNowState } from "../../lib/useRightNow";
 import { classifyWeather, feelsLikeDiverges, formatWindKph } from "../../lib/weather";
@@ -16,6 +16,10 @@ import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import { HIGH_WIND_KPH, type LayerPick } from "../../lib/recommend";
 import { gearPickLabel } from "../../lib/gearLabel";
+import ActionIcon from "../../components/ActionIcon";
+import ShareableConditionsCard, { CARD_WIDTH } from "./ShareableConditionsCard";
+import { shareConditionsCard } from "../../lib/shareConditions";
+import { showAlert } from "../../lib/crossPlatformAlert";
 
 // "Right now" card — docs/09-design-system.md §9.3.1, docs/04-screens-
 // navigation.md §4.2. A smaller self-contained version of the gear
@@ -55,6 +59,21 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
   const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
   // Which owned pick is open in the detail dialog, if any.
   const [openItem, setOpenItem] = useState<{ item: GearItem; icon: ClothingIconKind } | null>(null);
+  // §13.2 — the off-screen twin of this card that actually gets captured, and
+  // whether a capture is already in flight (a second tap mid-share produces a
+  // second share sheet on top of the first).
+  const exportRef = useRef<View>(null);
+  const [sharing, setSharing] = useState(false);
+
+  async function share() {
+    if (sharing || !exportRef.current) return;
+    setSharing(true);
+    const result = await shareConditionsCard(exportRef.current);
+    setSharing(false);
+    // Success is its own feedback — a share sheet, or a file in the downloads
+    // tray. Only the failures need saying out loud.
+    if (!result.ok) showAlert("Couldn't share this", result.reason);
+  }
 
   if (loading) {
     return (
@@ -98,7 +117,24 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
   if (recommendation.umbrella) picks.push({ pick: recommendation.umbrella, icon: "umbrella" });
 
   return (
+    <>
     <View style={styles.card}>
+      {/* Top-right, absolutely placed, so the card's own stack is untouched by
+          it — and that corner is the one part of this card that never holds
+          anything (the mascot stands above the top edge, not inside it). */}
+      <Pressable
+        onPress={share}
+        disabled={sharing}
+        style={styles.shareButton}
+        accessibilityRole="button"
+        accessibilityLabel="Share these conditions as an image"
+      >
+        {sharing ? (
+          <ActivityIndicator size="small" color={theme.textSecondary} />
+        ) : (
+          <ActionIcon kind="share" size={18} color={theme.textSecondary} />
+        )}
+      </Pressable>
       <Text style={styles.title}>Right now</Text>
       {suburb && <Text style={styles.suburbLabel}>{suburb}</Text>}
       <View style={styles.conditionRow}>
@@ -222,6 +258,20 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
         <GearDetailSheet item={openItem.item} kind={openItem.icon} onClose={() => setOpenItem(null)} />
       )}
     </View>
+
+    {/* What the camera actually points at. Off screen rather than hidden:
+        `opacity: 0` and `display: none` both capture as nothing, and Android
+        needs `collapsable={false}` or the view is optimised out of the tree
+        before there is anything to capture. */}
+    <View ref={exportRef} collapsable={false} style={styles.offscreen} pointerEvents="none" aria-hidden>
+      <ShareableConditionsCard
+        weather={weather}
+        recommendation={recommendation}
+        suburb={suburb}
+        fetchedAt={fetchedAt}
+      />
+    </View>
+    </>
   );
 }
 
@@ -235,6 +285,18 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       marginBottom: SPACING.lg,
       ...cardElevationStyle(theme),
     },
+    shareButton: {
+      position: "absolute",
+      top: SPACING.xs,
+      right: SPACING.xs,
+      // §9.6's minimum target, around an 18px glyph.
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1,
+    },
+    offscreen: { position: "absolute", left: -CARD_WIDTH * 2, top: 0 },
     // "Right now" is a signpost, not content — as body/600 in textPrimary it
     // sat at almost the same weight as the reading underneath it, so the card
     // opened with two things asking for attention and led with the less

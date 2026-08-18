@@ -13,6 +13,7 @@
 | Notifications | `expo-notifications` | Scheduled local "leave by" alerts (Section 7.3) — local only, no push server needed for v1 |
 | Sharing / files | `expo-file-system` + `expo-sharing` + `expo-document-picker` | Data export/import (Section 10.3) |
 | Gear photos | `expo-image-picker` + `expo-image-manipulator` | Capture/resize gear photos (Section 3.3) |
+| Card capture | `react-native-view-shot` | Renders the shareable "Right now" card to a PNG (Section 13.2, Phase 14). Native captures to a temp file for `expo-sharing`; on web it goes through its bundled `html2canvas`, so the browser gets `navigator.share` or a plain download instead |
 | Zip (export bundle) | `react-native-zip-archive` | Bundles `data.json` + gear photos into one export file (Sections 3.3, 10.3) |
 | Testing | Jest via the `jest-expo` preset | Unit tests for `classifyWeather`, `recommendGear`, and friends (Section 11) |
 | Crash reporting | Sentry's Expo SDK (or equivalent) | Opt-in only, initialized conditionally — never on by default (Section 10.5) |

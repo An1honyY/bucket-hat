@@ -195,6 +195,7 @@ one by date — don't edit the old entry.
 - 2026-08-18 — The mascot's room travels with him, and it is his height, not his box (§9.7, §13.9) [design]
 - 2026-08-18 — Phase 13 recap: regenerates on the week turning over, not on Monday specifically (§13.1)
 - 2026-08-18 — Workers Builds never installed the Worker's own dependencies; CI now dry-run deploys [build/infra]
+- 2026-08-18 — Phase 14 shares an export-only card, and web shares through the browser, not expo-sharing (§13.2)
 
 ---
 
@@ -3913,5 +3914,29 @@ job — a failed deploy leaves the previous version live and looks exactly like
 a trigger that never fired, so it has to fail somewhere that is watched.
 Whether the dashboard's Git integration is also pointed at the wrong branch
 (this repo's default is `master`, not `main`) can only be checked there.
+
+---
+
+## 2026-08-18 — Phase 14 shares an export-only card, and web shares through the browser, not expo-sharing (§13.2)
+
+**What**: The share button captures `ShareableConditionsCard` — a fixed-width,
+photo-free twin of the "Right now" card — rather than the live card, which
+§13.2 allows. On web, where `expo-sharing` is unavailable, the PNG goes to
+`navigator.share` when the browser will take a file and to a download
+otherwise.
+
+**Why**: the live card is screen-width, its gear chips load photos
+asynchronously, and its "as of …, updating…" line describes a surface that
+moves; all three are wrong in a still image, and a wardrobe photo is not
+something to put in a picture meant to leave the app by default. The web half
+isn't in §13.2 at all, which assumes the native share sheet — but web is the
+only platform this app currently ships to.
+
+**Resolution**: `gearPickLabel` and `classifyWeather` are shared with the live
+card, so the picture can never word a pick differently from the screen.
+Verified on web in both themes, wet and dry. **Native is unverified** —
+§13.2's own warning about view-shot's transparent-background and safe-area
+quirks is answered by the card's opaque background, but nobody has run it on
+a device; that is the one thing to check before this is called done.
 
 ---
