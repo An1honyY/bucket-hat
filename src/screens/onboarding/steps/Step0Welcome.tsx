@@ -50,15 +50,14 @@ export default function Step0Welcome({ onGetStarted, onSignIn }: Props) {
           <Text style={styles.tagline}>Know what to wear before you head out.</Text>
         </View>
 
-        {/* The second of the two places the app explains its own name (§9.7,
-            the other being Settings' About). Here it is one line and an
-            introduction rather than the story — a first screen is for what the
-            app does, and he is standing right there anyway. */}
+        {/* The second of the two places the app names itself (§9.7, the other
+            being Settings' About, which carries the whole story). Here it is
+            a handshake and nothing more: he is standing under the wordmark, so
+            one line is all it takes to say the wordmark is him. Kept short
+            enough to stay one line beside him at phone width. */}
         <View style={styles.intro}>
           <MascotBase size={INTRO_MASCOT_SIZE} pose={GREETING.reduced} />
-          <Text style={styles.introText}>
-            I&apos;m Bucket Hat. My hat suits any weather — let&apos;s find what suits yours.
-          </Text>
+          <Text style={styles.introText}>Hi, I&apos;m Bucket Hat.</Text>
         </View>
 
         <View style={styles.card}>

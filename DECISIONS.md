@@ -201,6 +201,7 @@ one by date — don't edit the old entry.
 - 2026-08-19 — Share cards cover forecast windows, not just right now (§13.2)
 - 2026-08-19 — A span's card leads with its high and low, and its gear is folded across every hour (§13.2, §9.5)
 - 2026-08-19 — The app explains its own name in two places, and nowhere else (§9.7, §9.0.1) [design]
+- 2026-08-19 — About's copy is Antony's, verbatim; the welcome line is one line [design, supersedes the entry above]
 
 ---
 
@@ -4056,5 +4057,25 @@ and not in empty states, toasts or notification copy. The share card's "via
 Bucket Hat" is the third mention and stays as it is — a signature, not a story.
 Both draw him through `MascotBase`, so neither screen runs an animation loop
 for a still.
+
+---
+
+## 2026-08-19 — About's copy is Antony's, verbatim; the welcome line is one line (§9.7, §9.0.1)
+
+**What**: Settings' About carries Antony's own two sentences word for word,
+exclamation mark included, and the "Built for one person's wardrobe and one
+commute at a time" line is gone. The welcome screen's introduction is now
+"Hi, I'm Bucket Hat." and nothing else. Supersedes today's earlier entry,
+where both were written in the app's utilitarian register.
+
+**Why**: his call, on his own app's voice. The About card is the one surface
+where the app talks about itself rather than about the weather, so §9.0.1's
+"confident, not cheerful" doesn't get to overrule the owner on it; and beside
+a mascot, two sentences is a monologue where one is a greeting.
+
+**Resolution**: treat the About copy as content, not UI text — reformat it
+(the two sentences are two paragraphs, for a narrow card) but don't reword it.
+If something genuinely essential is ever missing, add a passage after it
+rather than editing his.
 
 ---

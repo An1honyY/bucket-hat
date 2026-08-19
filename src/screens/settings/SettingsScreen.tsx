@@ -404,16 +404,20 @@ export default function SettingsScreen() {
             a still, and a static screen doesn't need an animation loop
             running behind a scroll. */}
         <View style={styles.aboutCard}>
+          {/* Antony's words, verbatim — this is the app in its own voice
+              rather than the utilitarian half of §9.0 that every other screen
+              speaks in, and the one place the exclamation mark the guide
+              rations is spent. Broken into two paragraphs for a narrow card;
+              nothing else about it is ours to edit. */}
           <View style={styles.aboutText}>
             <Text style={styles.body}>
-              Bucket Hat helps you dress for wherever your day takes you — from the gear you already own, for the
-              weather you&apos;ll actually be out in.
+              Bucket Hat is an app that helps you dress for the weather wherever you&apos;re gonna be going throughout
+              your day.
             </Text>
             <Text style={styles.body}>
-              The picks come from Bucket Hat himself: a cheeky little kororā — a blue penguin — who swears by his hat,
-              because a bucket hat suits whatever the weather does. Rain or shine.
+              Your gear recommendations are brought to you by Bucket Hat, your very own cheeky little blue fairy penguin
+              buddy who loves his bucket hat because it fits any situation, rain or shine!
             </Text>
-            <Text style={styles.body}>Built for one person&apos;s wardrobe and one commute at a time.</Text>
           </View>
           <MascotBase size={ABOUT_MASCOT_SIZE} pose={MASCOT_ANIMATIONS.idle.reduced} />
         </View>
