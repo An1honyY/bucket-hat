@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import type { RightNowState } from "../../lib/useRightNow";
+import type { WeatherSnapshot } from "../../types";
 import { classifyWeather, formatWindKph } from "../../lib/weather";
 import { conditionColorForIcon } from "../../theme/conditionColor";
 import useTheme from "../../theme/useTheme";
@@ -7,10 +7,8 @@ import { NUMERIC, RADIUS, SPACING, TYPE } from "../../theme/typography";
 import ClothingTypeIcon, { accessoryIconKind, type ClothingIconKind } from "../../components/ClothingTypeIcon";
 import WeatherIcon, { weatherIconKindFor } from "../../components/WeatherIcon";
 import MetaDivider from "../../components/MetaDivider";
-import { formatTime } from "../../lib/formatTime";
-import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import { gearPickLabel } from "../../lib/gearLabel";
-import type { LayerPick } from "../../lib/recommend";
+import type { LayerPick, Recommendation } from "../../lib/recommend";
 import MascotBase from "../../components/mascot/MascotBase";
 import { MASCOT_ANIMATIONS, SHIVER_UNDERLAY } from "../../components/mascot/states";
 import { mascotGarmentFills, mascotStateFor } from "../../lib/mascot";
@@ -47,12 +45,6 @@ export const CARD_WIDTH = 340;
  *  to leave the temperature the loudest thing on the card. */
 const MASCOT_SIZE = 86;
 
-/** Where the app is, when the reverse geocode hasn't produced a suburb — a
- *  failed lookup, or a permission the user hasn't given. v1 is Auckland-only
- *  by design (docs/02-external-apis.md §2.1), so this is a fact about the app
- *  rather than a guess about the reading. */
-const FALLBACK_PLACE = "Auckland";
-
 function layerIconKind(pick: LayerPick): ClothingIconKind {
   const type = "layerType" in pick ? pick.layerType : pick.type;
   if (type === "accessory") return accessoryIconKind("fallbackText" in pick ? pick.fallbackText : pick.name);
@@ -60,24 +52,34 @@ function layerIconKind(pick: LayerPick): ClothingIconKind {
   return "accessory";
 }
 
-type Props = Pick<RightNowState, "weather" | "recommendation" | "suburb" | "fetchedAt">;
+/**
+ * What one exported card is about.
+ *
+ * Built by ShareConditions from either the live reading or a forecast window
+ * (§13.2, extended 2026-08-19), so this component stays a renderer: it never
+ * decides what "tomorrow" means or which hour of a rain spell to draw.
+ */
+export interface ShareCardSubject {
+  /** "Auckland right now", "Auckland · Rain 2–5pm". */
+  eyebrow: string;
+  /** The hour the card is drawn for: now, or the window's peak. */
+  weather: WeatherSnapshot;
+  recommendation: Recommendation;
+  /** A span's low–high. Absent for a single moment, which has neither. */
+  tempRangeC?: { minC: number; maxC: number };
+  /** Highest sustained wind across a span; the moment's own wind otherwise. */
+  windKph: number;
+  /** Bottom right: a clock time for now, a day for a window. */
+  footerNote: string;
+}
 
-export default function ShareableConditionsCard({ weather, recommendation, suburb, fetchedAt }: Props) {
+export default function ShareableConditionsCard({ subject }: { subject: ShareCardSubject }) {
   const theme = useTheme();
   const styles = getStyles(theme);
-  const hour12 = useTimeFormatStore((s) => s.timeFormatPreference !== "24h");
-  if (!weather || !recommendation) return null;
+  const { eyebrow, weather, recommendation, tempRangeC, windKph, footerNote } = subject;
 
   const condition = classifyWeather(weather.weatherCode, weather.precipMm, weather.windKph);
   const heroIcon = weatherIconKindFor(condition, weather.isDaylight);
-  const asOf = formatTime(
-    fetchedAt !== null && fetchedAt !== undefined ? new Date(fetchedAt).toISOString() : weather.time,
-    hour12
-  );
-  // The picture always says where it is. On the live card the suburb is a
-  // nicety — you know where you are — but a card sent to someone else without
-  // a place name is a temperature from nowhere.
-  const place = suburb ?? FALLBACK_PLACE;
   // The same state and outfit the companion is wearing on Today, from the
   // engine's own signals. `reduced` is the state's held pose — it exists for
   // the reduce-motion path (§13.9), and a still image wants exactly that.
@@ -106,7 +108,7 @@ export default function ShareableConditionsCard({ weather, recommendation, subur
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.headerCol}>
-          <Text style={styles.eyebrow}>{place} right now</Text>
+          <Text style={styles.eyebrow}>{eyebrow}</Text>
 
           <View style={styles.conditionRow}>
             <WeatherIcon kind={heroIcon} size={34} color={conditionColorForIcon(theme, heroIcon)} />
@@ -115,10 +117,25 @@ export default function ShareableConditionsCard({ weather, recommendation, subur
 
           <Text style={styles.conditionLabel}>{condition.label}</Text>
 
+          {/* A span reports its range and its worst wind; a single moment has
+              neither, and says how it feels instead. Both answer the same
+              question — "is it worse than the number above?" */}
+          {/* A range whose ends round to the same degree isn't a range: a
+              steady 13° window read "13–13° across", so it falls back to the
+              feels-like, which is the thing that still varies. */}
           <View style={styles.detailRow}>
-            <Text style={styles.detail}>Feels like {Math.round(weather.apparentTempC)}°</Text>
+            {tempRangeC && Math.round(tempRangeC.minC) !== Math.round(tempRangeC.maxC) ? (
+              <Text style={styles.detail}>
+                {Math.round(tempRangeC.minC)}–{Math.round(tempRangeC.maxC)}° across
+              </Text>
+            ) : (
+              <Text style={styles.detail}>Feels like {Math.round(weather.apparentTempC)}°</Text>
+            )}
             <MetaDivider />
-            <Text style={styles.detail}>Wind {formatWindKph(weather.windKph)}</Text>
+            <Text style={styles.detail}>
+              {tempRangeC ? "Wind up to " : "Wind "}
+              {formatWindKph(windKph)}
+            </Text>
           </View>
         </View>
 
@@ -151,7 +168,7 @@ export default function ShareableConditionsCard({ weather, recommendation, subur
       <View style={styles.footer}>
         <Text style={styles.wordmark}>via Bucket Hat</Text>
         <View style={styles.footerSpacer} />
-        <Text style={styles.asOf}>{asOf}</Text>
+        <Text style={styles.asOf}>{footerNote}</Text>
       </View>
     </View>
   );

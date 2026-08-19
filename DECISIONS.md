@@ -197,6 +197,8 @@ one by date — don't edit the old entry.
 - 2026-08-18 — Workers Builds never installed the Worker's own dependencies; CI now dry-run deploys [build/infra]
 - 2026-08-18 — Phase 14 shares an export-only card, and web shares through the browser, not expo-sharing (§13.2)
 - 2026-08-19 — The share card carries the mascot and names the place; the raster wordmark is gone (§13.2, §9.7) [design]
+- 2026-08-19 — The web export gets a real HTML template, a manifest and PWA icons; the blurry home-screen icon was a 48px favicon [build/infra, §10.4]
+- 2026-08-19 — Share cards cover forecast windows, not just right now (§13.2)
 
 ---
 
@@ -3961,5 +3963,48 @@ shiver underlay composed the way Mascot.tsx composes it), so a capture cannot
 catch him mid-blink. He sits at the end of the header row rather than absolutely
 over it — positioned over it he covered "Heavy rain". One mark on the card now,
 and it is the vector one.
+
+---
+
+## 2026-08-19 — The web export gets a real HTML template, a manifest and PWA icons; the blurry home-screen icon was a 48px favicon (§10.4)
+
+**What**: `public/index.html` is now the web export's template — Expo uses it
+when present and injects its own icon link and bundle script into it — and it
+carries `manifest.webmanifest`, an apple-touch-icon and theme-colour metas.
+`public/icons/` holds 192/512/maskable-512/180px PNGs resampled from the
+existing 1024px `assets/icon.png`.
+
+**Why**: installed to a phone's home screen, the web app had a soft icon while
+the dev build's was sharp. Nothing was wrong with the artwork: with no manifest
+and no apple-touch-icon, both platforms had only `favicon.ico` (which Expo
+generates at 32/48px) to scale up to a home-screen tile.
+
+**Resolution**: the template keeps Expo's own react-native-web reset verbatim —
+without it the app renders into a collapsed root — so treat that block as
+Expo's, not ours. Icons are committed rather than generated at build time; a
+one-off `sharp` resample is not worth a build dependency. Re-run it from
+`assets/icon.png` if the mark ever changes.
+
+---
+
+## 2026-08-19 — Share cards cover forecast windows, not just right now (§13.2)
+
+**What**: The share button opens a short picker: "Right now", then any named
+run of weather in the next 36 hours ("Rain 2–5pm", "Hot tomorrow 11am–3pm"),
+then plain spans ("Rest of today", "Tonight", "Tomorrow"). Each card is drawn
+for its window's worst hour, with gear from a real `recommendGear` pass for
+that hour.
+
+**Why**: Antony's call — a card about right now is stale by the time it is
+read, and the person receiving it is deciding about this afternoon. §13.2 only
+specced the current conditions.
+
+**Resolution**: `forecastWindows.ts` is pure and tested, and every threshold it
+flags on is the engine's own (`HOT_C`, `HIGH_WIND_KPH`, `rainIntensityBucket`)
+so a window can never be named for weather the engine wouldn't act on. Runs
+are capped at three, need two hours to count, and one stretch of weather gets
+one name — rain outranks heat outranks wind, and an overlapping run is
+dropped. The horizon is 36h because §5.3's confidence only steps down past 48,
+so no card needs a hedge of its own; extend it and that stops being true.
 
 ---

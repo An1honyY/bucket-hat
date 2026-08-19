@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!--
+  The web export's HTML template. `expo export --platform web` uses this file
+  when it exists and injects its own <link rel="icon"> and bundle <script>
+  into it; without it Expo writes a default that has room for a favicon and
+  nothing else.
+
+  That default is why the installed web app's icon was blurry. With no
+  manifest and no apple-touch-icon, both iOS and Android had one source to
+  work from — favicon.ico, which Expo generates at 32/48px — and upscaled it
+  to fill a home screen. The artwork was never the problem: assets/icon.png
+  is a clean 1024px, which is why the dev build's icon is sharp.
+
+  Everything below the reset is what the default template does not give us.
+  The styles themselves are Expo's own (the react-native-web root reset) and
+  must stay: without them the app renders in a collapsed root.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <title>Bucket Hat</title>
+    <meta name="description" content="Know what to wear before you head out — from your own wardrobe." />
+
+    <!-- Installed-app icons. `icons/` is served from public/ verbatim, so
+         these paths are stable and don't move with a bundle hash. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <!-- iOS reads these rather than the manifest for a home-screen launch. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Bucket Hat" />
+
+    <!-- The app repaints its chrome with the weather (§9.1.3), so these are
+         the base themes' backgrounds rather than an accent: the browser's own
+         furniture should match the screen behind it at rest. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF7FC" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171B36" />
+
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

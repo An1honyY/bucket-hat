@@ -90,7 +90,7 @@ const WARMTH_LEVEL_TO_ITEM_SCALE = ITEM_WARMTH_SCALE_MAX / 4; // maps the 0-4 wa
 // constant rather than hard-coding 4, so the shiver state and the thermal-
 // bottoms pick can never disagree about what a genuine cold snap is.
 export const BOTTOMS_COLD_WARMTH_LEVEL = 4;
-const HOT_C = 24;
+export const HOT_C = 24;
 const SEVERE_WEATHER_SEVERITY = 4;
 const SEVERE_GUST_KPH = 60;
 // §7.16 — wearsSinceClean at/above which needsCleaning is set, absent an

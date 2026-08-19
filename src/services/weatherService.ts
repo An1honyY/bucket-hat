@@ -178,6 +178,16 @@ export interface HourlyReading {
   windKph: number;
   rainIntensity: RainIntensity;
   isDaylight: boolean;
+  // The rest of what a `WeatherSnapshot` needs, so any hour in the strip can
+  // become one without a second request (docs/13-extended-features.md §13.2's
+  // share card recommends gear for a *future* window, and the engine reads
+  // apparent temperature, gusts and UV, not the headline temperature).
+  // Already in the response body — the request has always asked for them.
+  apparentTempC: number;
+  precipProbability: number;
+  windGustKph: number;
+  relativeHumidityPct: number;
+  uvIndex: number;
 }
 
 export async function getHourlyForecast(
@@ -212,6 +222,11 @@ export async function getHourlyForecast(
       windKph: hourly.wind_speed_10m[index],
       rainIntensity: rainIntensityBucket(hourly.precipitation[index]),
       isDaylight: hourly.is_day[index] === 1,
+      apparentTempC: hourly.apparent_temperature[index],
+      precipProbability: hourly.precipitation_probability[index],
+      windGustKph: hourly.wind_gusts_10m[index],
+      relativeHumidityPct: hourly.relative_humidity_2m[index],
+      uvIndex: hourly.uv_index[index],
     };
   });
 
@@ -289,6 +304,11 @@ export async function getLocalOutlook(
             windKph: hourly.wind_speed_10m[index],
             rainIntensity: rainIntensityBucket(hourly.precipitation[index]),
             isDaylight: hourly.is_day[index] === 1,
+            apparentTempC: hourly.apparent_temperature[index],
+            precipProbability: hourly.precipitation_probability[index],
+            windGustKph: hourly.wind_gusts_10m[index],
+            relativeHumidityPct: hourly.relative_humidity_2m[index],
+            uvIndex: hourly.uv_index[index],
           };
         });
 
