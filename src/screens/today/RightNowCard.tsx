@@ -16,6 +16,7 @@ import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import { HIGH_WIND_KPH, type LayerPick } from "../../lib/recommend";
 import { gearPickLabel } from "../../lib/gearLabel";
+import ShareConditions from "./ShareConditions";
 
 // "Right now" card — docs/09-design-system.md §9.3.1, docs/04-screens-
 // navigation.md §4.2. A smaller self-contained version of the gear
@@ -42,7 +43,8 @@ function layerIconKind(pick: LayerPick): ClothingIconKind {
   return "accessory";
 }
 
-export default function RightNowCard({ loading, weather, recommendation, suburb, fetchedAt, refreshing }: RightNowState & { refreshing?: boolean }) {
+export default function RightNowCard(props: RightNowState & { refreshing?: boolean }) {
+  const { loading, weather, recommendation, suburb, fetchedAt, refreshing } = props;
   // The app-wide mood, not one resolved from this card's own `weather`.
   // They're the same reading — Today publishes it as ambient, a saved
   // location publishes it as the override — but they didn't arrive in the
@@ -98,7 +100,12 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
   if (recommendation.umbrella) picks.push({ pick: recommendation.umbrella, icon: "umbrella" });
 
   return (
+    <>
     <View style={styles.card}>
+      {/* §13.2 — the whole share feature (button, what-to-share picker, the
+          off-screen card it captures) lives in one component; this card just
+          gives it the corner and the data it already has. */}
+      <ShareConditions {...props} />
       <Text style={styles.title}>Right now</Text>
       {suburb && <Text style={styles.suburbLabel}>{suburb}</Text>}
       <View style={styles.conditionRow}>
@@ -222,6 +229,7 @@ export default function RightNowCard({ loading, weather, recommendation, suburb,
         <GearDetailSheet item={openItem.item} kind={openItem.icon} onClose={() => setOpenItem(null)} />
       )}
     </View>
+    </>
   );
 }
 

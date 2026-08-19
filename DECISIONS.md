@@ -194,6 +194,14 @@ one by date — don't edit the old entry.
 - 2026-08-17 — The jacket overlay is gated off, not deleted (§13.9) [design]
 - 2026-08-18 — The mascot's room travels with him, and it is his height, not his box (§9.7, §13.9) [design]
 - 2026-08-18 — Phase 13 recap: regenerates on the week turning over, not on Monday specifically (§13.1)
+- 2026-08-18 — Workers Builds never installed the Worker's own dependencies; CI now dry-run deploys [build/infra]
+- 2026-08-18 — Phase 14 shares an export-only card, and web shares through the browser, not expo-sharing (§13.2)
+- 2026-08-19 — The share card carries the mascot and names the place; the raster wordmark is gone (§13.2, §9.7) [design]
+- 2026-08-19 — The web export gets a real HTML template, a manifest and PWA icons; the blurry home-screen icon was a 48px favicon [build/infra, §10.4]
+- 2026-08-19 — Share cards cover forecast windows, not just right now (§13.2)
+- 2026-08-19 — A span's card leads with its high and low, and its gear is folded across every hour (§13.2, §9.5)
+- 2026-08-19 — The app explains its own name in two places, and nowhere else (§9.7, §9.0.1) [design]
+- 2026-08-19 — About's copy is Antony's, verbatim; the welcome line is one line [design, supersedes the entry above]
 
 ---
 
@@ -3889,5 +3897,185 @@ below two uses rather than padded to "got 1 use", and a journey with no
 outdoor leg contributes no weather word — an all-indoor trip says nothing
 about the week's weather. Keep the line to one sentence; if it ever needs a
 second, that is a different feature.
+
+---
+
+## 2026-08-18 — Workers Builds never installed the Worker's own dependencies; CI now dry-run deploys [build/infra]
+
+**What**: SETUP.md's Workers Builds build command was `npm ci && npm run
+build:web`, which installs the app's dependencies and none of `worker/`'s —
+so `wrangler deploy` could not resolve `hono` and the deploy failed on every
+push. Fixed to `npm ci && npm ci --prefix worker && npm run build:web`, with
+the deploy command moved to `npm --prefix worker run deploy` so it uses the
+pinned wrangler rather than whatever `npx` fetches.
+
+**Why**: `worker/` is a separate npm package with its own lockfile and the
+root declares no workspaces. Deploys had only ever been run from a machine
+where someone had installed inside `worker/` by hand, so nothing local
+reproduced it.
+
+**Resolution**: reproduced with `wrangler deploy --dry-run`, which needs no
+Cloudflare credentials, and that same dry run is now a CI step on the worker
+job — a failed deploy leaves the previous version live and looks exactly like
+a trigger that never fired, so it has to fail somewhere that is watched.
+Whether the dashboard's Git integration is also pointed at the wrong branch
+(this repo's default is `master`, not `main`) can only be checked there.
+
+---
+
+## 2026-08-18 — Phase 14 shares an export-only card, and web shares through the browser, not expo-sharing (§13.2)
+
+**What**: The share button captures `ShareableConditionsCard` — a fixed-width,
+photo-free twin of the "Right now" card — rather than the live card, which
+§13.2 allows. On web, where `expo-sharing` is unavailable, the PNG goes to
+`navigator.share` when the browser will take a file and to a download
+otherwise.
+
+**Why**: the live card is screen-width, its gear chips load photos
+asynchronously, and its "as of …, updating…" line describes a surface that
+moves; all three are wrong in a still image, and a wardrobe photo is not
+something to put in a picture meant to leave the app by default. The web half
+isn't in §13.2 at all, which assumes the native share sheet — but web is the
+only platform this app currently ships to.
+
+**Resolution**: `gearPickLabel` and `classifyWeather` are shared with the live
+card, so the picture can never word a pick differently from the screen.
+Verified on web in both themes, wet and dry. **Native is unverified** —
+§13.2's own warning about view-shot's transparent-background and safe-area
+quirks is answered by the card's opaque background, but nobody has run it on
+a device; that is the one thing to check before this is called done.
+
+---
+
+## 2026-08-19 — The share card carries the mascot and names the place; the raster wordmark is gone (§13.2, §9.7)
+
+**What**: The exported card gains the mascot in its top-right corner, always
+names the place ("Auckland right now" when no suburb resolved), and its
+attribution line is now type only — the `header-logo.png` hat that sat beside
+it is removed.
+
+**Why**: Antony's call on the first exports. The raster mark scaled to 22px
+came out of the capture visibly soft, a temperature with no place name is a
+reading from nowhere once it leaves the sender's phone, and §13.2's own
+argument — this is the one surface built to be seen by someone who doesn't
+have the app — applies to the character more than to a logo.
+
+**Resolution**: the mascot is drawn through `MascotBase`, not `Mascot`: no
+Reanimated, no timers, one held pose (the state's `reduced` pose, with the
+shiver underlay composed the way Mascot.tsx composes it), so a capture cannot
+catch him mid-blink. He sits at the end of the header row rather than absolutely
+over it — positioned over it he covered "Heavy rain". One mark on the card now,
+and it is the vector one.
+
+---
+
+## 2026-08-19 — The web export gets a real HTML template, a manifest and PWA icons; the blurry home-screen icon was a 48px favicon (§10.4)
+
+**What**: `public/index.html` is now the web export's template — Expo uses it
+when present and injects its own icon link and bundle script into it — and it
+carries `manifest.webmanifest`, an apple-touch-icon and theme-colour metas.
+`public/icons/` holds 192/512/maskable-512/180px PNGs resampled from the
+existing 1024px `assets/icon.png`.
+
+**Why**: installed to a phone's home screen, the web app had a soft icon while
+the dev build's was sharp. Nothing was wrong with the artwork: with no manifest
+and no apple-touch-icon, both platforms had only `favicon.ico` (which Expo
+generates at 32/48px) to scale up to a home-screen tile.
+
+**Resolution**: the template keeps Expo's own react-native-web reset verbatim —
+without it the app renders into a collapsed root — so treat that block as
+Expo's, not ours. Icons are committed rather than generated at build time; a
+one-off `sharp` resample is not worth a build dependency. Re-run it from
+`assets/icon.png` if the mark ever changes.
+
+---
+
+## 2026-08-19 — Share cards cover forecast windows, not just right now (§13.2)
+
+**What**: The share button opens a short picker: "Right now", then any named
+run of weather in the next 36 hours ("Rain 2–5pm", "Hot tomorrow 11am–3pm"),
+then plain spans ("Rest of today", "Tonight", "Tomorrow"). Each card is drawn
+for its window's worst hour, with gear from a real `recommendGear` pass for
+that hour.
+
+**Why**: Antony's call — a card about right now is stale by the time it is
+read, and the person receiving it is deciding about this afternoon. §13.2 only
+specced the current conditions.
+
+**Resolution**: `forecastWindows.ts` is pure and tested, and every threshold it
+flags on is the engine's own (`HOT_C`, `HIGH_WIND_KPH`, `rainIntensityBucket`)
+so a window can never be named for weather the engine wouldn't act on. Runs
+are capped at three, need two hours to count, and one stretch of weather gets
+one name — rain outranks heat outranks wind, and an overlapping run is
+dropped. The horizon is 36h because §5.3's confidence only steps down past 48,
+so no card needs a hedge of its own; extend it and that stops being true.
+
+---
+
+## 2026-08-19 — A span's card leads with its high and low, and its gear is folded across every hour (§13.2, §9.5)
+
+**What**: A card about a span (Rest of today / Tonight / Tomorrow) now leads
+with the window's high and low in the 7-day panel's own pairing — bold max,
+secondary min, no "high"/"low" words — and its gear comes from a
+`recommendGear` pass over *every* hour in the window rather than its peak hour
+alone.
+
+**Why**: Antony asked whether a full-day card showed high and low. It showed a
+range, but as a caption under a hero number that was the peak *weather* hour's
+temperature — which on a wet day is neither end of the day. And a day
+recommended from one hour dressed you for the middle of it: tomorrow's card
+said "Any Shoes" at 22° while the same day bottomed out at 12°, where the
+engine wants a jacket.
+
+**Resolution**: each hour becomes its own one-minute leg, so `recommendGear`
+folds them exactly as it folds a journey — warmth from the coldest, gusts from
+the windiest, UV from the highest, darkness from any dark hour. The legs stay a
+minute long deliberately: duration feeds the warmup discount, and a window is a
+series of point checks rather than an hours-long walk. A range whose ends round
+to the same degree isn't drawn as one; that card shows the feels-like instead.
+
+---
+
+## 2026-08-19 — The app explains its own name in two places, and nowhere else (§9.7, §9.0.1)
+
+**What**: Settings' About card now tells the name's story — the picks come from
+Bucket Hat himself, a kororā who swears by his hat because it suits whatever
+the weather does — with the mascot drawn beside it. The welcome screen gets one
+line of it as an introduction ("I'm Bucket Hat. My hat suits any weather —
+let's find what suits yours."). Also: the header's button row was 8px tighter
+against the right edge than the logo is against the left; both are 12px now.
+
+**Why**: Antony's call — the app was named after a hat nobody ever explained,
+and About was one flat sentence. The wording is his, trimmed to §9.0.1's
+register: warm, but no exclamation mark, since the guide reserves those for
+something that is genuinely a treat.
+
+**Resolution**: two places, deliberately. §9.0.1 also says the app is "a calm,
+competent second opinion, not a personality", so the story lives where someone
+goes looking for it (About) and where the app introduces itself (first run),
+and not in empty states, toasts or notification copy. The share card's "via
+Bucket Hat" is the third mention and stays as it is — a signature, not a story.
+Both draw him through `MascotBase`, so neither screen runs an animation loop
+for a still.
+
+---
+
+## 2026-08-19 — About's copy is Antony's, verbatim; the welcome line is one line (§9.7, §9.0.1)
+
+**What**: Settings' About carries Antony's own two sentences word for word,
+exclamation mark included, and the "Built for one person's wardrobe and one
+commute at a time" line is gone. The welcome screen's introduction is now
+"Hi, I'm Bucket Hat." and nothing else. Supersedes today's earlier entry,
+where both were written in the app's utilitarian register.
+
+**Why**: his call, on his own app's voice. The About card is the one surface
+where the app talks about itself rather than about the weather, so §9.0.1's
+"confident, not cheerful" doesn't get to overrule the owner on it; and beside
+a mascot, two sentences is a monologue where one is a greeting.
+
+**Resolution**: treat the About copy as content, not UI text — reformat it
+(the two sentences are two paragraphs, for a narrow card) but don't reword it.
+If something genuinely essential is ever missing, add a passage after it
+rather than editing his.
 
 ---

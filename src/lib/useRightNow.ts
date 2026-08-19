@@ -40,6 +40,11 @@ export interface RightNowState {
   // When the reading was actually fetched, so the card can say how old it is
   // independently of the forecast hour it describes.
   fetchedAt: number | null;
+  // Where the reading is from. Carried so anything recommending gear for a
+  // *later* hour at the same place (the share card's forecast windows,
+  // §13.2) can rebuild the same synthetic journey rather than re-resolving
+  // the location and possibly landing somewhere else.
+  coords: { lat: number; lng: number } | null;
 }
 
 export interface RightNowResult extends RightNowState {
@@ -76,6 +81,7 @@ const EMPTY: RightNowState = {
   hourly: [],
   daily: [],
   fetchedAt: null,
+  coords: null,
 };
 
 // Keyed by which place the reading is for — "current" for the resolved
@@ -83,24 +89,56 @@ const EMPTY: RightNowState = {
 // location's cards and Today's cards can't overwrite each other's entry.
 const cache = new Map<string, { state: RightNowState; fetchedAt: number }>();
 
-function buildSyntheticJourney(weather: WeatherSnapshot, coords: { lat: number; lng: number }): Journey {
+/**
+ * The reduced §4.2 recommendation for one moment, or across several.
+ *
+ * Exported because the share card (§13.2) makes exactly this call for forecast
+ * hours rather than for now. Two implementations would drift, and the one on
+ * the card you *send* is the one you'd least want to be the stale copy.
+ *
+ * Several snapshots become several legs rather than several passes, because
+ * folding them is something `recommendGear` already does and does properly:
+ * warmth from the coldest hour, gusts from the windiest, UV from the highest,
+ * darkness from any dark one. Picking one "representative" hour and running it
+ * alone would dress you for the middle of a day rather than for its edges.
+ */
+export async function reducedRecommendationFor(
+  weather: WeatherSnapshot | WeatherSnapshot[],
+  coords: { lat: number; lng: number }
+): Promise<Recommendation> {
+  const [clothing, shoes, umbrellas, calibration, thresholds] = await Promise.all([
+    listClothing(),
+    listShoes(),
+    listUmbrellas(),
+    getWarmthCalibration(),
+    getAdvancedThresholds(),
+  ]);
+  const journey = buildSyntheticJourney(Array.isArray(weather) ? weather : [weather], coords);
+  const full = recommendGear(journey, { clothing, shoes, umbrellas }, calibration, "no-preference", thresholds);
+  // §4.2 — never surfaced on the reduced path.
+  return { ...full, bottoms: undefined, severeWeatherAdvisory: undefined };
+}
+
+function buildSyntheticJourney(readings: WeatherSnapshot[], coords: { lat: number; lng: number }): Journey {
   const here = { id: "current-location", label: "Current location", address: "", lat: coords.lat, lng: coords.lng };
   return {
     id: "right-now",
     origin: here,
     destination: here,
-    departTime: weather.time,
-    legs: [
-      {
-        id: newId(),
-        mode: "walk",
-        label: "Right now",
-        durationMin: 1, // well under WARMUP_WALK_MIN_MINUTES — no warmup discount from a single-point check
-        startTime: weather.time,
-        outdoor: true,
-        weather,
-      },
-    ],
+    departTime: readings[0].time,
+    // One leg per reading. Each stays a minute long even when it stands for a
+    // whole hour: duration here feeds the warmup discount
+    // (WARMUP_WALK_MIN_MINUTES), and a window is a series of point checks, not
+    // an hours-long walk that would warm you up.
+    legs: readings.map((weather) => ({
+      id: newId(),
+      mode: "walk" as const,
+      label: "Right now",
+      durationMin: 1,
+      startTime: weather.time,
+      outdoor: true,
+      weather,
+    })),
   };
 }
 
@@ -187,18 +225,7 @@ export function useRightNow(fixedCoords?: { lat: number; lng: number }): RightNo
       // mood of a place you aren't standing in.
       if (!pinned) useAmbientWeatherStore.getState().setAmbientWeather(weather);
 
-      const [clothing, shoes, umbrellas, calibration, thresholds] = await Promise.all([
-        listClothing(),
-        listShoes(),
-        listUmbrellas(),
-        getWarmthCalibration(),
-        getAdvancedThresholds(),
-      ]);
-
-      const journey = buildSyntheticJourney(weather, coords);
-      const full = recommendGear(journey, { clothing, shoes, umbrellas }, calibration, "no-preference", thresholds);
-      // §4.2 — never surfaced on the reduced path.
-      const reduced: Recommendation = { ...full, bottoms: undefined, severeWeatherAdvisory: undefined };
+      const reduced = await reducedRecommendationFor(weather, coords);
 
       const fetchedAt = Date.now();
       const next: RightNowState = {
@@ -210,6 +237,7 @@ export function useRightNow(fixedCoords?: { lat: number; lng: number }): RightNo
         hourly,
         daily,
         fetchedAt,
+        coords,
       };
       setState(next);
       cache.set(cacheKey, { state: next, fetchedAt });
