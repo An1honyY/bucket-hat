@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import type { RightNowState } from "../../lib/useRightNow";
 import { classifyWeather, formatWindKph } from "../../lib/weather";
 import { conditionColorForIcon } from "../../theme/conditionColor";
@@ -11,6 +11,9 @@ import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import { gearPickLabel } from "../../lib/gearLabel";
 import type { LayerPick } from "../../lib/recommend";
+import MascotBase from "../../components/mascot/MascotBase";
+import { MASCOT_ANIMATIONS, SHIVER_UNDERLAY } from "../../components/mascot/states";
+import { mascotGarmentFills, mascotStateFor } from "../../lib/mascot";
 
 // Phase 14's export view — docs/13-extended-features.md §13.2. The "Right
 // now" card as a picture, not as a screen.
@@ -29,11 +32,26 @@ import type { LayerPick } from "../../lib/recommend";
 //     describe a live surface. In a still image they are noise at best.
 //
 // What it keeps is the card's own content and colours, so it reads as the
-// thing the sender was actually looking at.
+// thing the sender was actually looking at — plus the mascot, who is not on
+// the live card at all (he stands *above* it, §9.7). A picture that leaves
+// the app is the one surface where the character earns his place twice over,
+// and he is drawn here through `MascotBase` rather than `Mascot`: no
+// Reanimated, no timers, one held pose, so a capture can't catch him
+// mid-blink or mid-step.
 
 /** Fixed, so the exported PNG is the same shape everywhere. Roughly a phone
  *  card's width, which is what the layout inside it was designed for. */
 export const CARD_WIDTH = 340;
+
+/** Big enough to read as a character rather than as a sticker, small enough
+ *  to leave the temperature the loudest thing on the card. */
+const MASCOT_SIZE = 86;
+
+/** Where the app is, when the reverse geocode hasn't produced a suburb — a
+ *  failed lookup, or a permission the user hasn't given. v1 is Auckland-only
+ *  by design (docs/02-external-apis.md §2.1), so this is a fact about the app
+ *  rather than a guess about the reading. */
+const FALLBACK_PLACE = "Auckland";
 
 function layerIconKind(pick: LayerPick): ClothingIconKind {
   const type = "layerType" in pick ? pick.layerType : pick.type;
@@ -41,8 +59,6 @@ function layerIconKind(pick: LayerPick): ClothingIconKind {
   if (type === "jacket" || type === "midlayer" || type === "base" || type === "bottoms") return type;
   return "accessory";
 }
-
-const markSource = require("../../../assets/header-logo.png");
 
 type Props = Pick<RightNowState, "weather" | "recommendation" | "suburb" | "fetchedAt">;
 
@@ -58,6 +74,20 @@ export default function ShareableConditionsCard({ weather, recommendation, subur
     fetchedAt !== null && fetchedAt !== undefined ? new Date(fetchedAt).toISOString() : weather.time,
     hour12
   );
+  // The picture always says where it is. On the live card the suburb is a
+  // nicety — you know where you are — but a card sent to someone else without
+  // a place name is a temperature from nowhere.
+  const place = suburb ?? FALLBACK_PLACE;
+  // The same state and outfit the companion is wearing on Today, from the
+  // engine's own signals. `reduced` is the state's held pose — it exists for
+  // the reduce-motion path (§13.9), and a still image wants exactly that.
+  const mascotState = mascotStateFor(recommendation.signals);
+  // Shiver composes under the held pose, exactly as it does in Mascot.tsx —
+  // it is a modifier on top of the state, not a state, and a cold-snap card
+  // that showed him standing comfortably would be the picture disagreeing
+  // with the gloves it is recommending.
+  const heldPose = MASCOT_ANIMATIONS[mascotState.primary].reduced;
+  const mascotPose = mascotState.shivering ? { ...SHIVER_UNDERLAY, ...heldPose } : heldPose;
 
   // Same order the live card lists them in: layers, accessories, shoes,
   // umbrella. `gearPickLabel` is what turns each into text either way, so the
@@ -74,18 +104,25 @@ export default function ShareableConditionsCard({ weather, recommendation, subur
     // of view-shot's two historical traps, and a card captured over nothing
     // arrives as dark text on a black rectangle.
     <View style={styles.card}>
-      <Text style={styles.eyebrow}>{suburb ? `${suburb} right now` : "Right now"}</Text>
+      <View style={styles.headerRow}>
+        <View style={styles.headerCol}>
+          <Text style={styles.eyebrow}>{place} right now</Text>
 
-      <View style={styles.conditionRow}>
-        <WeatherIcon kind={heroIcon} size={34} color={conditionColorForIcon(theme, heroIcon)} />
-        <Text style={styles.temp}>{Math.round(weather.tempC)}°C</Text>
-        <Text style={styles.conditionLabel}>{condition.label}</Text>
-      </View>
+          <View style={styles.conditionRow}>
+            <WeatherIcon kind={heroIcon} size={34} color={conditionColorForIcon(theme, heroIcon)} />
+            <Text style={styles.temp}>{Math.round(weather.tempC)}°C</Text>
+          </View>
 
-      <View style={styles.detailRow}>
-        <Text style={styles.detail}>Feels like {Math.round(weather.apparentTempC)}°</Text>
-        <MetaDivider />
-        <Text style={styles.detail}>Wind {formatWindKph(weather.windKph)}</Text>
+          <Text style={styles.conditionLabel}>{condition.label}</Text>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detail}>Feels like {Math.round(weather.apparentTempC)}°</Text>
+            <MetaDivider />
+            <Text style={styles.detail}>Wind {formatWindKph(weather.windKph)}</Text>
+          </View>
+        </View>
+
+        <MascotBase size={MASCOT_SIZE} pose={mascotPose} garments={mascotGarmentFills(recommendation.signals)} />
       </View>
 
       {picks.length > 0 && (
@@ -105,12 +142,13 @@ export default function ShareableConditionsCard({ weather, recommendation, subur
         </View>
       )}
 
-      {/* The one deliberately non-utilitarian line in the app (§13.2): this is
-          the only surface designed to be seen by someone who doesn't have it.
-          The time sits on the same row so the flourish costs no extra height
-          and the picture still says when it was true. */}
+      {/* §13.2's attribution line. Type only: the hat was drawn here from
+          `header-logo.png`, a raster mark scaled down to 22px, and it came out
+          of the capture visibly soft. The mascot above is the same hat drawn
+          as vectors, and he is crisp at any size — one mark on the card, and
+          the sharp one. The time shares the row so the flourish costs no extra
+          height and the picture still says when it was true. */}
       <View style={styles.footer}>
-        <Image source={markSource} style={styles.mark} resizeMode="contain" />
         <Text style={styles.wordmark}>via Bucket Hat</Text>
         <View style={styles.footerSpacer} />
         <Text style={styles.asOf}>{asOf}</Text>
@@ -128,10 +166,18 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       borderRadius: RADIUS.card,
       backgroundColor: theme.surfaceRaised,
     },
+    // He stands at the end of the header rather than over it: absolutely
+    // positioned he would sit on top of a long condition label ("Heavy rain"),
+    // and the one thing this card cannot afford is the weather being covered
+    // by the mascot describing it.
+    headerRow: { flexDirection: "row", alignItems: "flex-end", gap: SPACING.sm },
+    headerCol: { flex: 1, gap: SPACING.xs },
     eyebrow: { ...TYPE.eyebrow, color: theme.textSecondary },
     conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     temp: { ...TYPE.display, ...NUMERIC, color: theme.textPrimary },
-    conditionLabel: { ...TYPE.title, color: theme.textPrimary, flexShrink: 1 },
+    // On its own line now that the mascot has taken the right of the header:
+    // beside the temperature it had about 60px left and broke mid-word.
+    conditionLabel: { ...TYPE.subtitle, color: theme.textPrimary },
     detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap" },
     detail: { ...TYPE.caption, color: theme.textSecondary },
     picksSection: { gap: SPACING.sm, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.md },
@@ -152,7 +198,6 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     pickText: { ...TYPE.caption, color: theme.textPrimary, flexShrink: 1 },
     pickTextFallback: { ...TYPE.caption, color: theme.textSecondary, flexShrink: 1 },
     footer: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, paddingTop: SPACING.xs },
-    mark: { width: 22, height: 16 },
     wordmark: { ...TYPE.micro, color: theme.textSecondary },
     footerSpacer: { flex: 1 },
     asOf: { ...TYPE.micro, color: theme.textSecondary },

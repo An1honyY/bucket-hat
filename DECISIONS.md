@@ -196,6 +196,7 @@ one by date — don't edit the old entry.
 - 2026-08-18 — Phase 13 recap: regenerates on the week turning over, not on Monday specifically (§13.1)
 - 2026-08-18 — Workers Builds never installed the Worker's own dependencies; CI now dry-run deploys [build/infra]
 - 2026-08-18 — Phase 14 shares an export-only card, and web shares through the browser, not expo-sharing (§13.2)
+- 2026-08-19 — The share card carries the mascot and names the place; the raster wordmark is gone (§13.2, §9.7) [design]
 
 ---
 
@@ -3938,5 +3939,27 @@ Verified on web in both themes, wet and dry. **Native is unverified** —
 §13.2's own warning about view-shot's transparent-background and safe-area
 quirks is answered by the card's opaque background, but nobody has run it on
 a device; that is the one thing to check before this is called done.
+
+---
+
+## 2026-08-19 — The share card carries the mascot and names the place; the raster wordmark is gone (§13.2, §9.7)
+
+**What**: The exported card gains the mascot in its top-right corner, always
+names the place ("Auckland right now" when no suburb resolved), and its
+attribution line is now type only — the `header-logo.png` hat that sat beside
+it is removed.
+
+**Why**: Antony's call on the first exports. The raster mark scaled to 22px
+came out of the capture visibly soft, a temperature with no place name is a
+reading from nowhere once it leaves the sender's phone, and §13.2's own
+argument — this is the one surface built to be seen by someone who doesn't
+have the app — applies to the character more than to a logo.
+
+**Resolution**: the mascot is drawn through `MascotBase`, not `Mascot`: no
+Reanimated, no timers, one held pose (the state's `reduced` pose, with the
+shiver underlay composed the way Mascot.tsx composes it), so a capture cannot
+catch him mid-blink. He sits at the end of the header row rather than absolutely
+over it — positioned over it he covered "Heavy rain". One mark on the card now,
+and it is the vector one.
 
 ---
