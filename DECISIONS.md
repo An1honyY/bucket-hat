@@ -199,6 +199,7 @@ one by date — don't edit the old entry.
 - 2026-08-19 — The share card carries the mascot and names the place; the raster wordmark is gone (§13.2, §9.7) [design]
 - 2026-08-19 — The web export gets a real HTML template, a manifest and PWA icons; the blurry home-screen icon was a 48px favicon [build/infra, §10.4]
 - 2026-08-19 — Share cards cover forecast windows, not just right now (§13.2)
+- 2026-08-19 — A span's card leads with its high and low, and its gear is folded across every hour (§13.2, §9.5)
 
 ---
 
@@ -4006,5 +4007,29 @@ are capped at three, need two hours to count, and one stretch of weather gets
 one name — rain outranks heat outranks wind, and an overlapping run is
 dropped. The horizon is 36h because §5.3's confidence only steps down past 48,
 so no card needs a hedge of its own; extend it and that stops being true.
+
+---
+
+## 2026-08-19 — A span's card leads with its high and low, and its gear is folded across every hour (§13.2, §9.5)
+
+**What**: A card about a span (Rest of today / Tonight / Tomorrow) now leads
+with the window's high and low in the 7-day panel's own pairing — bold max,
+secondary min, no "high"/"low" words — and its gear comes from a
+`recommendGear` pass over *every* hour in the window rather than its peak hour
+alone.
+
+**Why**: Antony asked whether a full-day card showed high and low. It showed a
+range, but as a caption under a hero number that was the peak *weather* hour's
+temperature — which on a wet day is neither end of the day. And a day
+recommended from one hour dressed you for the middle of it: tomorrow's card
+said "Any Shoes" at 22° while the same day bottomed out at 12°, where the
+engine wants a jacket.
+
+**Resolution**: each hour becomes its own one-minute leg, so `recommendGear`
+folds them exactly as it folds a journey — warmth from the coldest, gusts from
+the windiest, UV from the highest, darkness from any dark hour. The legs stay a
+minute long deliberately: duration feeds the warmup discount, and a window is a
+series of point checks rather than an hours-long walk. A range whose ends round
+to the same degree isn't drawn as one; that card shows the feels-like instead.
 
 ---

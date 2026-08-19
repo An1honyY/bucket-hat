@@ -112,15 +112,20 @@ export default function ShareConditions(state: RightNowState) {
     setBusy(true);
     setPickerOpen(false);
     const summary = summarizeWindow(window);
-    // Drawn as the window's own time of day, not the peak hour's: see
-    // `mostlyDaylight`. It only reaches the icon — the engine reads
-    // `isDaylight` too (§7.6's darkness gear), and a night window should get
-    // that treatment for the same reason.
-    const peak = { ...snapshotFromHour(summary.peak, new Date(nowMs).toISOString()), isDaylight: summary.mostlyDaylight };
-    // Gear for the window's worst hour, from the engine itself. Without
-    // coordinates there is no synthetic journey to run it against, so the
+    const fetchedIso = new Date(nowMs).toISOString();
+    // What the card is *drawn* from: the hour that decides the icon and the
+    // condition, shown as the window's own time of day rather than that
+    // hour's (see `mostlyDaylight` — "Tonight" peaks at its first, still-lit
+    // hour and was getting a midday sun).
+    const peak = { ...snapshotFromHour(summary.peak, fetchedIso), isDaylight: summary.mostlyDaylight };
+    // What the gear is recommended *across*: every hour in the window, as its
+    // own leg. The engine folds them the way it folds a journey — warmth from
+    // the coldest, gusts from the windiest, darkness from any dark one — so a
+    // day card dresses you for the day's edges rather than for its middle.
+    // Without coordinates there is no synthetic journey to run at all, so the
     // card falls back to the live recommendation rather than inventing one.
-    const forWindow = coords ? await reducedRecommendationFor(peak, coords) : recommendation!;
+    const hours = window.hours.map((h) => snapshotFromHour(h, fetchedIso));
+    const forWindow = coords ? await reducedRecommendationFor(hours, coords) : recommendation!;
     setSubject({
       eyebrow: `${place} · ${window.cardTitle}`,
       weather: peak,

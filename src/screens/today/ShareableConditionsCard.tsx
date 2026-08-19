@@ -77,6 +77,9 @@ export default function ShareableConditionsCard({ subject }: { subject: ShareCar
   const theme = useTheme();
   const styles = getStyles(theme);
   const { eyebrow, weather, recommendation, tempRangeC, windKph, footerNote } = subject;
+  // A range whose ends round to the same degree isn't a range — a steady 13°
+  // window would read "13° 13°".
+  const hasRange = tempRangeC !== undefined && Math.round(tempRangeC.minC) !== Math.round(tempRangeC.maxC);
 
   const condition = classifyWeather(weather.weatherCode, weather.precipMm, weather.windKph);
   const heroIcon = weatherIconKindFor(condition, weather.isDaylight);
@@ -110,9 +113,15 @@ export default function ShareableConditionsCard({ subject }: { subject: ShareCar
         <View style={styles.headerCol}>
           <Text style={styles.eyebrow}>{eyebrow}</Text>
 
+          {/* A span leads with its high and low, in the same pairing the
+              7-day panel uses (§9.5): bold max, secondary min, no "high"/"low"
+              words. Before this the hero was the peak *weather* hour's
+              temperature, which on a wet day is neither end of the day — the
+              range was there, but as a caption under it. */}
           <View style={styles.conditionRow}>
             <WeatherIcon kind={heroIcon} size={34} color={conditionColorForIcon(theme, heroIcon)} />
-            <Text style={styles.temp}>{Math.round(weather.tempC)}°C</Text>
+            <Text style={styles.temp}>{Math.round(hasRange ? tempRangeC!.maxC : weather.tempC)}°C</Text>
+            {hasRange && <Text style={styles.tempLow}>{Math.round(tempRangeC!.minC)}°</Text>}
           </View>
 
           <Text style={styles.conditionLabel}>{condition.label}</Text>
@@ -120,18 +129,17 @@ export default function ShareableConditionsCard({ subject }: { subject: ShareCar
           {/* A span reports its range and its worst wind; a single moment has
               neither, and says how it feels instead. Both answer the same
               question — "is it worse than the number above?" */}
-          {/* A range whose ends round to the same degree isn't a range: a
-              steady 13° window read "13–13° across", so it falls back to the
-              feels-like, which is the thing that still varies. */}
+          {/* A moment says how it feels; a span has already said its range
+              above, so it only adds the wind. One hour's apparent temperature
+              is a fact about that hour, and pinning it to a whole day would be
+              the card's most misreadable line. */}
           <View style={styles.detailRow}>
-            {tempRangeC && Math.round(tempRangeC.minC) !== Math.round(tempRangeC.maxC) ? (
-              <Text style={styles.detail}>
-                {Math.round(tempRangeC.minC)}–{Math.round(tempRangeC.maxC)}° across
-              </Text>
-            ) : (
-              <Text style={styles.detail}>Feels like {Math.round(weather.apparentTempC)}°</Text>
+            {!hasRange && (
+              <>
+                <Text style={styles.detail}>Feels like {Math.round(weather.apparentTempC)}°</Text>
+                <MetaDivider />
+              </>
             )}
-            <MetaDivider />
             <Text style={styles.detail}>
               {tempRangeC ? "Wind up to " : "Wind "}
               {formatWindKph(windKph)}
@@ -192,6 +200,10 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     eyebrow: { ...TYPE.eyebrow, color: theme.textSecondary },
     conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     temp: { ...TYPE.display, ...NUMERIC, color: theme.textPrimary },
+    // The low, in the 7-day panel's own weights: same family as the high, a
+    // step down in size and into `textSecondary`, so the pair reads as one
+    // figure rather than as two numbers competing.
+    tempLow: { ...TYPE.title, ...NUMERIC, color: theme.textSecondary },
     // On its own line now that the mascot has taken the right of the header:
     // beside the temperature it had about 60px left and broke mid-word.
     conditionLabel: { ...TYPE.subtitle, color: theme.textPrimary },

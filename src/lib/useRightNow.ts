@@ -90,15 +90,20 @@ const EMPTY: RightNowState = {
 const cache = new Map<string, { state: RightNowState; fetchedAt: number }>();
 
 /**
- * The reduced §4.2 recommendation for one moment at one place.
+ * The reduced §4.2 recommendation for one moment, or across several.
  *
- * Exported because the share card (§13.2) makes exactly this call for a
- * forecast hour rather than for now: same synthetic single-leg journey, same
- * stripped fields. Two implementations would drift, and the one on the card
- * you *send* is the one you'd least want to be the stale copy.
+ * Exported because the share card (§13.2) makes exactly this call for forecast
+ * hours rather than for now. Two implementations would drift, and the one on
+ * the card you *send* is the one you'd least want to be the stale copy.
+ *
+ * Several snapshots become several legs rather than several passes, because
+ * folding them is something `recommendGear` already does and does properly:
+ * warmth from the coldest hour, gusts from the windiest, UV from the highest,
+ * darkness from any dark one. Picking one "representative" hour and running it
+ * alone would dress you for the middle of a day rather than for its edges.
  */
 export async function reducedRecommendationFor(
-  weather: WeatherSnapshot,
+  weather: WeatherSnapshot | WeatherSnapshot[],
   coords: { lat: number; lng: number }
 ): Promise<Recommendation> {
   const [clothing, shoes, umbrellas, calibration, thresholds] = await Promise.all([
@@ -108,30 +113,32 @@ export async function reducedRecommendationFor(
     getWarmthCalibration(),
     getAdvancedThresholds(),
   ]);
-  const journey = buildSyntheticJourney(weather, coords);
+  const journey = buildSyntheticJourney(Array.isArray(weather) ? weather : [weather], coords);
   const full = recommendGear(journey, { clothing, shoes, umbrellas }, calibration, "no-preference", thresholds);
   // §4.2 — never surfaced on the reduced path.
   return { ...full, bottoms: undefined, severeWeatherAdvisory: undefined };
 }
 
-function buildSyntheticJourney(weather: WeatherSnapshot, coords: { lat: number; lng: number }): Journey {
+function buildSyntheticJourney(readings: WeatherSnapshot[], coords: { lat: number; lng: number }): Journey {
   const here = { id: "current-location", label: "Current location", address: "", lat: coords.lat, lng: coords.lng };
   return {
     id: "right-now",
     origin: here,
     destination: here,
-    departTime: weather.time,
-    legs: [
-      {
-        id: newId(),
-        mode: "walk",
-        label: "Right now",
-        durationMin: 1, // well under WARMUP_WALK_MIN_MINUTES — no warmup discount from a single-point check
-        startTime: weather.time,
-        outdoor: true,
-        weather,
-      },
-    ],
+    departTime: readings[0].time,
+    // One leg per reading. Each stays a minute long even when it stands for a
+    // whole hour: duration here feeds the warmup discount
+    // (WARMUP_WALK_MIN_MINUTES), and a window is a series of point checks, not
+    // an hours-long walk that would warm you up.
+    legs: readings.map((weather) => ({
+      id: newId(),
+      mode: "walk" as const,
+      label: "Right now",
+      durationMin: 1,
+      startTime: weather.time,
+      outdoor: true,
+      weather,
+    })),
   };
 }
 
