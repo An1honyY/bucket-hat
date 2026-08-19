@@ -57,9 +57,16 @@ export default function ClothingList() {
     ]);
   }
 
+  // Each sub-tab's list mounts fresh when the tab changes, so its first
+  // render lands before listClothing() resolves. Rendering the populated
+  // branch in that gap put the "Add ..." button at the top of an empty
+  // FlatList, from where it visibly jumped down to the centred empty state
+  // a frame later.
+  if (!loaded) return <View style={styles.container} />;
+
   return (
     <View style={styles.container}>
-      {loaded && items.length === 0 ? (
+      {items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No clothing yet — add your first item</Text>
           {/* `primary` on an empty screen, `secondary` above a populated list

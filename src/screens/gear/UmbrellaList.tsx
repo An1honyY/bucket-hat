@@ -40,9 +40,16 @@ export default function UmbrellaList() {
     return updateUmbrella({ ...target, unavailableUntil });
   }
 
+  // Each sub-tab's list mounts fresh when the tab changes, so its first
+  // render lands before listUmbrellas() resolves. Rendering the populated
+  // branch in that gap put the "Add ..." button at the top of an empty
+  // FlatList, from where it visibly jumped down to the centred empty state
+  // a frame later.
+  if (!loaded) return <View style={styles.container} />;
+
   return (
     <View style={styles.container}>
-      {loaded && items.length === 0 ? (
+      {items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No umbrellas yet — add your first one</Text>
           <AppButton label="Add umbrella" onPress={() => navigation.navigate("GearItem", { kind: "umbrella" })} style={styles.addButton} />

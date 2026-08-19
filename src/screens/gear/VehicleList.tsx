@@ -30,9 +30,16 @@ export default function VehicleList() {
   // Also what refreshes the list when the add/edit route pops back to it.
   useFocusEffect(reload);
 
+  // Each sub-tab's list mounts fresh when the tab changes, so its first
+  // render lands before listVehicles() resolves. Rendering the populated
+  // branch in that gap put the "Add ..." button at the top of an empty
+  // FlatList, from where it visibly jumped down to the centred empty state
+  // a frame later.
+  if (!loaded) return <View style={styles.container} />;
+
   return (
     <View style={styles.container}>
-      {loaded && items.length === 0 ? (
+      {items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No vehicles yet — add your first one</Text>
           <AppButton label="Add vehicle" onPress={() => navigation.navigate("GearItem", { kind: "vehicle" })} style={styles.addButton} />
