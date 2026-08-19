@@ -200,6 +200,7 @@ one by date — don't edit the old entry.
 - 2026-08-19 — The web export gets a real HTML template, a manifest and PWA icons; the blurry home-screen icon was a 48px favicon [build/infra, §10.4]
 - 2026-08-19 — Share cards cover forecast windows, not just right now (§13.2)
 - 2026-08-19 — A span's card leads with its high and low, and its gear is folded across every hour (§13.2, §9.5)
+- 2026-08-19 — The app explains its own name in two places, and nowhere else (§9.7, §9.0.1) [design]
 
 ---
 
@@ -4031,5 +4032,29 @@ the windiest, UV from the highest, darkness from any dark hour. The legs stay a
 minute long deliberately: duration feeds the warmup discount, and a window is a
 series of point checks rather than an hours-long walk. A range whose ends round
 to the same degree isn't drawn as one; that card shows the feels-like instead.
+
+---
+
+## 2026-08-19 — The app explains its own name in two places, and nowhere else (§9.7, §9.0.1)
+
+**What**: Settings' About card now tells the name's story — the picks come from
+Bucket Hat himself, a kororā who swears by his hat because it suits whatever
+the weather does — with the mascot drawn beside it. The welcome screen gets one
+line of it as an introduction ("I'm Bucket Hat. My hat suits any weather —
+let's find what suits yours."). Also: the header's button row was 8px tighter
+against the right edge than the logo is against the left; both are 12px now.
+
+**Why**: Antony's call — the app was named after a hat nobody ever explained,
+and About was one flat sentence. The wording is his, trimmed to §9.0.1's
+register: warm, but no exclamation mark, since the guide reserves those for
+something that is genuinely a treat.
+
+**Resolution**: two places, deliberately. §9.0.1 also says the app is "a calm,
+competent second opinion, not a personality", so the story lives where someone
+goes looking for it (About) and where the app introduces itself (first run),
+and not in empty states, toasts or notification copy. The share card's "via
+Bucket Hat" is the third mention and stays as it is — a signature, not a story.
+Both draw him through `MascotBase`, so neither screen runs an animation loop
+for a still.
 
 ---

@@ -1,5 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import BrandMark from "../../../components/BrandMark";
+import MascotBase from "../../../components/mascot/MascotBase";
+import { GREETING } from "../../../components/mascot/states";
 import NavIcon, { type NavIconKind } from "../../../components/NavIcon";
 import ScreenPattern from "../../../components/ScreenPattern";
 import useTheme from "../../../theme/useTheme";
@@ -32,6 +34,10 @@ const POINTS: { icon: NavIconKind; title: string; body: string }[] = [
   { icon: "gear", title: "Your own gear", body: "Your jacket, your shoes — by name." },
 ];
 
+/** Big enough to introduce himself with, small enough that the three points
+ *  below stay the reason to read on. */
+const INTRO_MASCOT_SIZE = 78;
+
 export default function Step0Welcome({ onGetStarted, onSignIn }: Props) {
   const theme = useTheme();
   const styles = getStyles(theme);
@@ -42,6 +48,17 @@ export default function Step0Welcome({ onGetStarted, onSignIn }: Props) {
         <View style={styles.hero}>
           <BrandMark size={72} />
           <Text style={styles.tagline}>Know what to wear before you head out.</Text>
+        </View>
+
+        {/* The second of the two places the app explains its own name (§9.7,
+            the other being Settings' About). Here it is one line and an
+            introduction rather than the story — a first screen is for what the
+            app does, and he is standing right there anyway. */}
+        <View style={styles.intro}>
+          <MascotBase size={INTRO_MASCOT_SIZE} pose={GREETING.reduced} />
+          <Text style={styles.introText}>
+            I&apos;m Bucket Hat. My hat suits any weather — let&apos;s find what suits yours.
+          </Text>
         </View>
 
         <View style={styles.card}>
@@ -93,6 +110,11 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       lineHeight: 23,
       maxWidth: 320,
     },
+    // He greets from the left, the line sits beside him: a speech bubble would
+    // be a component nothing else in the app uses, and this reads as the same
+    // thing without one.
+    intro: { flexDirection: "row", alignItems: "flex-end", gap: SPACING.sm, paddingHorizontal: SPACING.xs },
+    introText: { ...TYPE.body, color: theme.textSecondary, flex: 1, lineHeight: 22 },
     card: {
       backgroundColor: theme.surface,
       borderRadius: RADIUS.card,

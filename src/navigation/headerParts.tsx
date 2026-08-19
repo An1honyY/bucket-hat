@@ -22,7 +22,11 @@ import type { RootStackParamList } from "./types";
 // buttons use theme.textPrimary (matching the header title's color, not
 // the accent — accent stays reserved for the active tab / primary
 // interactive emphasis elsewhere in the app).
-const headerButtonRowStyle = { flexDirection: "row" as const, gap: 8, marginRight: 4 };
+// Measured, not guessed: the logo on the other side sits 12px from the screen
+// edge (HeaderLogo below), and at marginRight: 4 the buttons sat 4px from
+// theirs — the header was 8px tighter on the right than on the left, which
+// reads as the row being pushed off the edge rather than as symmetry.
+const headerButtonRowStyle = { flexDirection: "row" as const, gap: 8, marginRight: 12 };
 
 // A bare 22px stroke glyph on the header was easy to miss — thin lines on a
 // large flat header read as decoration rather than something tappable, and

@@ -28,6 +28,8 @@ import { initCrashReportingIfEnabled } from "../../lib/crashReporting";
 import { useThemeStore } from "../../theme/useThemeStore";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import ScreenSurface from "../../components/ScreenSurface";
+import MascotBase from "../../components/mascot/MascotBase";
+import { MASCOT_ANIMATIONS } from "../../components/mascot/states";
 import ActionIcon from "../../components/ActionIcon";
 import useTheme from "../../theme/useTheme";
 import { CONTENT_MAX_WIDTH } from "../../theme/commonStyles";
@@ -92,6 +94,10 @@ const SEASON_LABELS: { key: "winter" | "summer" | "shoulder"; label: string }[] 
   { key: "summer", label: "Summer" },
   { key: "shoulder", label: "Other" },
 ];
+
+/** Small enough to sit inside a card of body copy without becoming the
+ *  subject of it. */
+const ABOUT_MASCOT_SIZE = 72;
 
 export default function SettingsScreen() {
   const colors = useTheme();
@@ -391,10 +397,25 @@ export default function SettingsScreen() {
         )}
 
         <Text style={styles.sectionTitle}>About</Text>
-        <View style={styles.sectionCard}>
-          <Text style={styles.body}>
-            Bucket Hat is built for one person&apos;s wardrobe and one commute at a time.
-          </Text>
+        {/* The one place in the app that explains its own name (§9.7). He is
+            drawn here rather than described: the hat in the story is the hat
+            in the app icon, and a paragraph about a penguin with no penguin in
+            it is just a paragraph. `MascotBase` rather than `Mascot` — this is
+            a still, and a static screen doesn't need an animation loop
+            running behind a scroll. */}
+        <View style={styles.aboutCard}>
+          <View style={styles.aboutText}>
+            <Text style={styles.body}>
+              Bucket Hat helps you dress for wherever your day takes you — from the gear you already own, for the
+              weather you&apos;ll actually be out in.
+            </Text>
+            <Text style={styles.body}>
+              The picks come from Bucket Hat himself: a cheeky little kororā — a blue penguin — who swears by his hat,
+              because a bucket hat suits whatever the weather does. Rain or shine.
+            </Text>
+            <Text style={styles.body}>Built for one person&apos;s wardrobe and one commute at a time.</Text>
+          </View>
+          <MascotBase size={ABOUT_MASCOT_SIZE} pose={MASCOT_ANIMATIONS.idle.reduced} />
         </View>
 
         <Pressable onPress={() => setAdvancedExpanded((v) => !v)} style={styles.advancedHeader}>
@@ -471,6 +492,22 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.xs, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     sectionTitle: { ...TYPE.subtitle, fontSize: 16, marginTop: SPACING.xxl, marginBottom: SPACING.sm, color: theme.textPrimary },
+    // The mascot stands beside the copy rather than above it: at the width of
+    // a phone the text column still holds ~28 characters a line, which is the
+    // point where a paragraph starts reading as a poem.
+    aboutCard: {
+      flexDirection: "row",
+      // Centred rather than bottom-aligned: the copy is taller than he is, and
+      // sitting him on the floor of the card left an empty corner above him
+      // the size of the paragraph beside it.
+      alignItems: "center",
+      gap: SPACING.sm,
+      backgroundColor: theme.surface,
+      borderRadius: RADIUS.card,
+      padding: SPACING.lg,
+      ...cardElevationStyle(theme),
+    },
+    aboutText: { flex: 1, gap: SPACING.sm },
     sectionCard: {
       backgroundColor: theme.surface,
       borderRadius: RADIUS.card,
