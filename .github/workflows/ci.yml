@@ -33,7 +33,13 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          # 22, not the app job's 20: wrangler, miniflare and kysely all
+          # declare `engines.node >= 22`, and wrangler enforces it at runtime
+          # rather than warning. That mismatch was invisible while this job
+          # only typechecked — `npm ci` printed EBADENGINE warnings nobody
+          # read — and became a failure the moment the dry-run step below
+          # actually executed wrangler.
+          node-version: 22
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci
