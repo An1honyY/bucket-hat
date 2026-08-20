@@ -1,3 +1,5 @@
+import { Easing } from "react-native-reanimated";
+
 // The shape of one hop, in milliseconds — shared by the animation that plays
 // it (PerchedMascot) and the layout that has to wait for it
 // (useMascotPerches).
@@ -44,3 +46,24 @@ export const HOP_LANDING_MS = CROUCH_MS + TRAVEL_MS;
  * `RECOVER_MS` runs from this instant, not from the landing.
  */
 export const CARD_SINK_MS = HOP_LANDING_MS + LAND_MS + SINK_HOLD_MS;
+
+/**
+ * How the stack settles once it gives, and how he rides it down.
+ *
+ * One object rather than two matching ones, because the whole effect depends
+ * on the card's margin and the mascot's feet following the *same* curve from
+ * the *same* frame. Give them separate durations or easings and he floats
+ * relative to the card he is standing on, which is the exact fault this all
+ * exists to avoid.
+ *
+ * `out(cubic)` because a thing under load gives quickly and then eases into
+ * its new position — linear reads as machinery, and a spring reads as bounce,
+ * which is a different (lighter) character.
+ */
+export const SAG_TIMING = { duration: 260, easing: Easing.out(Easing.cubic) } as const;
+
+/** The arc of the jump itself — paired with a `withDelay(CROUCH_MS, ...)`, so
+ *  he gathers himself and *then* goes. Shared for the same reason as the rest
+ *  of this file: his feet are animated by the hook and his arc and shape by
+ *  the component, and the two only read as one jump on identical timings. */
+export const TRAVEL_TIMING = { duration: TRAVEL_MS, easing: Easing.inOut(Easing.quad) } as const;

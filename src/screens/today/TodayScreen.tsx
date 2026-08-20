@@ -11,6 +11,7 @@ import type { Journey } from "../../types";
 import RightNowCard from "./RightNowCard";
 import { useReduceMotion } from "../../components/mascot/Mascot";
 import { mascotClearance } from "../../components/mascot/MascotBase";
+import MascotPerch from "../../components/mascot/MascotPerch";
 import PerchedMascot from "../../components/mascot/PerchedMascot";
 import { useMascotPerches } from "../../components/mascot/useMascotPerches";
 import { mascotGarmentFills, mascotStateFor, MASCOT_IDLE } from "../../lib/mascot";
@@ -81,6 +82,7 @@ export default function TodayScreen() {
     perchProps,
     onScroll: onMascotScroll,
     target: mascotPerch,
+    standingY: mascotStandingY,
   } = useMascotPerches(clearance, reduceMotion, rooms);
 
   useFocusEffect(
@@ -145,19 +147,19 @@ export default function TodayScreen() {
               above it, which is why it is the one he stands centred on — and
               the room for it comes and goes with him, so the card sits at the
               top of the screen like any other when he is further down. */}
-          <View {...perchProps(0, "center")}>
+          <MascotPerch {...perchProps(0, "center")}>
             <RightNowCard {...rightNow} />
-          </View>
+          </MascotPerch>
 
           {/* Perch 1 — the hourly card's top-right corner, where he clips a
               corner of empty card rather than any text. */}
-          <View {...perchProps(1, "right")}>
+          <MascotPerch {...perchProps(1, "right")}>
             <LocalForecastCard
               suburb={rightNow.suburb}
               hourly={rightNow.hourly}
               daily={rightNow.daily}
             />
-          </View>
+          </MascotPerch>
 
           <SetupChecklist />
 
@@ -191,9 +193,9 @@ export default function TodayScreen() {
                   // perch whose body lands on the *departure time* of the card
                   // above, which sits top-right exactly where he'd stand.
                   return i === 0 ? (
-                    <View key={journey.id} {...perchProps(2, "right")}>
+                    <MascotPerch key={journey.id} {...perchProps(2, "right")}>
                       {card}
-                    </View>
+                    </MascotPerch>
                   ) : (
                     <View key={journey.id}>{card}</View>
                   );
@@ -211,6 +213,7 @@ export default function TodayScreen() {
             state={rightNow.recommendation ? mascotStateFor(rightNow.recommendation.signals) : MASCOT_IDLE}
             greetToken={focusCount}
             target={mascotPerch}
+            standingY={mascotStandingY}
             instant={reduceMotion}
             garments={garments}
           />

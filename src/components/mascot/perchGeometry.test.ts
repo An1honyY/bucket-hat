@@ -1,4 +1,4 @@
-import { choosePerch, perchOffsetX, samePerch, type PerchCandidate } from "./useMascotPerches";
+import { choosePerch, perchOffsetX, samePerch, type PerchCandidate } from "./perchGeometry";
 import { mascotClearance, mascotFeetOffset } from "./MascotBase";
 
 // The perch choice is the one piece of the mascot's placement that is logic

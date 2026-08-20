@@ -208,6 +208,7 @@ one by date — don't edit the old entry.
 - 2026-08-20 — The share card names its low, dates itself, and drops the dashed fallback chips (§13.2, §9.5) [design, supersedes the 2026-08-19 high/low pairing]
 - 2026-08-20 — The cards give way a beat *after* the mascot lands, not on the touchdown frame (§9.7) [design, refines today's landing-frame entry]
 - 2026-08-20 — He lands on the card where it *is*, and sags with it; flying to the predicted spot left him in mid-air (§9.7) [bug fix, supersedes the flight target in today's landing-frame entry]
+- 2026-08-20 — The settle eases instead of jumping, and does it without React (§9.7) [design, refines today's sag entries]
 
 ---
 
@@ -4219,5 +4220,31 @@ Anything that splits the `setActiveIndex` / `setTarget` pair onto different
 commits, or that reintroduces a predicted flight target, breaks it. A card
 that moves under him for any other reason (something above it growing) is now
 a sag too, for the same reason.
+
+---
+
+## 2026-08-20 — The settle eases instead of jumping, and does it without React (§9.7)
+
+**What**: the room a perch reserves is now an animated Reanimated margin
+(`MascotPerch`), and a settle eases the leaving margin, the arriving margin and
+the mascot's feet along one shared curve (`SAG_TIMING`). The whole thing is
+written in a single synchronous block with no React state in it: perch routing
+lives in a shared value, and `setTarget` waits until the movement has finished.
+
+**Why**: Antony's read on the one-frame version — it jolts. Two separate faults
+under that. The layout moved in one step because a `marginTop` cannot be eased
+from React state without re-rendering a screen of cards per frame; and the
+first attempt at easing it still re-rendered *once*, on the frame the movement
+started, which measured as a 75ms stall that ate the first quarter of the ease.
+
+**Resolution**: two things make it work and both are easy to undo by accident.
+The scroll compensation stays instant, because the part of the departing room
+it cancels is above the viewport and invisible either way — only the remainder
+is eased, which is why the settle needs no scroll animation at all. And
+`standingY` moved out of `PerchedMascot` into the hook, because his feet have
+to be written on the same frame as the margins; a shared value passed as a prop
+is frozen, so the hook now owns every write to it and the component owns only
+the arc and the squash. Verified frame by frame: 75px over 16 frames, steps
+falling 12.1 → 0.1, feet-to-card constant.
 
 ---

@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent, ScrollView, View } from "react-native";
-import { CARD_SINK_MS } from "./hopTiming";
+import { useSharedValue, withDelay, withTiming, type SharedValue } from "react-native-reanimated";
+import { CARD_SINK_MS, CROUCH_MS, SAG_TIMING, TRAVEL_TIMING } from "./hopTiming";
+import { choosePerch, samePerch, type Perch, type PerchAlign, type PerchTarget } from "./perchGeometry";
+import type { MascotPerchProps } from "./MascotPerch";
+
+// Re-exported so callers have one place to import a perch from, and so the
+// geometry can stay in a module that jest can load (see perchGeometry.ts).
+export * from "./perchGeometry";
 
 // Which card the mascot is standing on, for a screen that has several.
 //
@@ -37,38 +44,6 @@ import { CARD_SINK_MS } from "./hopTiming";
 // whole point — nothing moves until he is standing on it, and then he and it
 // move together.
 
-/**
- * Where inside a perch's width he stands. Defaults to centre.
- *
- * This exists because a mascot is 96pt tall and stands *above* the line he is
- * on, so he always occupies a chunk of whatever is up there. Centre is only
- * right when the space above is genuinely empty. Beside a short row — a
- * section label, a collapsed disclosure — the clear space is the far end of
- * it, and that is where he belongs.
- */
-export type PerchAlign = "left" | "center" | "right";
-
-export interface Perch {
-  /** Top-left of the perch line, relative to the stack the mascot is positioned in. */
-  x: number;
-  y: number;
-  width: number;
-  align: PerchAlign;
-}
-
-/**
- * A perch plus how he is to get to it.
- *
- * The distinction is the difference between a jump and being carried. A `hop`
- * is him crossing to another card under his own power. A `sag` is the card
- * moving *under his feet* — it happens at the end of a hop, when the room is
- * finally applied and the whole stack settles — and he has to follow it
- * exactly, on the same frame, or he reads as detached from it.
- */
-export interface PerchTarget extends Perch {
-  arrival: "hop" | "sag";
-}
-
 /** How long scrolling must be still before he commits to a new perch. Without
  *  it he hops once per frame down a long flick. */
 const SETTLE_MS = 350;
@@ -99,18 +74,55 @@ export interface MascotPerches {
    * hourly forecast strip, because every card but the first has content
    * pressed right against its top edge.
    *
-   * The returned `style` carries that perch's own share of `rooms`, applied
-   * only while he is standing there.
+   * Spread onto a `MascotPerch`, which turns these into the animated margin
+   * that is the perch's share of `rooms` — applied only while he is standing
+   * there, and eased on and off so the stack settles under him rather than
+   * teleporting.
    */
-  perchProps: (
-    index: number,
-    align?: PerchAlign
-  ) => { ref: (node: View | null) => void; onLayout: () => void; style: { marginTop: number } };
+  perchProps: (index: number, align?: PerchAlign) => Omit<MascotPerchProps, "children">;
   /** Attach to the ScrollView, along with `scrollEventThrottle={16}`. */
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /** Where he should be standing now, and how to get there. Null until the
    *  first card has been measured. */
   target: PerchTarget | null;
+  /**
+   * The perch line under his feet, as a Reanimated value. Pass it to
+   * `PerchedMascot`.
+   *
+   * It is out here rather than inside the mascot because of *who has to write
+   * it and when*. A settle moves three things — the leaving margin, the
+   * arriving margin and the scroll offset — and they only look like one
+   * movement if they are written on one frame. His feet are the fourth, and a
+   * position that arrives through React state is two renders behind: he stayed
+   * put for two frames while the ground went out from under him, then slid
+   * back to meet it. The hook writes all four together instead.
+   *
+   * So the hook writes it, always — a settle, a card growing under him, and
+   * the travel of a hop as well. `PerchedMascot` only reads it, and owns the
+   * parts of a jump that are about him rather than about the ground: his
+   * horizontal move, the arc over it and the squash around it. (It cannot
+   * write it in any case: a shared value arriving as a prop is frozen, and
+   * React Compiler rejects assignments to it.)
+   */
+  standingY: SharedValue<number>;
+}
+
+/**
+ * The three values a settle moves, and the one thing that has to know which
+ * perch is which.
+ *
+ * All Reanimated, and deliberately: the sink writes every one of them in a
+ * single synchronous block alongside the scroll offset, so the leaving margin,
+ * the arriving margin, the mascot's feet and the page all move on one frame.
+ * Anything here that went through React state instead would arrive two renders
+ * late and re-render the whole card stack on the frame the movement starts.
+ */
+export interface PerchRooms {
+  /** Which perch is being stood on, and which is still giving its room back.
+   *  `leaving` is -1 when nothing is. Set instantly; never animated. */
+  routing: SharedValue<{ active: number; leaving: number }>;
+  arrivingRoom: SharedValue<number>;
+  leavingRoom: SharedValue<number>;
 }
 
 /** Promise wrapper around measureLayout, which is callback-shaped and has a
@@ -123,107 +135,6 @@ function measureAgainst(node: View, stack: View, align: PerchAlign): Promise<Per
       () => resolve(null)
     );
   });
-}
-
-/** One perch as the choice below sees it: where it was measured, and what it
- *  adds above itself while he is standing there. */
-export interface PerchCandidate {
-  index: number;
-  /** Measured top, in the *current* layout — so it includes whichever room is
-   *  applied right now. */
-  y: number;
-  room: number;
-}
-
-export interface PerchChoice {
-  /** The perch he belongs on. */
-  index: number;
-  /**
-   * Where that perch's top line ends up once the rooms have swapped.
-   *
-   * Not where he flies to — he lands on the card where it is now. This is
-   * where *both* of them go afterwards, applied to the layout and to his feet
-   * in the same commit, so the card sags with him standing on it.
-   *
-   * Only meaningful when `index` differs from the perch he is on; for a perch
-   * he is already standing on it is simply where it is.
-   */
-  nextY: number;
-  /** The scroll offset with the departing room taken out of it — what the
-   *  ScrollView must be set to for nothing on screen to move. Only worth
-   *  applying when `index` differs from the perch he is on. */
-  scrollBase: number;
-  /** How much of his current room is already scrolled past. Zero means the
-   *  room is entirely on screen and losing it moves nothing above it. */
-  roomAboveViewport: number;
-}
-
-/**
- * Which perch he should be standing on, and what that costs the scroll offset.
- *
- * Pure, and the whole reason the hook can move his room around without the
- * page lurching. Two coordinate spaces meet here: `y` is measured in the
- * layout as it stands, with the *active* perch's room in it, while the choice
- * has to be made in the layout each candidate would produce if he stood there.
- * So the active room is subtracted back out of everything from that perch down
- * (only one room is ever applied), and each candidate is then judged with its
- * own room added.
- *
- * Getting that wrong doesn't look like a rounding error: judge the top perch
- * without the room it would have, and it can never satisfy its own clearance
- * again, so he leaves it on the first scroll and never comes back.
- */
-export function choosePerch(
-  candidates: readonly PerchCandidate[],
-  active: number,
-  clearance: number,
-  scrollY: number,
-  pinned: boolean
-): PerchChoice | null {
-  if (candidates.length === 0) return null;
-
-  const occupied = candidates.find((c) => c.index === active);
-  const applied = occupied ? occupied.room : 0;
-  // Whatever part of his current room is above the viewport is holding up the
-  // offset; when the room goes, so does that.
-  const roomAboveViewport = occupied ? Math.max(0, Math.min(applied, scrollY - (occupied.y - applied))) : 0;
-  const scrollBase = scrollY - roomAboveViewport;
-
-  const baseY = (c: PerchCandidate) => c.y - (c.index >= active ? applied : 0);
-  // The first card with enough room above it to show him in full. Falls back
-  // to the last one, so scrolling to the bottom doesn't strand him up the page
-  // where nobody can see him.
-  const found = pinned ? 0 : candidates.findIndex((c) => baseY(c) + c.room - clearance >= scrollBase);
-  const next = candidates[found === -1 ? candidates.length - 1 : found];
-
-  return { index: next.index, nextY: baseY(next) + next.room, scrollBase, roomAboveViewport };
-}
-
-/**
- * Two measurements of the same spot, to within a pixel.
- *
- * The landing re-measure has to confirm he is where the arithmetic said he
- * would be, and sub-pixel layout rounding means "confirm" can't be `===`:
- * a target that differs by a fraction is a *new* placement to PerchedMascot,
- * and he would hop again on the spot, forever.
- */
-export function samePerch(a: Perch | null, b: Perch): boolean {
-  // Geometry only: `arrival` says how he got here, not where here is, and a
-  // re-measure that agrees must not count as a move.
-  return (
-    a !== null &&
-    a.align === b.align &&
-    Math.abs(a.x - b.x) < 1 &&
-    Math.abs(a.y - b.y) < 1 &&
-    Math.abs(a.width - b.width) < 1
-  );
-}
-
-/** Where his box's left edge goes, for a perch of this width. */
-export function perchOffsetX(perch: Perch, size: number): number {
-  if (perch.align === "left") return perch.x;
-  if (perch.align === "right") return perch.x + perch.width - size;
-  return perch.x + perch.width / 2 - size / 2;
 }
 
 /**
@@ -264,9 +175,25 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
    *  and its room applies immediately. A ref rather than reading `target`, so
    *  the measure effect doesn't take a dependency on its own output. */
   const placed = useRef(false);
+  /** The room currently asked for, so a re-render doesn't restart the tween. */
+  const appliedRoom = useRef(rooms[0] ?? 0);
 
-  const [activeIndex, setActiveIndex] = useState(0);
   const [target, setTarget] = useState<PerchTarget | null>(null);
+
+  // The two rooms in play during a hop, as Reanimated values so the settle
+  // runs on the UI thread and costs the screen no re-renders at all — this is
+  // a whole card stack, and tweening a margin through React state would mean
+  // fifteen full re-renders in a quarter of a second.
+  //
+  // Two, because a hop changes two margins at once: the perch he left gives
+  // its room back while the one he landed on takes its own, and the regions
+  // those move are different. One value each is also why they can be animated
+  // independently — see the sink below, where only part of the leaving room is
+  // ever worth animating.
+  const arrivingRoom = useSharedValue(rooms[0] ?? 0);
+  const leavingRoom = useSharedValue(0);
+  const routing = useSharedValue({ active: 0, leaving: -1 });
+  const standingY = useSharedValue(0);
   // Bumped whenever a card reports a layout, which is the cue to re-measure.
   const [revision, setRevision] = useState(0);
   const [settledScrollY, setSettledScrollY] = useState(0);
@@ -298,17 +225,35 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
     scroll.current = node;
   }, []);
 
+  // The room he needs can change while he is standing still — the umbrella
+  // appears and his clearance grows. Animated with the same curve, so it reads
+  // as the card making space rather than as a layout glitch.
+  useEffect(() => {
+    if (awaitingReflow.current) return;
+    const wanted = rooms[activeRef.current] ?? 0;
+    if (appliedRoom.current === wanted) return;
+    appliedRoom.current = wanted;
+    arrivingRoom.value = pinned ? wanted : withTiming(wanted, SAG_TIMING);
+  }, [rooms, pinned, arrivingRoom]);
+
+  const perchRooms = useMemo(
+    () => ({ routing, arrivingRoom, leavingRoom }),
+    [routing, arrivingRoom, leavingRoom]
+  );
+
   const perchProps = useCallback(
     (index: number, align: PerchAlign = "center") => ({
-      ref: (node: View | null) => {
+      index,
+      rooms: perchRooms,
+      perchRef: (node: View | null) => {
         if (node) nodes.current.set(index, { node, align });
         else nodes.current.delete(index);
       },
       onLayout: () => setRevision((n) => n + 1),
-      style: { marginTop: activeIndex === index ? (rooms[index] ?? 0) : 0 },
     }),
-    [activeIndex, rooms]
+    [perchRooms]
   );
+
 
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -354,9 +299,15 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
         // because something above it grew. Both are the ground shifting under
         // him, and he should ride it rather than jump to it.
         const standing: PerchTarget = { ...perches.find((p) => p.index === active)!.perch, arrival: "sag" };
-        placed.current = true;
         // Held by identity when nothing has really moved — see `samePerch`.
-        setTarget((current) => (samePerch(current, standing) ? current : standing));
+        setTarget((current) => {
+          if (samePerch(current, standing)) return current;
+          // Ease him onto it, unless this is the first time he has been put
+          // anywhere — then he is simply standing there when the screen opens.
+          standingY.value = placed.current && !pinned ? withTiming(standing.y, SAG_TIMING) : standing.y;
+          return standing;
+        });
+        placed.current = true;
         return;
       }
 
@@ -367,6 +318,12 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
       const landing = perches.find((p) => p.index === choice.index)!;
       setTarget({ ...landing.perch, arrival: "hop" });
       awaitingReflow.current = true;
+      // His feet travel from here; PerchedMascot supplies the arc over them
+      // and the squash around them, on the matching timings from hopTiming.
+      const hopping = placed.current && !pinned;
+      standingY.value = hopping
+        ? withDelay(CROUCH_MS, withTiming(landing.perch.y, TRAVEL_TIMING))
+        : landing.perch.y;
 
       // Beat two: he lands, compresses, and the card gives under him. The
       // first placement has no flight to wait for (he is put down, not
@@ -374,37 +331,69 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
       const flight = placed.current && !pinned ? CARD_SINK_MS : 0;
       placed.current = true;
       if (landingTimer.current) clearTimeout(landingTimer.current);
+      const leaving = perches.find((p) => p.index === active);
+      const leavingRoomTotal = leaving ? leaving.room : 0;
       landingTimer.current = setTimeout(() => {
+        // Not one line of React in this block, deliberately. Everything the
+        // settle moves is written here, synchronously, so it all lands on one
+        // frame — and re-rendering a screen of cards on the frame the movement
+        // starts is what a jolt actually is.
         activeRef.current = choice.index;
-        setActiveIndex(choice.index);
-        // He goes down with it, in the same commit, by exactly the same
-        // amount — `nextY` is where the perch's top line ends up, so his feet
-        // stay on it. Anything that lets these two land on different frames
-        // puts him back in mid-air waiting for a card to arrive under him.
-        setTarget({ ...landing.perch, y: choice.nextY, arrival: "sag" });
+        routing.value = { active: choice.index, leaving: active };
+
+        // The one instant step, and it is invisible by construction. Whatever
+        // of the departing room is *above* the viewport can only be cancelled
+        // by the scroll offset, so both come off together and nothing on
+        // screen moves by a pixel — which also means there is nothing there
+        // worth easing.
+        standingY.value = landing.perch.y - choice.roomAboveViewport;
         if (choice.roomAboveViewport > 0) {
-          // Hold the page still: the room above the viewport is going away, so
-          // the offset comes down by exactly as much and nothing on screen moves
-          // except the card he is landing on.
           scroll.current?.scrollTo({ y: choice.scrollBase, animated: false });
-          setSettledScrollY(choice.scrollBase);
         }
-        // Two frames, because a room only becomes a position once layout has
-        // run: measuring straight after the commit still reports the old one on
-        // native. He keeps standing where he was until then.
-        reflowFrame.current = requestAnimationFrame(() => {
-          reflowFrame.current = requestAnimationFrame(() => {
-            awaitingReflow.current = false;
-            setRevision((n) => n + 1);
-          });
-        });
+        // What is left of it is the part you can see, and that is what eases
+        // out. Splitting the room this way is what lets the settle need no
+        // scrolling of its own: shrinking a margin that starts at the top of
+        // the viewport moves only what is below it.
+        leavingRoom.value = leavingRoomTotal - choice.roomAboveViewport;
+        arrivingRoom.value = 0;
+        if (pinned) {
+          leavingRoom.value = 0;
+          arrivingRoom.value = landing.room;
+          standingY.value = choice.nextY;
+        } else {
+          // One curve, three values, one frame — see SAG_TIMING. `nextY` is
+          // where the perch's top line ends up, so his feet ride it down.
+          leavingRoom.value = withTiming(0, SAG_TIMING);
+          arrivingRoom.value = withTiming(landing.room, SAG_TIMING);
+          standingY.value = withTiming(choice.nextY, SAG_TIMING);
+        }
+
+        // Everything React needs to know waits until the stack has stopped
+        // moving, so the render it causes lands on a still screen. Two frames
+        // more before measuring, because a margin only becomes a position once
+        // layout has run.
+        landingTimer.current = setTimeout(
+          () => {
+            routing.value = { active: choice.index, leaving: -1 };
+            appliedRoom.current = landing.room;
+            setTarget({ ...landing.perch, y: choice.nextY, arrival: "sag" });
+            if (choice.roomAboveViewport > 0) setSettledScrollY(choice.scrollBase);
+            reflowFrame.current = requestAnimationFrame(() => {
+              reflowFrame.current = requestAnimationFrame(() => {
+                awaitingReflow.current = false;
+                setRevision((n) => n + 1);
+              });
+            });
+          },
+          pinned ? 0 : SAG_TIMING.duration
+        );
       }, flight);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [revision, settledScrollY, pinned, clearance, rooms]);
+  }, [revision, settledScrollY, pinned, clearance, rooms, arrivingRoom, leavingRoom, routing, standingY]);
 
-  return { stackRef, scrollRef, perchProps, onScroll, target };
+  return { stackRef, scrollRef, perchProps, onScroll, target, standingY };
 }

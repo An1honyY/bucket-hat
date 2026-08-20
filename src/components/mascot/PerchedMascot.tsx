@@ -7,11 +7,12 @@ import Animated, {
   withDelay,
   withSequence,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 import Mascot, { MASCOT_FEET_ORIGIN } from "./Mascot";
 import { mascotFeetOffset, type MascotGarmentFills, type MascotPose } from "./MascotBase";
 import { perchOffsetX, type PerchTarget } from "./useMascotPerches";
-import { CROUCH_MS, HOP_LANDING_MS, LAND_MS, RECOVER_MS, SINK_HOLD_MS, TRAVEL_MS } from "./hopTiming";
+import { CROUCH_MS, HOP_LANDING_MS, LAND_MS, RECOVER_MS, SINK_HOLD_MS, TRAVEL_MS, TRAVEL_TIMING } from "./hopTiming";
 import type { MascotState } from "../../lib/mascot";
 
 // The mascot, absolutely positioned over a stack of cards and hopping between
@@ -24,10 +25,10 @@ import type { MascotState } from "../../lib/mascot";
 // He is given the card's top edge as it currently is, and the cards hold still
 // until he gets there — so he always lands on something the user can see. The
 // stack then settles under him a beat later, and that arrives here as a
-// `sag`: a target change he follows with his feet and nothing else, on the
-// same frame the layout moves. The landing is timed against that move — he
-// compresses, holds, and the card gives at the end of the hold — so the two
-// files share hopTiming rather than each guessing.
+// `sag`: a target change he follows with his feet and nothing else, over the
+// same curve the margins are easing along. The landing is timed against that
+// move — he compresses, holds, and the card gives at the end of the hold — so
+// the two files share hopTiming rather than each guessing.
 
 /** How far above the higher perch the arc peaks, as a fraction of his size. */
 const HOP_LIFT = 0.26;
@@ -50,20 +51,24 @@ interface Props {
   /** Where he should be standing, and whether getting there is a jump of his
    *  own or the card moving under him. Null before the first measurement. */
   target: PerchTarget | null;
+  /** The perch line under his feet, from `useMascotPerches`, which owns every
+   *  write to it — including the travel of a hop, so a settle can move his
+   *  feet on the same frame as the margins and the scroll. Read-only here. */
+  standingY: SharedValue<number>;
   /** Skips the whole hop and places him directly — reduce motion, and the first placement. */
   instant: boolean;
   garments?: MascotGarmentFills;
 }
 
-export default function PerchedMascot({ size, state, greetToken, target, instant, garments }: Props) {
+export default function PerchedMascot({ size, state, greetToken, target, standingY, instant, garments }: Props) {
   const x = useSharedValue(0);
-  const y = useSharedValue(0);
   const lift = useSharedValue(0);
   /** −1 fully crouched, +1 fully stretched, 0 standing. */
   const squash = useSharedValue(0);
 
+  const feetOffset = mascotFeetOffset(size);
   const targetX = target ? perchOffsetX(target, size) : 0;
-  const targetY = target ? target.y - mascotFeetOffset(size) : 0;
+  const targetY = target ? target.y : 0;
   const hasTarget = target !== null;
 
   // Where he was last put, and how he got there. Recorded during render —
@@ -102,25 +107,27 @@ export default function PerchedMascot({ size, state, greetToken, target, instant
 
   useEffect(() => {
     if (placement === null) return;
-    const { x: toX, y: toY, arrival } = placement;
-    if (arrival !== "hop") {
+    const { x: toX, arrival } = placement;
+    if (arrival === "sag") {
+      // Nothing to do: the hook has already eased `standingY` in the same
+      // frame it moved the margins and the scroll, which is the whole reason
+      // that value lives out there. His x cannot change without a hop, and the
+      // landing squash is deliberately left running — that compression is why
+      // the card is moving at all.
+      return;
+    }
+    if (arrival === "place") {
       x.value = toX;
-      y.value = toY;
-      // A sag leaves the landing animation alone; only a fresh placement
-      // clears it.
-      if (arrival === "place") {
-        lift.value = 0;
-        squash.value = 0;
-      }
+      lift.value = 0;
+      squash.value = 0;
       return;
     }
     const targetX = toX;
-    const targetY = toY;
 
-    const travel = { duration: TRAVEL_MS, easing: Easing.inOut(Easing.quad) };
-    // Travel waits out the crouch, so he gathers himself *then* goes.
-    x.value = withDelay(CROUCH_MS, withTiming(targetX, travel));
-    y.value = withDelay(CROUCH_MS, withTiming(targetY, travel));
+    // Travel waits out the crouch, so he gathers himself *then* goes. The
+    // vertical half of this is the hook's `standingY`, on the same delay and
+    // the same TRAVEL_TIMING.
+    x.value = withDelay(CROUCH_MS, withTiming(targetX, TRAVEL_TIMING));
     lift.value = withDelay(
       CROUCH_MS,
       withSequence(
@@ -143,7 +150,7 @@ export default function PerchedMascot({ size, state, greetToken, target, instant
       // The card gives, and he comes up as it goes down.
       withTiming(0, { duration: RECOVER_MS, easing: Easing.out(Easing.quad) })
     );
-  }, [placement, x, y, lift, squash, size]);
+  }, [placement, x, lift, squash, size]);
 
   const hopStyle = useAnimatedStyle(() => {
     const s = squash.value;
@@ -156,7 +163,8 @@ export default function PerchedMascot({ size, state, greetToken, target, instant
     return {
       transform: [
         { translateX: x.value },
-        { translateY: y.value + lift.value },
+        // His box hangs above the line he stands on; `lift` is the hop's arc.
+        { translateY: standingY.value - feetOffset + lift.value },
         { scaleX },
         { scaleY },
       ],
