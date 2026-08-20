@@ -4,6 +4,7 @@
 // midpoints/ETAs → one batched Open-Meteo call → merge weather/climate into
 // legs → persist → return.
 import { computeRoute, type RoutePoint, type RouteStep } from "../services/routesService";
+import type { ServiceError } from "../services/types";
 import { getForecast } from "../services/weatherService";
 import { getRealtimeDelay } from "../services/transitService";
 import { createJourney, findRecentJourneyBetween } from "../db/repositories/journeys";
@@ -101,7 +102,12 @@ export interface DeferredDeparture {
 export type PlanJourneyResult =
   | { kind: "success"; journey: Journey; timeAdjusted?: boolean; deferred?: DeferredDeparture }
   | { kind: "success-cached"; journey: Journey; cachedFromDate: string; timeAdjusted?: boolean; deferred?: DeferredDeparture }
-  | { kind: "failed" };
+  // `reason` is what routing actually said, carried out so the caller can say
+  // it too. A bare "failed" is why the Plan screen used to answer every
+  // failure with "check your connection" — including "there is no bus between
+  // these two places", which is not a connection problem and which retrying
+  // will never fix.
+  | { kind: "failed"; reason: ServiceError };
 
 interface AssembledLeg {
   mode: JourneyLeg["mode"];
@@ -386,7 +392,7 @@ async function buildFromCachedStructure(cached: Journey, input: PlanJourneyInput
 // a walk/cycle duration and would just double the API calls for drive.
 async function resolveArrivalPlan(
   input: PlanJourneyInput
-): Promise<{ steps: RouteStep[]; departTime: string; timeAdjusted: boolean } | undefined> {
+): Promise<{ steps: RouteStep[]; departTime: string; timeAdjusted: boolean } | { error: ServiceError }> {
   const isTransit = input.mode === "bus" || input.mode === "train";
   const routeParams = {
     origin: toRoutePoint(input.origin),
@@ -397,7 +403,7 @@ async function resolveArrivalPlan(
   const routeResult = isTransit
     ? await computeRoute({ ...routeParams, arriveTime: input.arriveByTime })
     : await computeRoute({ ...routeParams, departTime: input.arriveByTime });
-  if (!("data" in routeResult)) return undefined;
+  if (!("data" in routeResult)) return { error: routeResult.error };
 
   const totalDurationMin = routeResult.data.reduce((sum, s) => sum + s.durationMin, 0);
   let departTime = new Date(new Date(input.arriveByTime!).getTime() - totalDurationMin * 60_000).toISOString();
@@ -416,10 +422,14 @@ export async function planJourney(input: PlanJourneyInput): Promise<PlanJourneyR
   let steps: RouteStep[] | undefined;
   let departTime = input.departTime;
   let timeAdjusted = false;
+  /** Why live routing didn't produce steps. Only read when it didn't. */
+  let routeError: ServiceError = "unreachable";
 
   if (input.arriveByTime) {
     const resolved = await resolveArrivalPlan(input);
-    if (resolved) {
+    if ("error" in resolved) {
+      routeError = resolved.error;
+    } else {
       steps = resolved.steps;
       departTime = resolved.departTime;
       timeAdjusted = resolved.timeAdjusted;
@@ -433,6 +443,7 @@ export async function planJourney(input: PlanJourneyInput): Promise<PlanJourneyR
       departTime: input.departTime,
     });
     if ("data" in routeResult) steps = routeResult.data;
+    else routeError = routeResult.error;
   }
 
   const resolvedInput: PlanJourneyInput = { ...input, departTime, arriveByTime: undefined };
@@ -451,19 +462,25 @@ export async function planJourney(input: PlanJourneyInput): Promise<PlanJourneyR
         byMin: built.deferral.deferredByMin,
       };
     }
-  } else {
+  } else if (routeError !== "no-route") {
     // §5.1 — on failure, look for a previously-planned Journey between the
-    // same origin/destination pair within the last 30 days and reuse its
-    // route structure, still fetching fresh weather for it.
+    // same origin/destination pair *by the same mode* within the last 30 days
+    // and reuse its route structure, still fetching fresh weather for it.
+    //
+    // Gated on the failure being a failure. §5.1 is an outage fallback — it
+    // exists so a tunnel or a flat wifi doesn't cost you a plan you already
+    // had. "No such route" is Google answering, not Google being unreachable,
+    // and standing in an old route for it produces a confident, wrong plan for
+    // a trip that can't be made that way.
     const since = new Date(Date.now() - OFFLINE_FALLBACK_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const cached = await findRecentJourneyBetween(input.origin.id, input.destination.id, since);
+    const cached = await findRecentJourneyBetween(input.origin.id, input.destination.id, since, input.mode);
     if (cached) {
       journey = await buildFromCachedStructure(cached, resolvedInput);
       cachedFromDate = cached.departTime;
     }
   }
 
-  if (!journey) return { kind: "failed" };
+  if (!journey) return { kind: "failed", reason: routeError };
 
   await createJourney(journey);
   // §7.3 — schedule/reschedule the leave-by notification now that this

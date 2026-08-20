@@ -52,7 +52,7 @@ export default function LocationsScreen({ navigation }: Props) {
       {loaded && locations.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>Nothing saved yet — start with Home and Work.</Text>
-          <AppButton label="Add a location" onPress={() => navigation.navigate("LocationForm")} style={styles.addButton} />
+          <AppButton label="Add a location" layout="hug" onPress={() => navigation.navigate("LocationForm")} style={styles.addButton} />
         </View>
       ) : (
         <FlatList
@@ -60,7 +60,7 @@ export default function LocationsScreen({ navigation }: Props) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
-            <AppButton label="Add a location" variant="secondary" onPress={() => navigation.navigate("LocationForm")} style={styles.addButton} />
+            <AppButton label="Add a location" variant="secondary" layout="hug" onPress={() => navigation.navigate("LocationForm")} style={styles.listAddButton} />
           }
           renderItem={({ item, index }) => (
             <>
@@ -106,11 +106,18 @@ export default function LocationsScreen({ navigation }: Props) {
 
 function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
-    emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+    // The horizontal padding is the point, not decoration: without it a
+    // full-width "block" button in here rendered edge-to-edge on a phone,
+    // with no margin at all. The button hugs its label now, but a padded
+    // container is what keeps the sentence above it off the screen edges too.
+    emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: SPACING.xl },
     title: { ...TYPE.title, fontWeight: "600", color: theme.textPrimary },
     empty: { ...TYPE.body, color: theme.textSecondary, textAlign: "center" },
     listContent: { padding: SPACING.xl, paddingBottom: SPACING.xxl * 2, gap: SPACING.sm, width: "100%", maxWidth: CONTENT_MAX_WIDTH, alignSelf: "center" },
     addButton: { marginBottom: SPACING.sm },
+    // Above a populated list it reads as one more row, so it lines up with
+    // the rows rather than floating centred over them.
+    listAddButton: { alignSelf: "flex-start", marginBottom: SPACING.sm },
     divider: { height: 1, backgroundColor: theme.border, marginVertical: 8 },
     row: {
       flexDirection: "row",

@@ -23,6 +23,19 @@ describe("routesService.computeRoute", () => {
     expect(hasRoutesApiKey()).toBe(false);
   });
 
+  // Verified against the live API on 2026-08-21: a bus trip between two
+  // Palmerston North addresses answers HTTP 200 with a bare `{}`. Reporting
+  // that as "unreachable" is what had the Plan screen blaming the user's
+  // connection for a town having no bus network.
+  it("returns { error: 'no-route' } when Google answers 200 with no routes", async () => {
+    process.env.EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY = "test-key";
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) }) as unknown as typeof fetch;
+
+    const result = await computeRoute({ origin: HOME, destination: WORK, mode: "bus", departTime: "2026-07-20T08:00:00.000Z" });
+
+    expect(result).toEqual({ error: "no-route" });
+  });
+
   it("walk: maps one Google leg per hop", async () => {
     process.env.EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY = "test-key";
     global.fetch = jest.fn().mockResolvedValue({

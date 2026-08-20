@@ -209,6 +209,10 @@ one by date — don't edit the old entry.
 - 2026-08-20 — The cards give way a beat *after* the mascot lands, not on the touchdown frame (§9.7) [design, refines today's landing-frame entry]
 - 2026-08-20 — He lands on the card where it *is*, and sags with it; flying to the predicted spot left him in mid-air (§9.7) [bug fix, supersedes the flight target in today's landing-frame entry]
 - 2026-08-20 — The settle eases instead of jumping, and does it without React (§9.7) [design, refines today's sag entries]
+- 2026-08-21 — One header for the whole app; the two navigators disagreed by 8dp (§9.2) [bug fix, design]
+- 2026-08-21 — Add controls hug their label; an empty gear list was a slab touching both screen edges (§9.2, §9.6) [design, bug fix]
+- 2026-08-21 — "No route" is an answer, not an outage — and a cached structure has to match the mode (§5.1, §2) [bug fix]
+- 2026-08-21 — The perch hook wrote the mascot's feet inside a `setState` updater (§9.7, §13.9) [bug fix]
 
 ---
 
@@ -4246,5 +4250,94 @@ to be written on the same frame as the margins; a shared value passed as a prop
 is frozen, so the hook now owns every write to it and the component owns only
 the arc and the squash. Verified frame by frame: 75px over 16 frames, steps
 falling 12.1 → 0.1, feet-to-card constant.
+
+---
+
+## 2026-08-21 — One header for the whole app (§9.2)
+
+**What**: Every stack now renders `@react-navigation/elements`' `Header` via
+`themedHeaderOptions`' new `header` option (`src/navigation/AppHeader.tsx`),
+instead of letting native-stack draw its own.
+
+**Why**: Reported from an APK — "the header isn't the same height on all the
+pages." It wasn't. Today and Plan are tab screens, so bottom-tabs drew their
+header at elements' Android default of **64** + status bar; Locations, Gear and
+every pushed screen are native-stack, which hardcodes **56** + status bar. The
+left inset differed too, because native-stack hands `headerLeft` to the native
+toolbar, which adds the back-button slot's inset on top of `HeaderLogo`'s own
+margin — that is the logo and title sitting further right on Locations and Gear.
+
+**Resolution**: unified on the elements header rather than hand-matching the
+constants, since two implementations drift again the next time either library
+changes one. Today and Plan were left alone: they already *were* this
+component. If a screen ever needs the native header back, give that screen
+`header: undefined` rather than removing it from the factory.
+
+---
+
+## 2026-08-21 — Add controls hug their label (§9.2, §9.6)
+
+**What**: `AppButton` gains `layout="hug"` (sizes to its content), used by the
+five "Add …" buttons on the gear sub-tabs and Locations, and the empty-state
+containers those sit in gained horizontal padding.
+
+**Why**: Reported from an APK — the Add Gear button took the full width. On the
+empty gear list it was worse than that: `layout="block"` is `width: 100%` capped
+at `ACTION_MAX_WIDTH` (420), a phone is 360 wide, and `emptyContainer` had no
+horizontal padding — so it rendered as a slab touching both screen edges. The
+cap reads as sensible on the web build, which is where it was designed.
+
+**Resolution**: scoped to add controls. Form submits stay `block` — a Save
+button spanning the form is the convention and is not what was reported. Don't
+extend `hug` to submits without a separate look at the forms.
+
+---
+
+## 2026-08-21 — "No route" is an answer, not an outage (§5.1, §2)
+
+**What**: `ServiceError` gains `"no-route"`; `computeRoute` returns it for
+Google's 200-with-empty-body; `planJourney` carries the reason out on
+`{ kind: "failed", reason }` and skips the §5.1 cached-structure fallback for
+it; `findRecentJourneyBetween` now matches the travel mode as well as the id
+pair.
+
+**Why**: Reported from an APK — "can't plan a new route right now" on every
+attempt. Reproduced on the device: planning by bus between two Palmerston North
+addresses. Google answers that request with HTTP 200 and `{}` (verified against
+the live API), which the service mapped to `"unreachable"`, which the Plan
+screen rendered as "Check your connection" — for a connection that was fine.
+The same run exposed the second half: with a walking journey already cached for
+that pair, the bus attempt silently reused it and presented an 8-hour walk as
+the bus trip.
+
+**Resolution**: the split is between *the service failed* and *the service
+answered*. Only the first is allowed to reach for a cached structure or offer a
+Retry, because only the first can come out differently next time. The mode
+match scans recent rows rather than adding a column — a Journey has no mode of
+its own (it lives per-leg) and §3.1 migrations are additive-only.
+
+---
+
+## 2026-08-21 — The perch hook wrote the mascot's feet inside a `setState` updater (§9.7, §13.9)
+
+**What**: `useMascotPerches`' sag branch mirrors the last target in a ref and
+does its `samePerch` check and its `standingY` write outside `setTarget`, which
+is handed a plain value again.
+
+**Why**: Reported from an APK — the mascot disappearing and flickering in and
+out; reproduced on the device (gone in one screenshot of eight, standing still).
+Metro's own log names a cause: "[Reanimated] Writing to `value` during
+component render", logged from this file. A `setState` updater has to be pure —
+React runs it during render, may run it twice, and may throw the render away —
+so a duplicate call restarts the `withTiming` from mid-flight and a discarded
+one leaves his feet travelling to a perch that was never rendered, which puts
+him where no card is or off screen entirely.
+
+**Resolution**: this is a fix to a rule violation the runtime was already
+complaining about, not a confirmed fix to the whole flicker — the remaining
+suspect is the Android draw-order pair on `styles.floating` (`zIndex: 1` *and*
+`elevation: 12`, two mechanisms that sort independently). Re-check on a device
+before assuming the flicker is closed. Any future write to `standingY` belongs
+in an effect or a promise callback, never in a render-phase updater.
 
 ---

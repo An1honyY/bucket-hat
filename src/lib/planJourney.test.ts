@@ -155,14 +155,37 @@ describe("planJourney", () => {
     expect(result.journey.legs[0].weather).toBeUndefined();
   });
 
-  it("route failure with no cached journey: returns failed", async () => {
+  it("route failure with no cached journey: returns failed, carrying the reason", async () => {
     mockComputeRoute.mockResolvedValue({ error: "unreachable" });
     mockFindRecentJourneyBetween.mockResolvedValue(undefined);
 
     const result = await planJourney(baseInput);
 
-    expect(result).toEqual({ kind: "failed" });
+    expect(result).toEqual({ kind: "failed", reason: "unreachable" });
     expect(mockCreateJourney).not.toHaveBeenCalled();
+  });
+
+  // §5.1's fallback is for outages. "Google knows of no such route" is an
+  // answer, and standing an old route in for it produces a confident, wrong
+  // plan for a trip that can't be made that way — which is exactly what a bus
+  // request did on a device after a walk request had cached one.
+  it("no-route: fails with that reason and never reaches for a cached structure", async () => {
+    mockComputeRoute.mockResolvedValue({ error: "no-route" });
+
+    const result = await planJourney({ ...baseInput, mode: "bus" });
+
+    expect(result).toEqual({ kind: "failed", reason: "no-route" });
+    expect(mockFindRecentJourneyBetween).not.toHaveBeenCalled();
+    expect(mockCreateJourney).not.toHaveBeenCalled();
+  });
+
+  it("an outage asks for a cached structure of the same mode, not any journey between the pair", async () => {
+    mockComputeRoute.mockResolvedValue({ error: "network" });
+    mockFindRecentJourneyBetween.mockResolvedValue(undefined);
+
+    await planJourney({ ...baseInput, mode: "bus" });
+
+    expect(mockFindRecentJourneyBetween).toHaveBeenCalledWith(HOME.id, WORK.id, expect.any(String), "bus");
   });
 
   it("route failure with a cached journey: reuses its leg structure and still fetches fresh weather", async () => {

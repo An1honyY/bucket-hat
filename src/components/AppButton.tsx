@@ -19,6 +19,16 @@ import { RADIUS, SPACING, TYPE } from "../theme/typography";
 // `layout="inline"` opts out of the block width cap for buttons that share a
 // row (Cancel / Save), where the row itself is already constrained.
 //
+// `layout="hug"` (2026-08-21) is the third case, and the one the block width
+// was wrong for: an *add* control above (or instead of) a list. ACTION_MAX_WIDTH
+// is 420 and a phone is 360 wide, so "block" means "full bleed" on the device
+// even though it reads as a sensible cap on the desktop build — and in an empty
+// state, whose container had no horizontal padding, it meant a slab touching
+// both screen edges. A button that commits you to nothing and opens a form is
+// not a submit button; it should be the size of its own label. Sizes to its
+// content and centres, and callers can override `alignSelf` to sit it at the
+// start of a row.
+//
 // `tonal` (2026-08-09) is the accent at lower volume — accent-coloured label
 // on a wash of the same accent. It exists for the case where a screen has
 // both a primary action *and* a headline fact rendered in the accent (Journey
@@ -32,8 +42,9 @@ interface Props {
   label: string;
   onPress: () => void;
   variant?: ButtonVariant;
-  /** "block" (default) centres and caps the width; "inline" fills its flex slot. */
-  layout?: "block" | "inline";
+  /** "block" (default) centres and caps the width; "inline" fills its flex
+   *  slot; "hug" sizes to its own label. */
+  layout?: "block" | "inline" | "hug";
   size?: "md" | "sm";
   /** Rendered before the label — pass a sized/coloured icon element. */
   icon?: ReactNode;
@@ -75,7 +86,7 @@ export default function AppButton({
         styles.base,
         size === "sm" ? styles.sizeSm : styles.sizeMd,
         styles[variant],
-        layout === "block" ? styles.block : styles.inline,
+        styles[layout],
         pressed && styles.pressed,
         disabled && styles.disabled,
         style,
@@ -104,6 +115,7 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     sizeSm: { minHeight: 44, paddingHorizontal: SPACING.md },
     block: { width: "100%", maxWidth: ACTION_MAX_WIDTH, alignSelf: "center" },
     inline: { flex: 1 },
+    hug: { alignSelf: "center" },
     inner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SPACING.sm },
     label: { ...TYPE.body, fontWeight: "700" },
     labelSm: { ...TYPE.caption, fontWeight: "600" },

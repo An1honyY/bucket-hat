@@ -179,6 +179,25 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
   const appliedRoom = useRef(rooms[0] ?? 0);
 
   const [target, setTarget] = useState<PerchTarget | null>(null);
+  /**
+   * The last target handed out, mirrored.
+   *
+   * The `samePerch` check used to be made inside `setTarget`'s updater, using
+   * the `current` React passes it — and the same updater wrote `standingY`.
+   * A state updater has to be pure: React calls it during render, is free to
+   * call it more than once, and is free to throw the render away and call it
+   * again later. Writing a shared value in there is none of those things, and
+   * Reanimated says so out loud at runtime ("Writing to `value` during
+   * component render", logged from this file). A duplicate call restarts the
+   * `withTiming` from wherever the last one had got to, and a discarded render
+   * leaves his feet moving toward a perch React decided not to render — which
+   * is the mascot standing somewhere no card is, or off screen entirely.
+   *
+   * With the previous target in a ref, the comparison and the write both
+   * happen here, in a promise callback, where side effects belong; `setTarget`
+   * goes back to being handed a plain value.
+   */
+  const lastTarget = useRef<PerchTarget | null>(null);
 
   // The two rooms in play during a hop, as Reanimated values so the settle
   // runs on the UI thread and costs the screen no re-renders at all — this is
@@ -300,13 +319,13 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
         // him, and he should ride it rather than jump to it.
         const standing: PerchTarget = { ...perches.find((p) => p.index === active)!.perch, arrival: "sag" };
         // Held by identity when nothing has really moved — see `samePerch`.
-        setTarget((current) => {
-          if (samePerch(current, standing)) return current;
+        if (!samePerch(lastTarget.current, standing)) {
           // Ease him onto it, unless this is the first time he has been put
           // anywhere — then he is simply standing there when the screen opens.
           standingY.value = placed.current && !pinned ? withTiming(standing.y, SAG_TIMING) : standing.y;
-          return standing;
-        });
+          lastTarget.current = standing;
+          setTarget(standing);
+        }
         placed.current = true;
         return;
       }
@@ -316,7 +335,8 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
       // flight, so he lands on a card the user can see, at the line they can
       // see it at.
       const landing = perches.find((p) => p.index === choice.index)!;
-      setTarget({ ...landing.perch, arrival: "hop" });
+      lastTarget.current = { ...landing.perch, arrival: "hop" };
+      setTarget(lastTarget.current);
       awaitingReflow.current = true;
       // His feet travel from here; PerchedMascot supplies the arc over them
       // and the squash around them, on the matching timings from hopTiming.
@@ -376,7 +396,8 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
           () => {
             routing.value = { active: choice.index, leaving: -1 };
             appliedRoom.current = landing.room;
-            setTarget({ ...landing.perch, y: choice.nextY, arrival: "sag" });
+            lastTarget.current = { ...landing.perch, y: choice.nextY, arrival: "sag" };
+            setTarget(lastTarget.current);
             if (choice.roomAboveViewport > 0) setSettledScrollY(choice.scrollBase);
             reflowFrame.current = requestAnimationFrame(() => {
               reflowFrame.current = requestAnimationFrame(() => {

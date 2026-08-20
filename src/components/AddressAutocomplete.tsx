@@ -18,6 +18,11 @@ const ERROR_MESSAGES: Record<ServiceError, string> = {
   network: "Couldn't search — check your connection.",
   "rate-limited": "Address search is briefly rate-limited — try again in a moment.",
   unreachable: "Address search isn't available right now.",
+  // placesService never returns this — it is routing's "Google knows of no
+  // such route" — but the map is exhaustive over ServiceError on purpose, so
+  // the next value added here has to be given words rather than silently
+  // rendering blank.
+  "no-route": "No matching places.",
 };
 
 interface Props {

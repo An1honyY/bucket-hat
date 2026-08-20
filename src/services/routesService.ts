@@ -396,8 +396,13 @@ export async function computeRoute(params: ComputeRouteParams): Promise<ServiceR
     return { error: "unreachable" };
   }
 
+  // Google answers a request it understood but cannot satisfy with HTTP 200
+  // and an empty body — no `routes`, no error object. That is "there is no
+  // such route", not "the API is down", and the difference is the whole
+  // message the user gets: a bus trip in a town with no bus network is not
+  // fixed by checking your wifi. Verified against the live API.
   const route = payload.routes?.[0];
-  if (!route) return { error: "unreachable" };
+  if (!route) return { error: "no-route" };
 
   return { data: isTransit ? parseTransitSteps(route, params) : parseSimpleLegs(route, params) };
 }

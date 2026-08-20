@@ -1,5 +1,6 @@
 import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
 import HeaderBackButton from "./HeaderBackButton";
+import appHeader from "./AppHeader";
 import type { ThemeTokens } from "../theme/tokens";
 
 // §9.1/§9.2 — the header chrome every stack in the app shares: themed
@@ -10,9 +11,16 @@ import type { ThemeTokens } from "../theme/tokens";
 // (the root one plus the Locations and Gear tab stacks), and a header that
 // looks different depending on which one you happened to push from is the
 // kind of drift that only shows up on a device.
+//
+// That drift did show up on a device, and one factory wasn't enough to stop
+// it: these three stacks agreed with each other but not with Today and Plan,
+// which are tab screens and so got bottom-tabs' header instead — 8dp taller,
+// with a different left inset. `header` closes that by making every stack
+// render the same component the tab navigator does; see AppHeader.tsx.
 
 export function themedHeaderOptions(theme: ThemeTokens): NativeStackNavigationOptions {
   return {
+    header: appHeader,
     headerStyle: { backgroundColor: theme.headerBg },
     headerTitleStyle: { color: theme.textPrimary },
     headerTintColor: theme.accentWalk,

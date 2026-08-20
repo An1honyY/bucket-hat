@@ -300,8 +300,21 @@ export default function PlanScreen() {
       });
 
       if (result.kind === "failed") {
-        // §5.1 — no live route and no cached fallback to reuse.
-        showAlert("Can't plan a new route right now", "Check your connection, then try again.", [
+        // §5.1 — no live route and no cached fallback to reuse. What to *say*
+        // depends on which of those two it was, and it used always to say the
+        // one that was usually wrong: "check your connection" is a dead end
+        // when the connection is fine and Google simply has no bus between
+        // these two places. Retrying only makes sense for the failures
+        // retrying can fix, so it is offered for those and withheld for the
+        // one where the answer will be the same every time.
+        if (result.reason === "no-route") {
+          showAlert(
+            `No ${MODE_LABEL[mode].toLowerCase()} route for this trip`,
+            `Google doesn't know of a way to get from ${origin.label} to ${destination.label} by ${MODE_LABEL[mode].toLowerCase()}. Try another mode.`
+          );
+          return;
+        }
+        showAlert("Can't reach the routing service", "Check your connection, then try again.", [
           { text: "Retry", onPress: handlePlanJourney },
           { text: "Cancel", style: "cancel" },
         ]);

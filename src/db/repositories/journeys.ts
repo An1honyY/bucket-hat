@@ -305,20 +305,40 @@ export async function listUpcomingJourneys(withinHours: number): Promise<Journey
 // docs/05-data-wiring.md §5.1 — the offline-planning fallback: "a
 // previously-saved Journey between the same origin/destination pair (exact
 // SavedLocation.id match) within the last 30 days." Most recent first.
+//
+// `mode` matters as much as the id pair, and used not to be checked at all.
+// Observed on a device: planning the same two places by bus a minute after
+// planning them on foot reused the walking journey and presented it as the bus
+// trip — right endpoints, right banner, wrong 8-hour walk. Two places have as
+// many routes between them as there are ways to travel, so a cached structure
+// is only a stand-in for a plan of the same kind.
+//
+// Matched against the legs rather than a column: a Journey has no mode of its
+// own (the mode lives per-leg, §3), and the schema is additive-only, so this
+// scans the recent candidates instead of adding one. A transit journey is
+// mostly walking legs around one bus/train leg, so the test is whether the
+// requested mode appears at all — which for walk/cycle/drive, whose legs are
+// all the same mode, is the same as asking what the journey is.
+const CACHED_STRUCTURE_CANDIDATES = 20;
+
 export async function findRecentJourneyBetween(
   originId: string,
   destinationId: string,
-  sinceIso: string
+  sinceIso: string,
+  mode?: JourneyLeg["mode"]
 ): Promise<Journey | undefined> {
   const db = await getDb();
-  const row = await db.getFirstAsync<JourneyRow>(
+  const rows = await db.getAllAsync<JourneyRow>(
     `SELECT * FROM journeys
      WHERE origin_id = ? AND destination_id = ? AND depart_time >= ?
      ORDER BY depart_time DESC
-     LIMIT 1`,
+     LIMIT ?`,
     originId,
     destinationId,
-    sinceIso
+    sinceIso,
+    mode === undefined ? 1 : CACHED_STRUCTURE_CANDIDATES
   );
-  return row ? fromRow(row) : undefined;
+  const journeys = rows.map(fromRow);
+  if (mode === undefined) return journeys[0];
+  return journeys.find((journey) => journey.legs.some((leg) => leg.mode === mode));
 }

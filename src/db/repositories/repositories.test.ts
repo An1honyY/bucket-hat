@@ -370,6 +370,15 @@ describe("repository round-trips", () => {
     const wrongPair = await findRecentJourneyBetween("work", "home", "2026-01-01T00:00:00.000Z");
     expect(wrongPair).toBeUndefined();
 
+    // The mode is part of the match. Without it, a bus plan falling back on
+    // this walking journey shows an 8-hour walk under a bus heading — seen on
+    // a device, not hypothetical.
+    const byWalk = await findRecentJourneyBetween("home", "work", "2026-01-01T00:00:00.000Z", "walk");
+    expect(byWalk?.id).toBe(journey.id);
+
+    const byBus = await findRecentJourneyBetween("home", "work", "2026-01-01T00:00:00.000Z", "bus");
+    expect(byBus).toBeUndefined();
+
     await deleteJourney(journey.id);
     expect(await getJourney(journey.id)).toBeUndefined();
   });
