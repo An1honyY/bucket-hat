@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent, ScrollView, View } from "react-native";
-import { HOP_LANDING_MS } from "./hopTiming";
+import { CARD_SINK_MS } from "./hopTiming";
 
 // Which card the mascot is standing on, for a screen that has several.
 //
@@ -25,9 +25,11 @@ import { HOP_LANDING_MS } from "./hopTiming";
 // was chosen, which is half a second before he arrives: the cards shuffled,
 // and then he hopped after them. So the choice now moves in two beats — he is
 // sent to where the perch *will* be (`nextY`, arithmetic the choice already
-// had to do), the layout holds completely still for the length of the hop,
-// and the room is applied on the frame his feet touch down. Nothing moves
-// until he lands, and then everything does.
+// had to do), the layout holds completely still for the whole hop, and the
+// room is applied once he has landed on it and taken a beat to compress
+// (`CARD_SINK_MS` — deliberately later than the touchdown; the reason is
+// written up there). Nothing moves until he is standing on it, and then
+// everything does.
 
 /**
  * Where inside a perch's width he stands. Defaults to centre.
@@ -338,10 +340,10 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
       setTarget({ ...landing.perch, y: choice.nextY });
       awaitingReflow.current = true;
 
-      // Beat two: he lands, and his weight arrives with him. The first
-      // placement has no flight to wait for (he is put down, not thrown), and
-      // reduce motion has no flight at all.
-      const flight = placed.current && !pinned ? HOP_LANDING_MS : 0;
+      // Beat two: he lands, compresses, and the card gives under him. The
+      // first placement has no flight to wait for (he is put down, not
+      // thrown), and reduce motion has no flight at all.
+      const flight = placed.current && !pinned ? CARD_SINK_MS : 0;
       placed.current = true;
       if (landingTimer.current) clearTimeout(landingTimer.current);
       landingTimer.current = setTimeout(() => {

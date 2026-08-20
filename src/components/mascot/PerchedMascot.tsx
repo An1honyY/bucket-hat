@@ -11,7 +11,7 @@ import Animated, {
 import Mascot, { MASCOT_FEET_ORIGIN } from "./Mascot";
 import { mascotFeetOffset, type MascotGarmentFills, type MascotPose } from "./MascotBase";
 import { perchOffsetX, type Perch } from "./useMascotPerches";
-import { CROUCH_MS, HOP_LANDING_MS, LAND_MS, RECOVER_MS, TRAVEL_MS } from "./hopTiming";
+import { CROUCH_MS, HOP_LANDING_MS, LAND_MS, RECOVER_MS, SINK_HOLD_MS, TRAVEL_MS } from "./hopTiming";
 import type { MascotState } from "../../lib/mascot";
 
 // The mascot, absolutely positioned over a stack of cards and hopping between
@@ -24,7 +24,9 @@ import type { MascotState } from "../../lib/mascot";
 // He is given the perch's *final* position — where the card will be once it
 // has made room for him — and the cards hold still until he gets there. So
 // the target here is often somewhere no card is yet, and that is the point:
-// the stack moves on his landing frame, not before it. See useMascotPerches.
+// the stack moves under him, not ahead of him. The landing here is timed
+// against that move — he compresses, holds, and the card gives at the end of
+// the hold — so the two files share hopTiming rather than each guessing.
 
 /** How far above the higher perch the arc peaks, as a fraction of his size. */
 const HOP_LIFT = 0.26;
@@ -32,6 +34,10 @@ const HOP_LIFT = 0.26;
 const CROUCH = 0.14;
 /** Vertical extension at the moment of takeoff. */
 const STRETCH = 0.07;
+/** How far into the crouch the landing drives him, on the same -1..1 scale as
+ *  `squash`. Deeper than the old 0.7: this is the pose the card is holding up,
+ *  so it has to look like an effort. */
+const LANDING_SQUASH = 0.85;
 
 /** Flippers out and up, held from the crouch until he lands. */
 const AIRBORNE_POSE: MascotPose = { leftFlipperDeg: 62, rightFlipperDeg: 62 };
@@ -116,8 +122,12 @@ export default function PerchedMascot({ size, state, greetToken, target, instant
       withTiming(1, { duration: TRAVEL_MS * 0.25, easing: Easing.out(Easing.quad) }),
       // Neutral through the rest of the arc.
       withTiming(0, { duration: TRAVEL_MS * 0.75, easing: Easing.inOut(Easing.quad) }),
-      // Absorb, then stand back up.
-      withTiming(-0.7, { duration: LAND_MS, easing: Easing.out(Easing.quad) }),
+      // Absorb the landing, deeper and slower than a bounce would be.
+      withTiming(-LANDING_SQUASH, { duration: LAND_MS, easing: Easing.out(Easing.quad) }),
+      // Held there, weight fully on a card that hasn't given yet. Timed with
+      // the layout, which moves at the end of this hold — see CARD_SINK_MS.
+      withTiming(-LANDING_SQUASH, { duration: SINK_HOLD_MS, easing: Easing.linear }),
+      // The card gives, and he comes up as it goes down.
       withTiming(0, { duration: RECOVER_MS, easing: Easing.out(Easing.quad) })
     );
   }, [placement, x, y, lift, squash, size]);

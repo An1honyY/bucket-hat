@@ -206,6 +206,7 @@ one by date — don't edit the old entry.
 - 2026-08-20 — Sharing is preview-first, in a centred `Dialog` rather than a bottom sheet (§13.2, §9.3) [design, supersedes the 2026-08-19 picker sheet]
 - 2026-08-20 — The share capture is taken at the card's true size; a scaled preview was eating the spaces between words (§13.2) [bug fix, supersedes the resolution in today's preview-first entry]
 - 2026-08-20 — The share card names its low, dates itself, and drops the dashed fallback chips (§13.2, §9.5) [design, supersedes the 2026-08-19 high/low pairing]
+- 2026-08-20 — The cards give way a beat *after* the mascot lands, not on the touchdown frame (§9.7) [design, refines today's landing-frame entry]
 
 ---
 
@@ -4171,5 +4172,28 @@ five dashed outlines read as a card that failed to load, for a distinction
 its dashed fallbacks, because there the distinction is actionable and leads to
 adding the item. Treat this card as written for a stranger: anything it shows
 has to stand without the app around it.
+
+---
+
+## 2026-08-20 — The cards give way a beat *after* the mascot lands, not on the touchdown frame (§9.7)
+
+**What**: the layout now moves at `CARD_SINK_MS`, 240ms after his feet touch
+down — he compresses over the landing (`LAND_MS`, 150) and is held at the
+bottom of it (`SINK_HOLD_MS`, 90) before the card gives and he rises with it.
+Refines this morning's entry, which moved the stack on the landing frame
+itself.
+
+**Why**: accurate was not the same as legible. On the touchdown frame the card
+is simply somewhere else the moment he arrives, with nothing to connect the
+two — Antony's read after seeing it: it wanted a pause, so the movement is
+his weight rather than a coincidence. Giving the card something to resist
+first is what makes it read as giving way.
+
+**Resolution**: the delay is deliberate and will look like lag to anyone
+measuring touchdown-to-response — don't "fix" it back. Verified against the
+running app both directions: the card holds for the full 240ms while he is
+visibly squashed (11% shorter than standing) and then drops 24px/51px. The
+squash and the layout are timed off the same `hopTiming` constants, so
+re-tuning one without the other is the failure mode to watch for.
 
 ---
