@@ -10,7 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Mascot, { MASCOT_FEET_ORIGIN } from "./Mascot";
 import { mascotFeetOffset, type MascotGarmentFills, type MascotPose } from "./MascotBase";
-import { perchOffsetX, type Perch } from "./useMascotPerches";
+import { perchOffsetX, type PerchTarget } from "./useMascotPerches";
 import { CROUCH_MS, HOP_LANDING_MS, LAND_MS, RECOVER_MS, SINK_HOLD_MS, TRAVEL_MS } from "./hopTiming";
 import type { MascotState } from "../../lib/mascot";
 
@@ -21,12 +21,13 @@ import type { MascotState } from "../../lib/mascot";
 // shape in the air, absorb the landing. Without the crouch he slides between
 // perches; the arc alone reads as being carried rather than jumping.
 //
-// He is given the perch's *final* position — where the card will be once it
-// has made room for him — and the cards hold still until he gets there. So
-// the target here is often somewhere no card is yet, and that is the point:
-// the stack moves under him, not ahead of him. The landing here is timed
-// against that move — he compresses, holds, and the card gives at the end of
-// the hold — so the two files share hopTiming rather than each guessing.
+// He is given the card's top edge as it currently is, and the cards hold still
+// until he gets there — so he always lands on something the user can see. The
+// stack then settles under him a beat later, and that arrives here as a
+// `sag`: a target change he follows with his feet and nothing else, on the
+// same frame the layout moves. The landing is timed against that move — he
+// compresses, holds, and the card gives at the end of the hold — so the two
+// files share hopTiming rather than each guessing.
 
 /** How far above the higher perch the arc peaks, as a fraction of his size. */
 const HOP_LIFT = 0.26;
@@ -46,8 +47,9 @@ interface Props {
   size: number;
   state: MascotState;
   greetToken?: unknown;
-  /** Where he should be standing. Null before the first perch has been measured. */
-  target: Perch | null;
+  /** Where he should be standing, and whether getting there is a jump of his
+   *  own or the card moving under him. Null before the first measurement. */
+  target: PerchTarget | null;
   /** Skips the whole hop and places him directly — reduce motion, and the first placement. */
   instant: boolean;
   garments?: MascotGarmentFills;
@@ -64,20 +66,27 @@ export default function PerchedMascot({ size, state, greetToken, target, instant
   const targetY = target ? target.y - mascotFeetOffset(size) : 0;
   const hasTarget = target !== null;
 
-  // Where he was last put, and whether getting there was a jump. Recorded
-  // during render — React's documented "adjust state when a prop changes" —
-  // so the animation effect runs exactly once per placement and carries its
-  // own answer, rather than re-deciding from a value that changes underneath
-  // it mid-hop.
-  const [placement, setPlacement] = useState<{ x: number; y: number; jumped: boolean } | null>(null);
+  // Where he was last put, and how he got there. Recorded during render —
+  // React's documented "adjust state when a prop changes" — so the animation
+  // effect runs exactly once per placement and carries its own answer, rather
+  // than re-deciding from a value that changes underneath it mid-hop.
+  //
+  //  - "place" resets everything and puts him down. The first placement (he
+  //    should already be standing there when the screen appears, not hop on
+  //    from the top-left corner) and reduce motion.
+  //  - "hop" is the full jump.
+  //  - "sag" moves his feet and touches nothing else. It is the card giving
+  //    way under him at the end of a hop, so it must not restart the squash
+  //    he is in the middle of — that landing compression is *why* the card is
+  //    moving, and resetting it would cut the effect in half.
+  type Arrival = "place" | "hop" | "sag";
+  const [placement, setPlacement] = useState<{ x: number; y: number; arrival: Arrival } | null>(null);
   const [hopId, setHopId] = useState(0);
   const [landedId, setLandedId] = useState(0);
   if (hasTarget && (placement === null || placement.x !== targetX || placement.y !== targetY)) {
-    // The first placement is never a jump: he should already be standing
-    // there when the screen appears, not hop on from the top-left corner.
-    const jumped = placement !== null && !instant;
-    setPlacement({ x: targetX, y: targetY, jumped });
-    if (jumped) setHopId((n) => n + 1);
+    const arrival: Arrival = placement === null || instant ? "place" : target.arrival === "sag" ? "sag" : "hop";
+    setPlacement({ x: targetX, y: targetY, arrival });
+    if (arrival === "hop") setHopId((n) => n + 1);
   }
 
   const airborne = hopId !== landedId;
@@ -93,12 +102,16 @@ export default function PerchedMascot({ size, state, greetToken, target, instant
 
   useEffect(() => {
     if (placement === null) return;
-    const { x: toX, y: toY, jumped } = placement;
-    if (!jumped) {
+    const { x: toX, y: toY, arrival } = placement;
+    if (arrival !== "hop") {
       x.value = toX;
       y.value = toY;
-      lift.value = 0;
-      squash.value = 0;
+      // A sag leaves the landing animation alone; only a fresh placement
+      // clears it.
+      if (arrival === "place") {
+        lift.value = 0;
+        squash.value = 0;
+      }
       return;
     }
     const targetX = toX;

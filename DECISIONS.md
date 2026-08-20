@@ -207,6 +207,7 @@ one by date — don't edit the old entry.
 - 2026-08-20 — The share capture is taken at the card's true size; a scaled preview was eating the spaces between words (§13.2) [bug fix, supersedes the resolution in today's preview-first entry]
 - 2026-08-20 — The share card names its low, dates itself, and drops the dashed fallback chips (§13.2, §9.5) [design, supersedes the 2026-08-19 high/low pairing]
 - 2026-08-20 — The cards give way a beat *after* the mascot lands, not on the touchdown frame (§9.7) [design, refines today's landing-frame entry]
+- 2026-08-20 — He lands on the card where it *is*, and sags with it; flying to the predicted spot left him in mid-air (§9.7) [bug fix, supersedes the flight target in today's landing-frame entry]
 
 ---
 
@@ -4195,5 +4196,28 @@ running app both directions: the card holds for the full 240ms while he is
 visibly squashed (11% shorter than standing) and then drops 24px/51px. The
 squash and the layout are timed off the same `hopTiming` constants, so
 re-tuning one without the other is the failure mode to watch for.
+
+---
+
+## 2026-08-20 — He lands on the card where it *is*, and sags with it; flying to the predicted spot left him in mid-air (§9.7)
+
+**What**: the flight target is the perch's currently measured top edge, not
+`choosePerch().nextY`. `nextY` is still the arithmetic that matters — it is
+now applied to the layout *and* to his feet in the same commit at
+`CARD_SINK_MS`, so the card and the mascot move by the same amount on the same
+frame. `PerchTarget.arrival` carries `"hop"` vs `"sag"` so PerchedMascot
+follows the second with his feet only, without restarting the landing squash.
+
+**Why**: this morning's entry sent him to where the perch *would* be, which is
+nowhere any card is during the flight. Antony's read: he was landing where the
+card will be, not where it is. Measured, it was worse than it looked — on a
+downward hop he moved 76px at the sink while the card moved 24.
+
+**Resolution**: the invariant to hold is `feet - cardTop`, not either position
+on its own; verified constant at 12px across a 75px sag both directions.
+Anything that splits the `setActiveIndex` / `setTarget` pair onto different
+commits, or that reintroduces a predicted flight target, breaks it. A card
+that moves under him for any other reason (something above it growing) is now
+a sag too, for the same reason.
 
 ---

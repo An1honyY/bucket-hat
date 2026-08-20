@@ -24,12 +24,18 @@ import { CARD_SINK_MS } from "./hopTiming";
 // *Lands on*, literally. The room used to be applied the moment a new perch
 // was chosen, which is half a second before he arrives: the cards shuffled,
 // and then he hopped after them. So the choice now moves in two beats — he is
-// sent to where the perch *will* be (`nextY`, arithmetic the choice already
-// had to do), the layout holds completely still for the whole hop, and the
-// room is applied once he has landed on it and taken a beat to compress
-// (`CARD_SINK_MS` — deliberately later than the touchdown; the reason is
-// written up there). Nothing moves until he is standing on it, and then
-// everything does.
+// sent to the card's top edge *as it currently is*, the layout holds
+// completely still for the whole hop, and the room is applied once he has
+// landed on it and taken a beat to compress (`CARD_SINK_MS` — deliberately
+// later than the touchdown; the reason is written up there).
+//
+// On that frame he moves too, by exactly what the card moves (`nextY`), in
+// the same commit. Sending him to the *predicted* position instead was the
+// first attempt and it was worse than the bug it replaced: he flew to a spot
+// no card was at yet, hung there, and then dropped 76px to meet a card that
+// had only moved 24. Landing on what you can see and sagging with it is the
+// whole point — nothing moves until he is standing on it, and then he and it
+// move together.
 
 /**
  * Where inside a perch's width he stands. Defaults to centre.
@@ -48,6 +54,19 @@ export interface Perch {
   y: number;
   width: number;
   align: PerchAlign;
+}
+
+/**
+ * A perch plus how he is to get to it.
+ *
+ * The distinction is the difference between a jump and being carried. A `hop`
+ * is him crossing to another card under his own power. A `sag` is the card
+ * moving *under his feet* — it happens at the end of a hop, when the room is
+ * finally applied and the whole stack settles — and he has to follow it
+ * exactly, on the same frame, or he reads as detached from it.
+ */
+export interface PerchTarget extends Perch {
+  arrival: "hop" | "sag";
 }
 
 /** How long scrolling must be still before he commits to a new perch. Without
@@ -89,8 +108,9 @@ export interface MascotPerches {
   ) => { ref: (node: View | null) => void; onLayout: () => void; style: { marginTop: number } };
   /** Attach to the ScrollView, along with `scrollEventThrottle={16}`. */
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  /** Where he should be standing now. Null until the first card has been measured. */
-  target: Perch | null;
+  /** Where he should be standing now, and how to get there. Null until the
+   *  first card has been measured. */
+  target: PerchTarget | null;
 }
 
 /** Promise wrapper around measureLayout, which is callback-shaped and has a
@@ -119,11 +139,14 @@ export interface PerchChoice {
   /** The perch he belongs on. */
   index: number;
   /**
-   * Where that perch's top line ends up once the rooms have swapped — his
-   * landing spot, in the layout that doesn't exist yet.
+   * Where that perch's top line ends up once the rooms have swapped.
    *
-   * Only meaningful when `index` differs from the perch he is on; for a
-   * perch he is already standing on it is simply where it is.
+   * Not where he flies to — he lands on the card where it is now. This is
+   * where *both* of them go afterwards, applied to the layout and to his feet
+   * in the same commit, so the card sags with him standing on it.
+   *
+   * Only meaningful when `index` differs from the perch he is on; for a perch
+   * he is already standing on it is simply where it is.
    */
   nextY: number;
   /** The scroll offset with the departing room taken out of it — what the
@@ -185,6 +208,8 @@ export function choosePerch(
  * and he would hop again on the spot, forever.
  */
 export function samePerch(a: Perch | null, b: Perch): boolean {
+  // Geometry only: `arrival` says how he got here, not where here is, and a
+  // re-measure that agrees must not count as a move.
   return (
     a !== null &&
     a.align === b.align &&
@@ -241,7 +266,7 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
   const placed = useRef(false);
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [target, setTarget] = useState<Perch | null>(null);
+  const [target, setTarget] = useState<PerchTarget | null>(null);
   // Bumped whenever a card reports a layout, which is the cue to re-measure.
   const [revision, setRevision] = useState(0);
   const [settledScrollY, setSettledScrollY] = useState(0);
@@ -324,20 +349,23 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
       if (!choice) return;
 
       if (choice.index === active) {
-        const standing = perches.find((p) => p.index === active)!.perch;
+        // A sag either way: this is the re-measure that closes a hop, and it
+        // is also what runs when a card he is already standing on moves
+        // because something above it grew. Both are the ground shifting under
+        // him, and he should ride it rather than jump to it.
+        const standing: PerchTarget = { ...perches.find((p) => p.index === active)!.perch, arrival: "sag" };
         placed.current = true;
         // Held by identity when nothing has really moved — see `samePerch`.
-        // This is the re-measure that closes a hop as much as it is the one
-        // that follows a card resizing.
         setTarget((current) => (samePerch(current, standing) ? current : standing));
         return;
       }
 
-      // Beat one: send him to where the perch will be, and touch nothing else.
-      // The stack keeps its current spacing for the whole flight, so from the
-      // user's side the screen is simply still while he jumps.
+      // Beat one: send him to the card's top edge as it is *right now*, and
+      // touch nothing else. The stack keeps its current spacing for the whole
+      // flight, so he lands on a card the user can see, at the line they can
+      // see it at.
       const landing = perches.find((p) => p.index === choice.index)!;
-      setTarget({ ...landing.perch, y: choice.nextY });
+      setTarget({ ...landing.perch, arrival: "hop" });
       awaitingReflow.current = true;
 
       // Beat two: he lands, compresses, and the card gives under him. The
@@ -349,6 +377,11 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
       landingTimer.current = setTimeout(() => {
         activeRef.current = choice.index;
         setActiveIndex(choice.index);
+        // He goes down with it, in the same commit, by exactly the same
+        // amount — `nextY` is where the perch's top line ends up, so his feet
+        // stay on it. Anything that lets these two land on different frames
+        // puts him back in mid-air waiting for a card to arrive under him.
+        setTarget({ ...landing.perch, y: choice.nextY, arrival: "sag" });
         if (choice.roomAboveViewport > 0) {
           // Hold the page still: the room above the viewport is going away, so
           // the offset comes down by exactly as much and nothing on screen moves

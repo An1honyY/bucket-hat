@@ -53,11 +53,15 @@ describe("choosePerch", () => {
     expect(choice).toEqual({ index: 1, nextY: 444, roomAboveViewport: 75, scrollBase: 225 });
   });
 
-  it("names the spot he is jumping to, in the layout that doesn't exist yet", () => {
+  it("names where the perch settles once the rooms have swapped", () => {
     // The card is measured at 495 (420 of its own, plus the 75 the top card is
     // borrowing above it). Once he leaves, that 75 goes back and the card's own
-    // 24 arrives: 444. He is thrown there while the stack is still showing 495,
-    // and the two agree on the frame he lands — that is the whole trick.
+    // 24 arrives: 444.
+    //
+    // He is *not* thrown to 444 — he lands on 495, the edge the user can see,
+    // and this is where he and the card go together a beat later. Sending him
+    // here for the flight was the first attempt: he hung in mid-air over a card
+    // that hadn't moved yet.
     const choice = choosePerch(todayPerches(0), 0, CLEARANCE, 300, false)!;
     expect(todayPerches(0)[1].y).toBe(495);
     expect(choice.nextY).toBe(444);
@@ -70,10 +74,10 @@ describe("choosePerch", () => {
     expect(choice).toMatchObject({ index: 0, nextY: todayPerches(0)[0].y });
   });
 
-  it("predicts a landing that survives being re-measured after it happens", () => {
+  it("predicts a settled position that survives being re-measured after it happens", () => {
     // The fixed point that keeps him still once the rooms have swapped: measure
-    // the new layout for real and the perch must be exactly where he was sent,
-    // or he closes the hop by hopping again.
+    // the new layout for real and the perch must be exactly where the sag put
+    // him, or he closes the hop by hopping again.
     const first = choosePerch(todayPerches(0), 0, CLEARANCE, 300, false)!;
     const settled = todayPerches(first.index).find((c) => c.index === first.index)!;
     expect(settled.y).toBe(first.nextY);
