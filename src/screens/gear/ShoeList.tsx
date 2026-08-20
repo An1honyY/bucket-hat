@@ -55,9 +55,16 @@ export default function ShoeList() {
     ]);
   }
 
+  // Each sub-tab's list mounts fresh when the tab changes, so its first
+  // render lands before listShoes() resolves. Rendering the populated
+  // branch in that gap put the "Add ..." button at the top of an empty
+  // FlatList, from where it visibly jumped down to the centred empty state
+  // a frame later.
+  if (!loaded) return <View style={styles.container} />;
+
   return (
     <View style={styles.container}>
-      {loaded && items.length === 0 ? (
+      {items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.empty}>No shoes yet — add your first pair</Text>
           <AppButton label="Add shoes" onPress={() => navigation.navigate("GearItem", { kind: "shoe" })} style={styles.addButton} />

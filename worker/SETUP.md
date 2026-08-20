@@ -277,6 +277,7 @@ browser console, `self.crossOriginIsolated` must be `true`.
 |---|---|
 | Build command | `npm ci && npm ci --prefix worker && npm run build:web` |
 | Deploy command | `npm --prefix worker run deploy` |
+| Non-production branch deploy command | `npm --prefix worker run versions:upload` |
 | Root directory | *(repo root, leave blank)* |
 | Branch | `master` — this repo's default branch is not `main` |
 
@@ -298,6 +299,21 @@ The deploy command runs through the Worker's own package so it uses the
 `wrangler` version pinned in `worker/package.json`. `npx wrangler` from the
 repo root fetches whatever is newest on npm instead, which is a different
 program from the one this config was tested against.
+
+Both deploy commands have to be set. Workers Builds runs the production one
+only for `master`; every other branch — so, every pull request — gets the
+**non-production** command, which defaults to a bare
+`npx wrangler versions upload`. That default runs at the repo root, where
+there is no wrangler config (this repo's lives in `worker/wrangler.toml`),
+so it fails after a perfectly good build with:
+
+```
+✘ [ERROR] Missing entry-point to Worker script or to assets directory
+```
+
+which reads like a broken build and is really an unset field. The
+production side was configured and the non-production side was not, so the
+error only surfaced the first time a PR branch built.
 
 Verify either half locally without deploying anything — this needs no
 Cloudflare credentials and is the fastest way to check a config change:
