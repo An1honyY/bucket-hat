@@ -11,6 +11,7 @@ import Animated, {
 import Mascot, { MASCOT_FEET_ORIGIN } from "./Mascot";
 import { mascotFeetOffset, type MascotGarmentFills, type MascotPose } from "./MascotBase";
 import { perchOffsetX, type Perch } from "./useMascotPerches";
+import { CROUCH_MS, HOP_LANDING_MS, LAND_MS, RECOVER_MS, TRAVEL_MS } from "./hopTiming";
 import type { MascotState } from "../../lib/mascot";
 
 // The mascot, absolutely positioned over a stack of cards and hopping between
@@ -19,14 +20,11 @@ import type { MascotState } from "../../lib/mascot";
 // The hop is built the way a cartoon jump is: anticipate, launch, hold the
 // shape in the air, absorb the landing. Without the crouch he slides between
 // perches; the arc alone reads as being carried rather than jumping.
-
-/** Gather before the launch. */
-const CROUCH_MS = 150;
-/** Time in the air. */
-const TRAVEL_MS = 400;
-/** Absorbing the landing, then standing back up. */
-const LAND_MS = 90;
-const RECOVER_MS = 150;
+//
+// He is given the perch's *final* position — where the card will be once it
+// has made room for him — and the cards hold still until he gets there. So
+// the target here is often somewhere no card is yet, and that is the point:
+// the stack moves on his landing frame, not before it. See useMascotPerches.
 
 /** How far above the higher perch the arc peaks, as a fraction of his size. */
 const HOP_LIFT = 0.26;
@@ -37,7 +35,6 @@ const STRETCH = 0.07;
 
 /** Flippers out and up, held from the crouch until he lands. */
 const AIRBORNE_POSE: MascotPose = { leftFlipperDeg: 62, rightFlipperDeg: 62 };
-const AIRBORNE_MS = CROUCH_MS + TRAVEL_MS;
 
 interface Props {
   size: number;
@@ -84,7 +81,7 @@ export default function PerchedMascot({ size, state, greetToken, target, instant
   // animation it overlaps.
   useEffect(() => {
     if (!airborne) return;
-    const timer = setTimeout(() => setLandedId(hopId), AIRBORNE_MS);
+    const timer = setTimeout(() => setLandedId(hopId), HOP_LANDING_MS);
     return () => clearTimeout(timer);
   }, [airborne, hopId]);
 

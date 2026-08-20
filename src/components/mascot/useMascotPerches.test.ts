@@ -1,4 +1,4 @@
-import { choosePerch, perchOffsetX, type PerchCandidate } from "./useMascotPerches";
+import { choosePerch, perchOffsetX, samePerch, type PerchCandidate } from "./useMascotPerches";
 import { mascotClearance, mascotFeetOffset } from "./MascotBase";
 
 // The perch choice is the one piece of the mascot's placement that is logic
@@ -50,7 +50,33 @@ describe("choosePerch", () => {
     const choice = choosePerch(todayPerches(0), 0, CLEARANCE, 300, false);
     // He leaves the top card, and its 75px of room goes with it — all of it
     // above the viewport, so the offset has to come down by the same 75.
-    expect(choice).toEqual({ index: 1, roomAboveViewport: 75, scrollBase: 225 });
+    expect(choice).toEqual({ index: 1, nextY: 444, roomAboveViewport: 75, scrollBase: 225 });
+  });
+
+  it("names the spot he is jumping to, in the layout that doesn't exist yet", () => {
+    // The card is measured at 495 (420 of its own, plus the 75 the top card is
+    // borrowing above it). Once he leaves, that 75 goes back and the card's own
+    // 24 arrives: 444. He is thrown there while the stack is still showing 495,
+    // and the two agree on the frame he lands — that is the whole trick.
+    const choice = choosePerch(todayPerches(0), 0, CLEARANCE, 300, false)!;
+    expect(todayPerches(0)[1].y).toBe(495);
+    expect(choice.nextY).toBe(444);
+  });
+
+  it("gives the perch he is already on its own position, unchanged", () => {
+    // Nothing is swapping, so there is nothing to predict — and a wrong answer
+    // here would teleport him every time a card merely re-reported its layout.
+    const choice = choosePerch(todayPerches(0), 0, CLEARANCE, 40, false)!;
+    expect(choice).toMatchObject({ index: 0, nextY: todayPerches(0)[0].y });
+  });
+
+  it("predicts a landing that survives being re-measured after it happens", () => {
+    // The fixed point that keeps him still once the rooms have swapped: measure
+    // the new layout for real and the perch must be exactly where he was sent,
+    // or he closes the hop by hopping again.
+    const first = choosePerch(todayPerches(0), 0, CLEARANCE, 300, false)!;
+    const settled = todayPerches(first.index).find((c) => c.index === first.index)!;
+    expect(settled.y).toBe(first.nextY);
   });
 
   it("comes back to the top card at the top, though its room isn't in the layout yet", () => {
@@ -96,5 +122,25 @@ describe("perchOffsetX", () => {
   it("puts him at the clear end of a perch whose left side is occupied", () => {
     expect(perchOffsetX({ ...perch, align: "right" }, 96)).toBe(284);
     expect(perchOffsetX({ ...perch, align: "left" }, 96)).toBe(20);
+  });
+});
+
+describe("samePerch", () => {
+  const perch = { x: 20, y: 100, width: 360, align: "center" as const };
+
+  it("treats sub-pixel layout rounding as standing still", () => {
+    // Otherwise the re-measure that confirms a landing reads as a new
+    // placement, and he hops on the spot for ever.
+    expect(samePerch({ ...perch, y: 100.4 }, perch)).toBe(true);
+  });
+
+  it("still sees a real move", () => {
+    expect(samePerch({ ...perch, y: 140 }, perch)).toBe(false);
+    expect(samePerch({ ...perch, x: 60 }, perch)).toBe(false);
+    expect(samePerch({ ...perch, align: "right" }, perch)).toBe(false);
+  });
+
+  it("has nothing to compare before the first placement", () => {
+    expect(samePerch(null, perch)).toBe(false);
   });
 });

@@ -202,6 +202,7 @@ one by date — don't edit the old entry.
 - 2026-08-19 — A span's card leads with its high and low, and its gear is folded across every hour (§13.2, §9.5)
 - 2026-08-19 — The app explains its own name in two places, and nowhere else (§9.7, §9.0.1) [design]
 - 2026-08-19 — About's copy is Antony's, verbatim; the welcome line is one line [design, supersedes the entry above]
+- 2026-08-20 — The cards move on the mascot's landing frame, not when his perch is chosen (§9.7, §13.9) [design, bug fix]
 
 ---
 
@@ -4077,5 +4078,26 @@ a mascot, two sentences is a monologue where one is a greeting.
 (the two sentences are two paragraphs, for a narrow card) but don't reword it.
 If something genuinely essential is ever missing, add a passage after it
 rather than editing his.
+
+---
+
+## 2026-08-20 — The cards move on the mascot's landing frame, not when his perch is chosen (§9.7, §13.9)
+
+**What**: `useMascotPerches` now sends the mascot to where his new perch
+*will* be (`choosePerch().nextY`) and holds the layout completely still until
+his feet touch down, `HOP_LANDING_MS` later, when the room swap and the scroll
+compensation happen together on one frame.
+
+**Why**: the 2026-08-18 travelling-room entry applied the room the moment the
+perch was chosen — half a second before he arrived — so the stack shuffled and
+then he hopped after it. Reported as the cards moving too early; they should
+read as being pushed down by his weight.
+
+**Resolution**: the prediction is arithmetic `choosePerch` already did, so it
+stays pure and tested, and the landing re-measure is held by `samePerch`'s
+1px tolerance (an exact compare turns sub-pixel rounding into an endless hop
+on the spot). Hop timings live in `hopTiming.ts` because both the animation
+and the layout need them; if the hop is ever re-tuned, change them there
+rather than adding a second copy.
 
 ---

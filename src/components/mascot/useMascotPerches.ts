@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent, ScrollView, View } from "react-native";
+import { HOP_LANDING_MS } from "./hopTiming";
 
 // Which card the mascot is standing on, for a screen that has several.
 //
@@ -19,6 +20,14 @@ import type { NativeScrollEvent, NativeSyntheticEvent, ScrollView, View } from "
 // it permanently, at every perch, which meant the cards were spaced for a
 // character standing on one of them at a time — the gaps he wasn't in were
 // just holes. Now a perch is at its natural spacing until he lands on it.
+//
+// *Lands on*, literally. The room used to be applied the moment a new perch
+// was chosen, which is half a second before he arrives: the cards shuffled,
+// and then he hopped after them. So the choice now moves in two beats — he is
+// sent to where the perch *will* be (`nextY`, arithmetic the choice already
+// had to do), the layout holds completely still for the length of the hop,
+// and the room is applied on the frame his feet touch down. Nothing moves
+// until he lands, and then everything does.
 
 /**
  * Where inside a perch's width he stands. Defaults to centre.
@@ -107,6 +116,14 @@ export interface PerchCandidate {
 export interface PerchChoice {
   /** The perch he belongs on. */
   index: number;
+  /**
+   * Where that perch's top line ends up once the rooms have swapped — his
+   * landing spot, in the layout that doesn't exist yet.
+   *
+   * Only meaningful when `index` differs from the perch he is on; for a
+   * perch he is already standing on it is simply where it is.
+   */
+  nextY: number;
   /** The scroll offset with the departing room taken out of it — what the
    *  ScrollView must be set to for nothing on screen to move. Only worth
    *  applying when `index` differs from the perch he is on. */
@@ -154,7 +171,25 @@ export function choosePerch(
   const found = pinned ? 0 : candidates.findIndex((c) => baseY(c) + c.room - clearance >= scrollBase);
   const next = candidates[found === -1 ? candidates.length - 1 : found];
 
-  return { index: next.index, scrollBase, roomAboveViewport };
+  return { index: next.index, nextY: baseY(next) + next.room, scrollBase, roomAboveViewport };
+}
+
+/**
+ * Two measurements of the same spot, to within a pixel.
+ *
+ * The landing re-measure has to confirm he is where the arithmetic said he
+ * would be, and sub-pixel layout rounding means "confirm" can't be `===`:
+ * a target that differs by a fraction is a *new* placement to PerchedMascot,
+ * and he would hop again on the spot, forever.
+ */
+export function samePerch(a: Perch | null, b: Perch): boolean {
+  return (
+    a !== null &&
+    a.align === b.align &&
+    Math.abs(a.x - b.x) < 1 &&
+    Math.abs(a.y - b.y) < 1 &&
+    Math.abs(a.width - b.width) < 1
+  );
 }
 
 /** Where his box's left edge goes, for a perch of this width. */
@@ -183,16 +218,25 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
   const scroll = useRef<ScrollView | null>(null);
   const nodes = useRef<Map<number, { node: View; align: PerchAlign }>>(new Map());
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Fires when his feet touch down — the moment the rooms are allowed to
+   *  move. Deliberately not cleared by the measure effect's cleanup: a card
+   *  reporting a layout mid-hop must not cancel his landing. */
+  const landingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reflowFrame = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
-  /** True from asking for a room change until the layout that answers it.
-   *  Measurements taken in between describe the old spacing and would place
-   *  him against it — one hop to the wrong spot, then another to the right
-   *  one. */
+  /** True from launching a hop until the layout that answers it has settled —
+   *  so it now covers the flight as well as the reflow. Measurements taken in
+   *  between describe spacing that is on its way out and would place him
+   *  against it: one hop to the wrong spot, then another to the right one. */
   const awaitingReflow = useRef(false);
   /** Mirrors `activeIndex` for the measure pass, which must not re-run on the
    *  state change itself: at that moment the room it asked for is still not in
    *  the layout. It re-runs on the reflow below instead. */
   const activeRef = useRef(0);
+  /** Whether he has been put down anywhere yet. The first placement is not a
+   *  hop (PerchedMascot places it instantly), so it has no flight to wait out
+   *  and its room applies immediately. A ref rather than reading `target`, so
+   *  the measure effect doesn't take a dependency on its own output. */
+  const placed = useRef(false);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [target, setTarget] = useState<Perch | null>(null);
@@ -203,6 +247,7 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
   useEffect(
     () => () => {
       if (settleTimer.current) clearTimeout(settleTimer.current);
+      if (landingTimer.current) clearTimeout(landingTimer.current);
       if (reflowFrame.current !== null) cancelAnimationFrame(reflowFrame.current);
     },
     []
@@ -277,29 +322,48 @@ export function useMascotPerches(clearance: number, pinned: boolean, rooms: read
       if (!choice) return;
 
       if (choice.index === active) {
-        setTarget(perches.find((p) => p.index === active)!.perch);
+        const standing = perches.find((p) => p.index === active)!.perch;
+        placed.current = true;
+        // Held by identity when nothing has really moved — see `samePerch`.
+        // This is the re-measure that closes a hop as much as it is the one
+        // that follows a card resizing.
+        setTarget((current) => (samePerch(current, standing) ? current : standing));
         return;
       }
 
-      activeRef.current = choice.index;
-      setActiveIndex(choice.index);
-      if (choice.roomAboveViewport > 0) {
-        // Hold the page still: the room above the viewport is going away, so
-        // the offset comes down by exactly as much and nothing on screen moves
-        // except the card he is landing on.
-        scroll.current?.scrollTo({ y: choice.scrollBase, animated: false });
-        setSettledScrollY(choice.scrollBase);
-      }
+      // Beat one: send him to where the perch will be, and touch nothing else.
+      // The stack keeps its current spacing for the whole flight, so from the
+      // user's side the screen is simply still while he jumps.
+      const landing = perches.find((p) => p.index === choice.index)!;
+      setTarget({ ...landing.perch, y: choice.nextY });
       awaitingReflow.current = true;
-      // Two frames, because a room only becomes a position once layout has
-      // run: measuring straight after the commit still reports the old one on
-      // native. He keeps standing where he was until then.
-      reflowFrame.current = requestAnimationFrame(() => {
+
+      // Beat two: he lands, and his weight arrives with him. The first
+      // placement has no flight to wait for (he is put down, not thrown), and
+      // reduce motion has no flight at all.
+      const flight = placed.current && !pinned ? HOP_LANDING_MS : 0;
+      placed.current = true;
+      if (landingTimer.current) clearTimeout(landingTimer.current);
+      landingTimer.current = setTimeout(() => {
+        activeRef.current = choice.index;
+        setActiveIndex(choice.index);
+        if (choice.roomAboveViewport > 0) {
+          // Hold the page still: the room above the viewport is going away, so
+          // the offset comes down by exactly as much and nothing on screen moves
+          // except the card he is landing on.
+          scroll.current?.scrollTo({ y: choice.scrollBase, animated: false });
+          setSettledScrollY(choice.scrollBase);
+        }
+        // Two frames, because a room only becomes a position once layout has
+        // run: measuring straight after the commit still reports the old one on
+        // native. He keeps standing where he was until then.
         reflowFrame.current = requestAnimationFrame(() => {
-          awaitingReflow.current = false;
-          setRevision((n) => n + 1);
+          reflowFrame.current = requestAnimationFrame(() => {
+            awaitingReflow.current = false;
+            setRevision((n) => n + 1);
+          });
         });
-      });
+      }, flight);
     });
 
     return () => {
