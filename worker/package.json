@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "versions:upload": "wrangler versions upload",
     "typecheck": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 execute bucket-hat --local --file=./schema.sql",
     "db:migrate:remote": "wrangler d1 execute bucket-hat --remote --file=./schema.sql",
