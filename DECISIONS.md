@@ -203,6 +203,9 @@ one by date — don't edit the old entry.
 - 2026-08-19 — The app explains its own name in two places, and nowhere else (§9.7, §9.0.1) [design]
 - 2026-08-19 — About's copy is Antony's, verbatim; the welcome line is one line [design, supersedes the entry above]
 - 2026-08-20 — The cards move on the mascot's landing frame, not when his perch is chosen (§9.7, §13.9) [design, bug fix]
+- 2026-08-20 — Sharing is preview-first, in a centred `Dialog` rather than a bottom sheet (§13.2, §9.3) [design, supersedes the 2026-08-19 picker sheet]
+- 2026-08-20 — The share capture is taken at the card's true size; a scaled preview was eating the spaces between words (§13.2) [bug fix, supersedes the resolution in today's preview-first entry]
+- 2026-08-20 — The share card names its low, dates itself, and drops the dashed fallback chips (§13.2, §9.5) [design, supersedes the 2026-08-19 high/low pairing]
 
 ---
 
@@ -4099,5 +4102,74 @@ stays pure and tested, and the landing re-measure is held by `samePerch`'s
 on the spot). Hop timings live in `hopTiming.ts` because both the animation
 and the layout need them; if the hop is ever re-tuned, change them there
 rather than adding a second copy.
+
+---
+
+## 2026-08-20 — Sharing is preview-first, in a centred `Dialog` rather than a bottom sheet (§13.2, §9.3)
+
+**What**: the share flow is now one dialog — a chip row of subjects, the real
+`ShareableConditionsCard` rendered live beneath it, and one "Share this card"
+button — and that visible card is the node `captureRef` shoots. The off-screen
+capture copy is gone, `ShareConditions.tsx` is now `ShareWeatherCard.tsx`, and
+`components/Dialog.tsx` is the new centred counterpart to `BottomSheet`.
+
+**Why**: the 2026-08-19 picker sent on a single tap with nothing shown first,
+so the only way to see what you had sent was to look at what arrived — and its
+off-screen card was parked at `left: -CARD_WIDTH * 2`, which on a wide window
+is still on the screen, flashing up beside the sheet. Antony reported both.
+
+**Resolution**: preview and capture are the same view, so they cannot drift.
+The cost is that a dialog narrower than `CARD_WIDTH` scales the preview, and
+on web html2canvas measures the transformed box — so the PNG comes out the
+same shape at a lower resolution (608x434 from a 400px window), which is worth
+more than making the card jump out of its dialog for the capture. `Dialog` is
+the sibling of `BottomSheet`, not a replacement: a sheet is still right for a
+list of options, and the next centred modal should use `Dialog` rather than
+hand-rolling a third modal shape.
+
+---
+
+## 2026-08-20 — The share capture is taken at the card's true size; a scaled preview was eating the spaces between words (§13.2)
+
+**What**: `ShareWeatherCard` drops the preview's fit-to-dialog transform for
+the two frames the capture takes, behind an opaque veil and a stage whose
+height is pinned, so nothing visibly moves. Supersedes today's preview-first
+entry, which accepted the scaled export as a resolution-only cost.
+
+**Why**: it was not resolution-only. html2canvas sizes its canvas from the
+transformed `getBoundingClientRect()` but draws each word at its computed font
+size, so at 0.89 the words ran about a tenth wide and closed the gaps between
+them — "Wind up to 8 km/h" exported as "Windup to 8 km/h", "Warm Jacket" as
+"WarmJacket". Antony spotted it in the picture; I had reported it as a
+pre-existing artifact, and it was mine.
+
+**Resolution**: the preview stays the capture — the fix is that it is briefly
+its true self rather than a second copy. Verified by reading the exported PNG
+back: 680x722 at device pixel ratio 2, spacing intact, and an ancestor's
+`overflow: hidden` confirmed not to reach the file. Anything that puts a new
+transform above `exportRef` reopens this.
+
+---
+
+## 2026-08-20 — The share card names its low, dates itself, and drops the dashed fallback chips (§13.2, §9.5)
+
+**What**: a span's minimum now reads "Low 11°" rather than a bare secondary
+"11°"; the footer carries a real date ("Thu 20 Aug", plus a clock time for a
+moment) instead of "Today"/"Tomorrow"; condition, feels-like and wind share
+one full-width row; gear chips are filled and identical whether the pick is an
+owned item or an engine fallback. Supersedes the 2026-08-19 decision to use
+the 7-day panel's wordless high/low pairing here.
+
+**Why**: that pairing works in the 7-day panel because column headers and six
+neighbours disambiguate it; alone in a picture sent to someone who has never
+seen the app, "12°C 11°" is two temperatures and no clue. The footer was worse
+than unclear — every evening card read "Auckland CBD · Tonight … Today". And
+five dashed outlines read as a card that failed to load, for a distinction
+("this is a category, not your jacket") the recipient cannot act on.
+
+**Resolution**: scoped to the export view only — the live `RightNowCard` keeps
+its dashed fallbacks, because there the distinction is actionable and leads to
+adding the item. Treat this card as written for a stranger: anything it shows
+has to stand without the app around it.
 
 ---
