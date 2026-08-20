@@ -16,7 +16,7 @@ import { formatTime } from "../../lib/formatTime";
 import { useTimeFormatStore } from "../../lib/useTimeFormatStore";
 import { HIGH_WIND_KPH, type LayerPick } from "../../lib/recommend";
 import { gearPickLabel } from "../../lib/gearLabel";
-import ShareConditions from "./ShareConditions";
+import ShareWeatherCard from "./ShareWeatherCard";
 
 // "Right now" card — docs/09-design-system.md §9.3.1, docs/04-screens-
 // navigation.md §4.2. A smaller self-contained version of the gear
@@ -105,7 +105,7 @@ export default function RightNowCard(props: RightNowState & { refreshing?: boole
       {/* §13.2 — the whole share feature (button, what-to-share picker, the
           off-screen card it captures) lives in one component; this card just
           gives it the corner and the data it already has. */}
-      <ShareConditions {...props} />
+      <ShareWeatherCard {...props} />
       <Text style={styles.title}>Right now</Text>
       {suburb && <Text style={styles.suburbLabel}>{suburb}</Text>}
       <View style={styles.conditionRow}>

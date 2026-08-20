@@ -42,8 +42,9 @@ import { mascotGarmentFills, mascotStateFor } from "../../lib/mascot";
 export const CARD_WIDTH = 340;
 
 /** Big enough to read as a character rather than as a sticker, small enough
- *  to leave the temperature the loudest thing on the card. */
-const MASCOT_SIZE = 86;
+ *  to leave the temperature the loudest thing on the card — and now also
+ *  small enough not to out-measure the two lines he stands beside. */
+const MASCOT_SIZE = 78;
 
 function layerIconKind(pick: LayerPick): ClothingIconKind {
   const type = "layerType" in pick ? pick.layerType : pick.type;
@@ -55,7 +56,7 @@ function layerIconKind(pick: LayerPick): ClothingIconKind {
 /**
  * What one exported card is about.
  *
- * Built by ShareConditions from either the live reading or a forecast window
+ * Built by ShareWeatherCard from either the live reading or a forecast window
  * (§13.2, extended 2026-08-19), so this component stays a renderer: it never
  * decides what "tomorrow" means or which hour of a rain spell to draw.
  */
@@ -69,14 +70,21 @@ export interface ShareCardSubject {
   tempRangeC?: { minC: number; maxC: number };
   /** Highest sustained wind across a span; the moment's own wind otherwise. */
   windKph: number;
-  /** Bottom right: a clock time for now, a day for a window. */
-  footerNote: string;
+  /**
+   * Bottom right: when this was true, as a date — plus a clock time when the
+   * card is about a single moment.
+   *
+   * It used to be "Today"/"Tomorrow", which contradicted the eyebrow on every
+   * evening card ("Auckland CBD · Tonight … Today") and left a picture that
+   * outlives the day it describes with no way to date it.
+   */
+  stamp: string;
 }
 
 export default function ShareableConditionsCard({ subject }: { subject: ShareCardSubject }) {
   const theme = useTheme();
   const styles = getStyles(theme);
-  const { eyebrow, weather, recommendation, tempRangeC, windKph, footerNote } = subject;
+  const { eyebrow, weather, recommendation, tempRangeC, windKph, stamp } = subject;
   // A range whose ends round to the same degree isn't a range — a steady 13°
   // window would read "13° 13°".
   const hasRange = tempRangeC !== undefined && Math.round(tempRangeC.minC) !== Math.round(tempRangeC.maxC);
@@ -113,53 +121,68 @@ export default function ShareableConditionsCard({ subject }: { subject: ShareCar
         <View style={styles.headerCol}>
           <Text style={styles.eyebrow}>{eyebrow}</Text>
 
-          {/* A span leads with its high and low, in the same pairing the
-              7-day panel uses (§9.5): bold max, secondary min, no "high"/"low"
-              words. Before this the hero was the peak *weather* hour's
-              temperature, which on a wet day is neither end of the day — the
-              range was there, but as a caption under it. */}
+          {/* A span leads with its high, and names its low in words.
+              Bold-max-beside-secondary-min is the 7-day panel's pairing
+              (§9.5), and it works there because the column headers and the
+              six neighbours around it say which is which. Alone in a picture
+              sent to someone who has never seen the app, "12°C 11°" is two
+              temperatures and no clue — so the low says it is the low. */}
           <View style={styles.conditionRow}>
             <WeatherIcon kind={heroIcon} size={34} color={conditionColorForIcon(theme, heroIcon)} />
             <Text style={styles.temp}>{Math.round(hasRange ? tempRangeC!.maxC : weather.tempC)}°C</Text>
-            {hasRange && <Text style={styles.tempLow}>{Math.round(tempRangeC!.minC)}°</Text>}
-          </View>
-
-          <Text style={styles.conditionLabel}>{condition.label}</Text>
-
-          {/* A span reports its range and its worst wind; a single moment has
-              neither, and says how it feels instead. Both answer the same
-              question — "is it worse than the number above?" */}
-          {/* A moment says how it feels; a span has already said its range
-              above, so it only adds the wind. One hour's apparent temperature
-              is a fact about that hour, and pinning it to a whole day would be
-              the card's most misreadable line. */}
-          <View style={styles.detailRow}>
-            {!hasRange && (
-              <>
-                <Text style={styles.detail}>Feels like {Math.round(weather.apparentTempC)}°</Text>
-                <MetaDivider />
-              </>
-            )}
-            <Text style={styles.detail}>
-              {tempRangeC ? "Wind up to " : "Wind "}
-              {formatWindKph(windKph)}
-            </Text>
+            {hasRange && <Text style={styles.tempLow}>Low {Math.round(tempRangeC!.minC)}°</Text>}
           </View>
         </View>
 
         <MascotBase size={MASCOT_SIZE} pose={mascotPose} garments={mascotGarmentFills(recommendation.signals)} />
       </View>
 
+      {/* The condition and the facts that qualify it, on one row rather than
+          stacked three deep: they answer one question between them ("is it
+          worse than the number above?"), and as separate lines the card read
+          as a list of unrelated remarks.
+
+          Below the header rather than inside its left column, because beside
+          the mascot the row had about 200px and wrapped — and a wrapped row of
+          divider-separated facts strands a divider at the end of the first
+          line, pointing at nothing.
+
+          A moment says how it feels; a span has already given its range, so it
+          only adds the wind. One hour's apparent temperature is a fact about
+          that hour, and pinning it to a whole day would be the card's most
+          misreadable line. */}
+      <View style={styles.detailRow}>
+        <Text style={styles.conditionLabel}>{condition.label}</Text>
+        <MetaDivider />
+        {!hasRange && (
+          <>
+            <Text style={styles.detail}>Feels like {Math.round(weather.apparentTempC)}°</Text>
+            <MetaDivider />
+          </>
+        )}
+        <Text style={styles.detail}>
+          {tempRangeC ? "Wind up to " : "Wind "}
+          {formatWindKph(windKph)}
+        </Text>
+      </View>
+
       {picks.length > 0 && (
         <View style={styles.picksSection}>
           <Text style={styles.picksHeading}>What to wear</Text>
+          {/* One chip treatment, owned item or engine fallback alike. On the
+              live card the dashed outline means "this is a category, not
+              something of yours" — a distinction the sender already knows and
+              the recipient cannot act on, and five dashed boxes in a picture
+              read as a card that failed to finish loading. Filled rather than
+              outlined for the same reason: a tag is a thing, an outline is a
+              control, and nothing here is tappable. */}
           <View style={styles.picksRow}>
             {picks.map(({ pick, icon }, i) => {
-              const { text, isFallback } = gearPickLabel(pick);
+              const { text } = gearPickLabel(pick);
               return (
-                <View key={i} style={[styles.pickChip, isFallback && styles.pickChipFallback]}>
-                  <ClothingTypeIcon kind={icon} size={15} color={isFallback ? theme.textSecondary : theme.accentWalk} />
-                  <Text style={isFallback ? styles.pickTextFallback : styles.pickText}>{text}</Text>
+                <View key={i} style={styles.pickChip}>
+                  <ClothingTypeIcon kind={icon} size={15} color={theme.accentWalk} />
+                  <Text style={styles.pickText}>{text}</Text>
                 </View>
               );
             })}
@@ -176,7 +199,7 @@ export default function ShareableConditionsCard({ subject }: { subject: ShareCar
       <View style={styles.footer}>
         <Text style={styles.wordmark}>via Bucket Hat</Text>
         <View style={styles.footerSpacer} />
-        <Text style={styles.asOf}>{footerNote}</Text>
+        <Text style={styles.asOf}>{stamp}</Text>
       </View>
     </View>
   );
@@ -186,8 +209,12 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     card: {
       width: CARD_WIDTH,
-      padding: SPACING.lg,
-      gap: SPACING.sm,
+      // A step more generous than the live card's §9.2 padding. That one is
+      // budgeting against the screen edge; this one is the whole picture, and
+      // an exported image with a tight margin looks cropped rather than laid
+      // out.
+      padding: SPACING.xl,
+      gap: SPACING.md,
       borderRadius: RADIUS.card,
       backgroundColor: theme.surfaceRaised,
     },
@@ -195,17 +222,22 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     // positioned he would sit on top of a long condition label ("Heavy rain"),
     // and the one thing this card cannot afford is the weather being covered
     // by the mascot describing it.
-    headerRow: { flexDirection: "row", alignItems: "flex-end", gap: SPACING.sm },
+    //
+    // Centred rather than bottom-aligned. Sharing his baseline was right while
+    // the column was the taller of the two and set the row's height; now that
+    // the condition and wind have moved to a full-width row below, the column
+    // is two lines against his 78, and bottom-alignment banked all of that
+    // difference into one gap above the eyebrow that read as a mistake.
+    headerRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     headerCol: { flex: 1, gap: SPACING.xs },
     eyebrow: { ...TYPE.eyebrow, color: theme.textSecondary },
     conditionRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
     temp: { ...TYPE.display, ...NUMERIC, color: theme.textPrimary },
-    // The low, in the 7-day panel's own weights: same family as the high, a
-    // step down in size and into `textSecondary`, so the pair reads as one
-    // figure rather than as two numbers competing.
-    tempLow: { ...TYPE.title, ...NUMERIC, color: theme.textSecondary },
-    // On its own line now that the mascot has taken the right of the header:
-    // beside the temperature it had about 60px left and broke mid-word.
+    // Named, so it can sit beside the high without being taken for one. A
+    // step smaller than the 7-day panel's paired minimum because it now
+    // carries a word as well as a figure, and a `title`-sized "Low 8°"
+    // competes with the number it is there to annotate.
+    tempLow: { ...TYPE.subtitle, ...NUMERIC, color: theme.textSecondary },
     conditionLabel: { ...TYPE.subtitle, color: theme.textPrimary },
     detailRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm, flexWrap: "wrap" },
     detail: { ...TYPE.caption, color: theme.textSecondary },
@@ -219,16 +251,22 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
       paddingVertical: SPACING.xs,
       paddingHorizontal: SPACING.sm,
       borderRadius: RADIUS.pill,
-      borderWidth: 1,
-      borderColor: theme.border,
-      maxWidth: CARD_WIDTH - SPACING.lg * 2,
+      backgroundColor: theme.bg,
+      maxWidth: CARD_WIDTH - SPACING.xl * 2,
     },
-    pickChipFallback: { borderStyle: "dashed" },
     pickText: { ...TYPE.caption, color: theme.textPrimary, flexShrink: 1 },
-    pickTextFallback: { ...TYPE.caption, color: theme.textSecondary, flexShrink: 1 },
-    footer: { flexDirection: "row", alignItems: "center", gap: SPACING.xs, paddingTop: SPACING.xs },
-    wordmark: { ...TYPE.micro, color: theme.textSecondary },
+    footer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.xs,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      paddingTop: SPACING.md,
+    },
+    // A step up from `micro`: this is the only line on the card addressed to
+    // someone who doesn't have the app, and it was the quietest thing on it.
+    wordmark: { ...TYPE.caption, fontWeight: "600", color: theme.textSecondary },
     footerSpacer: { flex: 1 },
-    asOf: { ...TYPE.micro, color: theme.textSecondary },
+    asOf: { ...TYPE.micro, ...NUMERIC, color: theme.textSecondary },
   });
 }
