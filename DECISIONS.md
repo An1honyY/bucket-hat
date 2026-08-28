@@ -209,6 +209,7 @@ one by date — don't edit the old entry.
 - 2026-08-20 — The cards give way a beat *after* the mascot lands, not on the touchdown frame (§9.7) [design, refines today's landing-frame entry]
 - 2026-08-20 — He lands on the card where it *is*, and sags with it; flying to the predicted spot left him in mid-air (§9.7) [bug fix, supersedes the flight target in today's landing-frame entry]
 - 2026-08-20 — The settle eases instead of jumping, and does it without React (§9.7) [design, refines today's sag entries]
+- 2026-08-28 — CARTO basemaps now need a key; the web maps fall back to keyless OSM without one (§2, §9) [bug fix]
 
 ---
 
@@ -4246,5 +4247,25 @@ to be written on the same frame as the margins; a shared value passed as a prop
 is frozen, so the hook now owns every write to it and the component owns only
 the arc and the squash. Verified frame by frame: 75px over 16 frames, steps
 falling 12.1 → 0.1, feet-to-card constant.
+
+---
+
+## 2026-08-28 — CARTO basemaps now need a key; the web maps fall back to keyless OSM without one (§2, §9)
+
+**What**: CARTO began stamping "API KEY REQUIRED" across unauthenticated
+raster tiles, which is what the live site's location picker started showing.
+`basemapFor()` now serves CARTO keyed by `EXPO_PUBLIC_CARTO_API_KEY` when
+that is set, and OpenStreetMap's own keyless tiles when it isn't. Reverses
+the "free, keyless" half of the 2026-07-22 entry; the style choice stands.
+
+**Why**: the alternative was making a free CARTO key mandatory, which turns
+a missing dashboard field into a watermarked map — the same class of silent
+build-time failure that broke address search on the same deploy.
+
+**Resolution**: keyless has to stay a *working* path, so the fallback is not
+a placeholder and shouldn't be removed once a key is configured. Dark mode
+inverts the OSM tiles (`cwp-invert-tiles`); a genuinely dark keyless basemap
+would mean vector tiles and MapLibre, which is still the bigger dependency
+2026-07-22 declined.
 
 ---

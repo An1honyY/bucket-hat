@@ -19,6 +19,12 @@ doing X."
     Cloudflare Worker or Vercel Edge Function is enough) that holds the real
     key server-side and applies basic rate limiting per device. The app
     calls your proxy URL instead of `routes.googleapis.com` directly.
+  - The web build ships the same key in a bundle anyone can open, so the
+    deployed site needs an HTTP-referrer restriction on it (the app's own
+    origins, nothing else) rather than an app-package one. Note the
+    restriction list is a live gate: a key that works locally will fail on a
+    newly-added domain until that domain is on it, and the app reports that
+    the same way it reports an unset key.
 - **AT GTFS subscription key**: same restriction principle — AT's dev portal
   supports per-key rate limits; keep it modest since it's a free tier.
 - **Open-Meteo**: no key, no action needed.
