@@ -229,7 +229,7 @@ export default function JourneyMap({
         center={positions[0]}
         zoom={13}
         style={{ height: "100%", width: "100%" }}
-        className={basemap.isDark ? "cwp-dark-basemap" : undefined}
+        className={basemap.className}
         // This map sits inside Journey Detail's vertical scroll view.
         // Wheel-zoom on by default means scrolling the page over the map
         // zooms the map instead — the single most disorienting thing this
@@ -237,7 +237,7 @@ export default function JourneyMap({
         // and pinch; only the hijack is gone.
         scrollWheelZoom={false}
       >
-        <TileLayer url={basemap.url} attribution={basemap.attribution} detectRetina />
+        <TileLayer url={basemap.url} attribution={basemap.attribution} detectRetina={basemap.detectRetina} />
         <FitBounds positions={fitPositions} followMode={followMode} />
         <FollowCamera puck={userPuck} followMode={followMode} onUserPan={onUserPan} />
         {/* Casing under the route stroke, so the line stays legible where it

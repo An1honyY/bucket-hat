@@ -326,11 +326,31 @@ npm --prefix worker run deploy -- --dry-run --outdir /tmp/wrangler-dry
 It should end with the D1, R2 and var bindings listed and "--dry-run:
 exiting now."
 
+#### Build-time variables
+
+`EXPO_PUBLIC_*` values are inlined into the bundle by `expo export`, and
+`.env` is gitignored — so a cloud build reads them from **Workers Builds'
+own build-time variables**, and there is nowhere else for them to come from.
+A build without them succeeds and deploys a bundle with the key baked in as
+`undefined`, which is why this fails as "the site is up but half of it
+doesn't work" rather than as a red build.
+
+| Variable | Needed for | Missing it looks like |
+|---|---|---|
+| `EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY` | Journey routing, address autocomplete, reverse geocoding | No suggestions when typing an address; journeys won't plan; the "Right now" card can't name your suburb |
+| `EXPO_PUBLIC_AT_SUBSCRIPTION_KEY` | Live Auckland Transport delays | Scheduled times only, no live delay |
+| `EXPO_PUBLIC_CARTO_API_KEY` | The web maps' CARTO tiles | Maps fall back to plain OpenStreetMap tiles — working, but busier |
+
 `EXPO_PUBLIC_SYNC_API_URL` does **not** need setting for a cloud build: the
 web bundle falls back to same-origin requests when it's absent
 (`src/services/syncApiBase.ts`), which is correct because this Worker serves
-both. Journey planning and address search *do* need
-`EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY` and `EXPO_PUBLIC_AT_SUBSCRIPTION_KEY` as
-build-time variables, since those are inlined into the bundle and `.env` is
-gitignored. Without them the app still loads and syncs; routing and transit
-times fail.
+both.
+
+One more thing can produce the identical symptom: an `EXPO_PUBLIC_*` value
+is extractable from the deployed bundle, so the Google key should be
+restricted by HTTP referrer in the GCP console (PRODUCTION_CHECKLIST.md) —
+and a restricted key rejects a domain that isn't on its list. Search then
+fails on the live site while working locally, with the variable set
+correctly the whole time. Check the browser console for a `403` from
+`places.googleapis.com` to tell the two apart; `placesService.ts` reports
+both as simply unavailable, by design.

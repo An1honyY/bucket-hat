@@ -681,6 +681,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	filter: brightness(1.35) contrast(0.85);
 	}
 
+/* The keyless fallback (OpenStreetMap standard, used when no CARTO key is
+   configured — leafletBasemap.ts) has no dark style at all: it is a light
+   basemap, and dropped into this app's dark theme it is a white rectangle
+   with a dark UI around it. Inverting the tile pane is the standard trick,
+   with the hue rotated back afterwards so water stays blue-ish and parks
+   green-ish rather than coming out as their opposites. Same .leaflet-tile-
+   pane scoping, so pins, routes and Leaflet's chrome are untouched — a pin
+   drawn in the accent colour must not invert with the map under it. */
+.cwp-dark-basemap.cwp-invert-tiles .leaflet-tile-pane {
+	filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
+	}
+
 /* Leaflet's own chrome is hardcoded white-on-white in the vendored stylesheet
    above — a stock zoom stack and attribution strip glowing over a dark
    basemap was the most obviously un-themed thing about the web maps. Scoped

@@ -166,9 +166,9 @@ export default function LocationPickerMap({ visible, initialCoords, onConfirm, o
               center={[seed.lat, seed.lng]}
               zoom={zoom}
               style={{ height: "100%", width: "100%" }}
-              className={basemap.isDark ? "cwp-dark-basemap" : undefined}
+              className={basemap.className}
             >
-              <TileLayer url={basemap.url} attribution={basemap.attribution} detectRetina />
+              <TileLayer url={basemap.url} attribution={basemap.attribution} detectRetina={basemap.detectRetina} />
               <Marker
                 position={[marker.lat, marker.lng]}
                 icon={pinDivIcon(theme.accentWalk)}

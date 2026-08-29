@@ -14,6 +14,9 @@ import { RADIUS, SPACING, TYPE } from "../theme/typography";
 // failure as unreachable" treatment routesService.ts already established.
 const DEBOUNCE_MS = 300;
 
+/** Shown in place of the dropdown when there is no API key at all. */
+const NOT_CONFIGURED = "Address search isn't set up — type the address in full instead.";
+
 const ERROR_MESSAGES: Record<ServiceError, string> = {
   network: "Couldn't search — check your connection.",
   "rate-limited": "Address search is briefly rate-limited — try again in a moment.",
@@ -156,6 +159,14 @@ export default function AddressAutocomplete({
           ))}
         </View>
       )}
+      {/* Not configured is a *silent* fallback otherwise: the field simply
+          stops suggesting anything, which looks identical to a search that
+          found nothing and reads as the app being broken. It has already
+          been mistaken for exactly that on a deploy whose build was missing
+          `EXPO_PUBLIC_GOOGLE_ROUTES_API_KEY` — one line is cheap next to
+          that. Kept in textSecondary rather than the error colour: this is a
+          state of the build, not something that just went wrong. */}
+      {!enabled && <Text style={styles.hint}>{NOT_CONFIGURED}</Text>}
       {error && <Text style={styles.errorText}>{ERROR_MESSAGES[error]}</Text>}
     </View>
   );
@@ -188,5 +199,6 @@ function getStyles(theme: ReturnType<typeof useTheme>) {
     suggestionPrimary: { ...TYPE.body, fontWeight: "600", color: theme.textPrimary },
     suggestionSecondary: { ...TYPE.caption, color: theme.textSecondary, marginTop: 2 },
     errorText: { ...TYPE.caption, color: theme.danger, marginTop: SPACING.xs },
+    hint: { ...TYPE.caption, color: theme.textSecondary, marginTop: SPACING.xs },
   });
 }
